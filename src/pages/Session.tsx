@@ -300,6 +300,9 @@ const Session = () => {
           // Refresh data after updating
           await fetchSessionData();
 
+          // Generate patent sections progressively after each answer
+          await generatePatentSections();
+
           // Check if we have enough questions answered (let's say 3 for demo)
           const answeredCount = questions.filter(q => q.answer).length;
           
@@ -411,6 +414,41 @@ const Session = () => {
       });
     } finally {
       setGeneratingDraft(false);
+    }
+  };
+
+  const generatePatentSections = async () => {
+    if (!id) return;
+    
+    try {
+      console.log('Generating patent sections progressively...');
+      
+      // Call the edge function to generate patent sections based on current answers
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft', {
+        body: { session_id: id }
+      });
+
+      if (error) {
+        console.error('Patent generation error:', error);
+        // Don't throw error for progressive generation, just log it
+        return;
+      }
+
+      if (data?.success) {
+        console.log('Patent sections updated:', data);
+        await fetchSessionData(); // Refresh the sections display
+        
+        // Show subtle notification for progressive updates
+        toast({
+          title: "Patent Canvas Updated",
+          description: "New sections generated based on your answers",
+          variant: "default",
+        });
+      }
+      
+    } catch (error: any) {
+      console.error('Error in progressive patent generation:', error);
+      // Don't show error toast for progressive generation to avoid spam
     }
   };
 
