@@ -69,8 +69,9 @@ serve(async (req) => {
         if (firecrawlApiKey) {
           // Use Firecrawl for JavaScript-rendered content
           console.log('Using Firecrawl to scrape JavaScript-rendered content:', actualUrl);
+          console.log('Firecrawl API key present:', firecrawlApiKey ? 'YES' : 'NO');
           
-          const firecrawlResponse = await fetch('https://api.firecrawl.dev/v0/scrape', {
+          const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -78,11 +79,9 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               url: actualUrl,
-              formats: ['markdown', 'text'],
-              waitFor: 3000, // Wait for JavaScript to load
-              extractorOptions: {
-                mode: 'llm-extraction'
-              }
+              formats: ['markdown'],
+              waitFor: 2000,
+              timeout: 30000
             })
           });
 
