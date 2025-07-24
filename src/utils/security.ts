@@ -49,8 +49,8 @@ export const validateAiQuestion = (question: string): { isValid: boolean; error?
     return { isValid: false, error: 'Question cannot be empty' };
   }
   
-  if (question.length > 1000) {
-    return { isValid: false, error: 'Question cannot exceed 1,000 characters' };
+  if (question.length > 10000) {
+    return { isValid: false, error: 'Question cannot exceed 10,000 characters' };
   }
   
   return { isValid: true };
