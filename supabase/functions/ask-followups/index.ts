@@ -33,6 +33,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
 
     if (!openaiApiKey) {
       console.error('Missing OpenAI API key');
@@ -65,71 +66,88 @@ serve(async (req) => {
       console.log('Detected URL input, crawling content:', actualUrl);
       
       try {
-        // Crawl the URL directly instead of calling another function
-        console.log('Starting direct crawl of URL:', actualUrl);
-        
-        const crawlResponse = await fetch(actualUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; PatentBot/1.0; Patent Analysis)',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-          },
-          signal: AbortSignal.timeout(15000)
-        });
+        if (firecrawlApiKey) {
+          // Use Firecrawl for JavaScript-rendered content
+          console.log('Using Firecrawl to scrape JavaScript-rendered content:', actualUrl);
+          
+          const firecrawlResponse = await fetch('https://api.firecrawl.dev/v0/scrape', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${firecrawlApiKey}`,
+            },
+            body: JSON.stringify({
+              url: actualUrl,
+              formats: ['markdown', 'text'],
+              waitFor: 3000, // Wait for JavaScript to load
+              extractorOptions: {
+                mode: 'llm-extraction'
+              }
+            })
+          });
 
-        console.log('Direct crawl response status:', crawlResponse.status);
+          console.log('Firecrawl response status:', firecrawlResponse.status);
 
-        if (crawlResponse.ok) {
-          const html = await crawlResponse.text();
-          console.log('Fetched HTML, length:', html.length);
-
-          // Extract text content from HTML
-          let textContent = html
-            // Remove script and style elements
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            // Remove HTML comments
-            .replace(/<!--[\s\S]*?-->/g, '')
-            // Remove HTML tags
-            .replace(/<[^>]*>/g, ' ')
-            // Decode HTML entities
-            .replace(/&nbsp;/g, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            // Clean up whitespace
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          // Limit content to approximately 2000 tokens (roughly 8000 characters)
-          if (textContent.length > 8000) {
-            textContent = textContent.substring(0, 8000) + '... [content truncated]';
-          }
-
-          // Remove empty lines and excessive whitespace
-          textContent = textContent
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
-            .join('\n');
-
-          console.log('Extracted text content, length:', textContent.length);
-          console.log('First 500 chars of extracted content:', textContent.substring(0, 500));
-
-          if (textContent.length > 100) {
-            contextualInfo = textContent;
-            console.log('Successfully extracted website content for context');
+          if (firecrawlResponse.ok) {
+            const firecrawlData = await firecrawlResponse.json();
+            console.log('Firecrawl response:', firecrawlData);
+            
+            if (firecrawlData.success && firecrawlData.data) {
+              const extractedContent = firecrawlData.data.markdown || firecrawlData.data.text || '';
+              console.log('Firecrawl extracted content length:', extractedContent.length);
+              console.log('First 500 chars of Firecrawl content:', extractedContent.substring(0, 500));
+              
+              if (extractedContent.length > 100) {
+                // Limit content to approximately 2000 tokens (roughly 8000 characters)
+                contextualInfo = extractedContent.length > 8000 
+                  ? extractedContent.substring(0, 8000) + '... [content truncated]'
+                  : extractedContent;
+                console.log('Successfully extracted website content using Firecrawl');
+              } else {
+                console.warn('Firecrawl extracted very little content:', extractedContent);
+                contextualInfo = extractedContent;
+              }
+            } else {
+              console.warn('Firecrawl returned unsuccessful response:', firecrawlData);
+            }
           } else {
-            console.warn('Very little content extracted from URL. Content was:', textContent);
-            // Use what we have anyway, even if minimal
-            contextualInfo = textContent;
+            const errorText = await firecrawlResponse.text();
+            console.warn('Firecrawl API error:', firecrawlResponse.status, errorText);
           }
         } else {
-          console.warn('Failed to fetch URL:', crawlResponse.status, crawlResponse.statusText);
+          console.log('No Firecrawl API key, falling back to basic fetch');
+          
+          // Fallback to basic fetch if no Firecrawl API key
+          const crawlResponse = await fetch(actualUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; PatentBot/1.0; Patent Analysis)',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            signal: AbortSignal.timeout(15000)
+          });
+
+          if (crawlResponse.ok) {
+            const html = await crawlResponse.text();
+            let textContent = html
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<!--[\s\S]*?-->/g, '')
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            contextualInfo = textContent.length > 8000 
+              ? textContent.substring(0, 8000) + '... [content truncated]'
+              : textContent;
+            
+            console.log('Fallback extraction completed, content length:', contextualInfo.length);
+          }
         }
       } catch (crawlError) {
         console.error('Error crawling URL:', crawlError);
