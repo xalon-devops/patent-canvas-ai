@@ -206,6 +206,42 @@ const Session = () => {
 
         if (updateError) throw updateError;
 
+        // Check if input is a URL
+        const trimmedMessage = message.trim().toLowerCase();
+        const isUrl = trimmedMessage.startsWith('http') || 
+                     trimmedMessage.startsWith('www.') || 
+                     /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(trimmedMessage);
+
+        if (isUrl) {
+          // Show URL processing message
+          toast({
+            title: "Processing URL",
+            description: "Analyzing website content...",
+            variant: "default",
+          });
+
+          // First crawl the URL to show user what we understand
+          let actualUrl = message.trim();
+          if (!actualUrl.startsWith('http')) {
+            actualUrl = 'https://' + actualUrl;
+          }
+
+          const { data: crawlData, error: crawlError } = await supabase.functions.invoke('crawl-url-content', {
+            body: { url: actualUrl }
+          });
+
+          if (crawlData?.success && crawlData.content) {
+            // Show what we understood from the website
+            const summaryContent = crawlData.content.substring(0, 500) + (crawlData.content.length > 500 ? '...' : '');
+            
+            toast({
+              title: "Website Analysis Complete",
+              description: `Found content about: ${summaryContent.split('.')[0]}...`,
+              variant: "default",
+            });
+          }
+        }
+
         // Call the ask-followups edge function to generate AI questions
         console.log('Calling ask-followups edge function...');
         
@@ -227,6 +263,21 @@ const Session = () => {
         }
 
         console.log('Follow-up questions generated successfully:', followupData);
+        
+        // Show success message with details
+        if (followupData.url_crawled) {
+          toast({
+            title: "AI Analysis Complete",
+            description: `Generated ${followupData.questions_generated} targeted questions based on website content (${followupData.context_length} chars analyzed)`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Questions Generated",
+            description: `Generated ${followupData.questions_generated} follow-up questions`,
+            variant: "default",
+          });
+        }
         
         // Move to questioning phase
         setChatPhase('questioning');

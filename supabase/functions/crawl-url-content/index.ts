@@ -54,13 +54,14 @@ serve(async (req) => {
         'User-Agent': 'Mozilla/5.0 (compatible; PatentBot/1.0; Patent Analysis)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
       },
       // Set a reasonable timeout
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(15000)
     });
+
+    console.log('Fetch response status:', response.status);
 
     if (!response.ok) {
       console.error('Failed to fetch URL:', response.status, response.statusText);
