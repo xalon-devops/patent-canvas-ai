@@ -47,21 +47,47 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if the idea_prompt is a URL
+    const isUrl = idea_prompt.trim().toLowerCase().startsWith('http');
+    let contextualInfo = '';
+    
+    if (isUrl) {
+      console.log('Detected URL input, crawling content:', idea_prompt);
+      
+      try {
+        // Call the crawl-url-content function
+        const crawlResponse = await fetch(`${supabaseUrl}/functions/v1/crawl-url-content`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({ url: idea_prompt })
+        });
+
+        if (crawlResponse.ok) {
+          const crawlData = await crawlResponse.json();
+          if (crawlData.success) {
+            contextualInfo = crawlData.content;
+            console.log('Successfully crawled URL content, length:', contextualInfo.length);
+          } else {
+            console.warn('URL crawling failed:', crawlData.error);
+            // Continue without crawled content
+          }
+        } else {
+          console.warn('URL crawling request failed:', crawlResponse.status);
+          // Continue without crawled content
+        }
+      } catch (crawlError) {
+        console.warn('Error crawling URL:', crawlError);
+        // Continue without crawled content
+      }
+    }
+
     console.log('Calling OpenAI API for follow-up questions');
     
-    // Call OpenAI API to generate follow-up questions
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert patent attorney AI assistant. Your task is to generate 3-7 intelligent follow-up questions that will help fully describe and characterize an invention for patent filing purposes.
+    // Create the system prompt with optional contextual information
+    let systemPrompt = `You are an expert patent attorney AI assistant. Your task is to generate 3-7 intelligent follow-up questions that will help fully describe and characterize an invention for patent filing purposes.
 
 IMPORTANT: Return your response as a valid JSON array of strings, where each string is a follow-up question. The response should be ONLY the JSON array, no additional text or formatting.
 
@@ -74,9 +100,28 @@ Based on the initial invention idea provided, generate questions that cover:
 - Advantages and benefits
 - Implementation details
 
-Example format: ["Question 1?", "Question 2?", "Question 3?"]
+Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
 
-Initial invention idea: ${idea_prompt}`
+    // Add contextual information if we crawled a URL
+    if (contextualInfo) {
+      systemPrompt += `\n\nAdditional context from the provided URL:\n${contextualInfo}`;
+    }
+
+    systemPrompt += `\n\nInitial invention idea: ${idea_prompt}`;
+
+    // Call OpenAI API to generate follow-up questions
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
           }
         ],
         temperature: 0.7,
@@ -159,7 +204,9 @@ Initial invention idea: ${idea_prompt}`
     return new Response(
       JSON.stringify({ 
         success: true, 
-        questions_generated: questionRecords.length 
+        questions_generated: questionRecords.length,
+        url_crawled: isUrl,
+        context_length: contextualInfo.length
       }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

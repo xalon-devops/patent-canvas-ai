@@ -29,5 +29,8 @@ verify_jwt = false
 [functions.file-patent]
 verify_jwt = false
 
+[functions.crawl-url-content]
+verify_jwt = false
+
 [functions.download-docx]
 verify_jwt = false
