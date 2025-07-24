@@ -65,35 +65,68 @@ serve(async (req) => {
       console.log('Detected URL input, crawling content:', actualUrl);
       
       try {
-        // Call the crawl-url-content function
-        console.log('Making request to crawl function with URL:', actualUrl);
+        // Crawl the URL directly instead of calling another function
+        console.log('Starting direct crawl of URL:', actualUrl);
         
-        const crawlResponse = await fetch(`${supabaseUrl}/functions/v1/crawl-url-content`, {
-          method: 'POST',
+        const crawlResponse = await fetch(actualUrl, {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'User-Agent': 'Mozilla/5.0 (compatible; PatentBot/1.0; Patent Analysis)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
           },
-          body: JSON.stringify({ url: actualUrl })
+          signal: AbortSignal.timeout(15000)
         });
 
-        console.log('Crawl response status:', crawlResponse.status);
-        
+        console.log('Direct crawl response status:', crawlResponse.status);
+
         if (crawlResponse.ok) {
-          const crawlData = await crawlResponse.json();
-          console.log('Crawl response data:', JSON.stringify(crawlData).substring(0, 200));
-          
-          if (crawlData.success) {
-            contextualInfo = crawlData.content;
-            console.log('Successfully crawled URL content, length:', contextualInfo.length);
+          const html = await crawlResponse.text();
+          console.log('Fetched HTML, length:', html.length);
+
+          // Extract text content from HTML
+          let textContent = html
+            // Remove script and style elements
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            // Remove HTML comments
+            .replace(/<!--[\s\S]*?-->/g, '')
+            // Remove HTML tags
+            .replace(/<[^>]*>/g, ' ')
+            // Decode HTML entities
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            // Clean up whitespace
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          // Limit content to approximately 2000 tokens (roughly 8000 characters)
+          if (textContent.length > 8000) {
+            textContent = textContent.substring(0, 8000) + '... [content truncated]';
+          }
+
+          // Remove empty lines and excessive whitespace
+          textContent = textContent
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .join('\n');
+
+          console.log('Extracted text content, length:', textContent.length);
+
+          if (textContent.length > 100) {
+            contextualInfo = textContent;
+            console.log('Successfully extracted website content for context');
           } else {
-            console.warn('URL crawling failed:', crawlData.error);
-            // Continue without crawled content
+            console.warn('Very little content extracted from URL');
           }
         } else {
-          const errorText = await crawlResponse.text();
-          console.warn('URL crawling request failed:', crawlResponse.status, errorText);
-          // Continue without crawled content
+          console.warn('Failed to fetch URL:', crawlResponse.status, crawlResponse.statusText);
         }
       } catch (crawlError) {
         console.error('Error crawling URL:', crawlError);
