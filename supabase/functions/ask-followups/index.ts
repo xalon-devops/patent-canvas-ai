@@ -66,6 +66,8 @@ serve(async (req) => {
       
       try {
         // Call the crawl-url-content function
+        console.log('Making request to crawl function with URL:', actualUrl);
+        
         const crawlResponse = await fetch(`${supabaseUrl}/functions/v1/crawl-url-content`, {
           method: 'POST',
           headers: {
@@ -75,8 +77,12 @@ serve(async (req) => {
           body: JSON.stringify({ url: actualUrl })
         });
 
+        console.log('Crawl response status:', crawlResponse.status);
+        
         if (crawlResponse.ok) {
           const crawlData = await crawlResponse.json();
+          console.log('Crawl response data:', JSON.stringify(crawlData).substring(0, 200));
+          
           if (crawlData.success) {
             contextualInfo = crawlData.content;
             console.log('Successfully crawled URL content, length:', contextualInfo.length);
@@ -85,14 +91,17 @@ serve(async (req) => {
             // Continue without crawled content
           }
         } else {
-          console.warn('URL crawling request failed:', crawlResponse.status);
+          const errorText = await crawlResponse.text();
+          console.warn('URL crawling request failed:', crawlResponse.status, errorText);
           // Continue without crawled content
         }
       } catch (crawlError) {
-        console.warn('Error crawling URL:', crawlError);
+        console.error('Error crawling URL:', crawlError);
         // Continue without crawled content
       }
     }
+
+    console.log('About to call OpenAI with context length:', contextualInfo.length);
 
     console.log('Calling OpenAI API for follow-up questions');
     

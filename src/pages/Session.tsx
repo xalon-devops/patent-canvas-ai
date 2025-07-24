@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session as SupabaseSession } from '@supabase/supabase-js';
 import { 
@@ -566,29 +566,37 @@ const Session = () => {
               </div>
             )}
 
-            {questions.map((question, index) => (
-              <div key={question.id} className="space-y-3">
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4 text-primary" />
+            {/* Show answered questions and current question only */}
+            {questions.map((question, index) => {
+              const currentQuestionIndex = questions.findIndex(q => !q.answer);
+              const shouldShow = question.answer || index === currentQuestionIndex;
+              
+              if (!shouldShow) return null;
+              
+              return (
+                <div key={question.id} className="space-y-3">
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Bot className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
+                      <p className="text-sm">{question.question}</p>
+                    </div>
                   </div>
-                  <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                    <p className="text-sm">{question.question}</p>
-                  </div>
+                  
+                  {question.answer && (
+                    <div className="flex gap-3 justify-end">
+                      <div className="bg-primary rounded-lg p-3 max-w-[80%] text-primary-foreground">
+                        <p className="text-sm">{question.answer}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                        <UserIcon className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                {question.answer && (
-                  <div className="flex gap-3 justify-end">
-                    <div className="bg-primary rounded-lg p-3 max-w-[80%] text-primary-foreground">
-                      <p className="text-sm">{question.answer}</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                      <UserIcon className="h-4 w-4 text-primary-foreground" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
             {searchingPriorArt && (
               <div className="flex gap-3">
