@@ -20,25 +20,32 @@ export type Database = {
           created_at: string | null
           id: string
           question: string | null
-          session_id: string | null
+          session_id: string
         }
         Insert: {
           answer?: string | null
           created_at?: string | null
           id?: string
           question?: string | null
-          session_id?: string | null
+          session_id: string
         }
         Update: {
           answer?: string | null
           created_at?: string | null
           id?: string
           question?: string | null
-          session_id?: string | null
+          session_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "ai_questions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_ai_questions_session"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "patent_sessions"
@@ -53,7 +60,7 @@ export type Database = {
           id: string
           is_user_edited: boolean | null
           section_type: string | null
-          session_id: string | null
+          session_id: string
         }
         Insert: {
           content?: string | null
@@ -61,7 +68,7 @@ export type Database = {
           id?: string
           is_user_edited?: boolean | null
           section_type?: string | null
-          session_id?: string | null
+          session_id: string
         }
         Update: {
           content?: string | null
@@ -69,9 +76,16 @@ export type Database = {
           id?: string
           is_user_edited?: boolean | null
           section_type?: string | null
-          session_id?: string | null
+          session_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_patent_sections_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patent_sections_session_id_fkey"
             columns: ["session_id"]
@@ -87,21 +101,21 @@ export type Database = {
           id: string
           idea_prompt: string | null
           status: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           idea_prompt?: string | null
           status?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           idea_prompt?: string | null
           status?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -118,7 +132,7 @@ export type Database = {
           created_at: string | null
           id: string
           publication_number: string | null
-          session_id: string | null
+          session_id: string
           similarity_score: number | null
           summary: string | null
           title: string | null
@@ -128,7 +142,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           publication_number?: string | null
-          session_id?: string | null
+          session_id: string
           similarity_score?: number | null
           summary?: string | null
           title?: string | null
@@ -138,13 +152,20 @@ export type Database = {
           created_at?: string | null
           id?: string
           publication_number?: string | null
-          session_id?: string | null
+          session_id?: string
           similarity_score?: number | null
           summary?: string | null
           title?: string | null
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_prior_art_results_session"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prior_art_results_session_id_fkey"
             columns: ["session_id"]

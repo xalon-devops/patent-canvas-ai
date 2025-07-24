@@ -20,6 +20,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 
 interface PatentSession {
   id: string;
@@ -166,7 +167,7 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error loading session",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -175,10 +176,23 @@ const Session = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!currentMessage.trim() || !id || sendingMessage) return;
+    if (!id || sendingMessage) return;
+
+    // Validate and sanitize input
+    const sanitizedMessage = sanitizeText(currentMessage);
+    const validation = validateAiQuestion(sanitizedMessage);
+    
+    if (!validation.isValid) {
+      toast({
+        title: "Input Error",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSendingMessage(true);
-    const message = currentMessage;
+    const message = sanitizedMessage;
     setCurrentMessage('');
 
     try {
@@ -263,7 +277,7 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error sending message",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
       setCurrentMessage(message); // Restore message on error
@@ -318,7 +332,7 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error performing patent search",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -362,18 +376,31 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error generating patent draft",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     }
   };
 
   const updateSection = async (sectionId: string, newContent: string) => {
+    // Validate and sanitize content
+    const sanitizedContent = sanitizeHtml(newContent);
+    const validation = validatePatentSection(sanitizedContent);
+    
+    if (!validation.isValid) {
+      toast({
+        title: "Input Error",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('patent_sections')
         .update({ 
-          content: newContent,
+          content: sanitizedContent,
           is_user_edited: true 
         })
         .eq('id', sectionId);
@@ -383,14 +410,14 @@ const Session = () => {
       // Update local state
       setSections(sections.map(section => 
         section.id === sectionId 
-          ? { ...section, content: newContent, is_user_edited: true }
+          ? { ...section, content: sanitizedContent, is_user_edited: true }
           : section
       ));
       
     } catch (error: any) {
       toast({
         title: "Error updating section",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     }

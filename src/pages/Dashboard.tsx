@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
+import { validatePatentIdea, sanitizeText, createSafeErrorMessage } from '@/utils/security';
 
 interface PatentSession {
   id: string;
@@ -62,7 +63,7 @@ const Dashboard = () => {
     } catch (error: any) {
       toast({
         title: "Error loading sessions",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -96,7 +97,7 @@ const Dashboard = () => {
     } catch (error: any) {
       toast({
         title: "Error creating session",
-        description: error.message,
+        description: createSafeErrorMessage(error),
         variant: "destructive",
       });
     }
