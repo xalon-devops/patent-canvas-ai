@@ -118,12 +118,15 @@ serve(async (req) => {
             .join('\n');
 
           console.log('Extracted text content, length:', textContent.length);
+          console.log('First 500 chars of extracted content:', textContent.substring(0, 500));
 
           if (textContent.length > 100) {
             contextualInfo = textContent;
             console.log('Successfully extracted website content for context');
           } else {
-            console.warn('Very little content extracted from URL');
+            console.warn('Very little content extracted from URL. Content was:', textContent);
+            // Use what we have anyway, even if minimal
+            contextualInfo = textContent;
           }
         } else {
           console.warn('Failed to fetch URL:', crawlResponse.status, crawlResponse.statusText);
