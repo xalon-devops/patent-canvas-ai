@@ -1,12 +1,231 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          navigate('/dashboard');
+        }
+      }
+    );
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        navigate('/dashboard');
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-primary opacity-5"></div>
+        <div className="container mx-auto px-4 py-20 relative">
+          <div className="text-center max-w-4xl mx-auto">
+            {/* Logo */}
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-primary rounded-full blur-xl opacity-30"></div>
+                <div className="relative bg-primary rounded-full p-4">
+                  <Scale className="h-12 w-12 text-primary-foreground" />
+                </div>
+              </div>
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+              <span className="bg-gradient-primary bg-clip-text text-transparent">
+                Patent Canvas AI
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
+              Transform your innovative ideas into professional patent applications 
+              with AI-powered assistance and intelligent prior art analysis
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <Button 
+                variant="gradient" 
+                size="lg"
+                onClick={() => navigate('/auth')}
+                className="text-lg h-14 px-8"
+              >
+                <Sparkles className="h-5 w-5" />
+                Start Your Patent Journey
+                <ArrowRight className="h-5 w-5" />
+              </Button>
+              <Button 
+                variant="professional" 
+                size="lg"
+                onClick={() => navigate('/auth')}
+                className="text-lg h-14 px-8"
+              >
+                <FileText className="h-5 w-5" />
+                View Demo
+              </Button>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>AI-Powered</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>Professional Grade</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>Secure & Private</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              How It Works
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Our AI-powered platform guides you through every step of the patent application process
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Step 1 */}
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Brain className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">AI Interview</CardTitle>
+                <CardDescription>
+                  Our AI conducts an intelligent interview to understand your invention thoroughly
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• Guided questioning process</li>
+                  <li>• Technical detail extraction</li>
+                  <li>• Innovation mapping</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Step 2 */}
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Zap className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">Prior Art Search</CardTitle>
+                <CardDescription>
+                  Comprehensive patent database search to identify similar inventions and assess novelty
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• Global patent database access</li>
+                  <li>• Similarity analysis</li>
+                  <li>• Novelty assessment</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Step 3 */}
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-xl">Patent Canvas</CardTitle>
+                <CardDescription>
+                  Professional patent application generated with editable sections and real-time collaboration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  <li>• Professional formatting</li>
+                  <li>• Editable sections</li>
+                  <li>• Ready for filing</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-primary text-primary-foreground relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-glow opacity-10"></div>
+        <div className="container mx-auto px-4 text-center relative">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            Ready to Protect Your Innovation?
+          </h2>
+          <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
+            Join thousands of inventors who trust Patent Canvas AI to transform their ideas into professional patent applications
+          </p>
+          <Button 
+            variant="secondary"
+            size="lg"
+            onClick={() => navigate('/auth')}
+            className="text-lg h-14 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20 hover:shadow-glow transition-smooth"
+          >
+            <Sparkles className="h-5 w-5" />
+            Get Started Free
+            <ArrowRight className="h-5 w-5" />
+          </Button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 border-t bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-muted-foreground">
+            © 2024 Patent Canvas AI. Professional patent drafting with AI assistance.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };
