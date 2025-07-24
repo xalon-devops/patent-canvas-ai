@@ -47,12 +47,22 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if the idea_prompt is a URL
-    const isUrl = idea_prompt.trim().toLowerCase().startsWith('http');
+    // Enhanced URL detection
+    const trimmedPrompt = idea_prompt.trim().toLowerCase();
+    const isUrl = trimmedPrompt.startsWith('http') || 
+                  trimmedPrompt.startsWith('www.') || 
+                  /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(trimmedPrompt);
+    
     let contextualInfo = '';
+    let actualUrl = idea_prompt.trim();
     
     if (isUrl) {
-      console.log('Detected URL input, crawling content:', idea_prompt);
+      // Add https:// if no protocol specified
+      if (!actualUrl.startsWith('http')) {
+        actualUrl = 'https://' + actualUrl;
+      }
+      
+      console.log('Detected URL input, crawling content:', actualUrl);
       
       try {
         // Call the crawl-url-content function
@@ -62,7 +72,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseServiceKey}`,
           },
-          body: JSON.stringify({ url: idea_prompt })
+          body: JSON.stringify({ url: actualUrl })
         });
 
         if (crawlResponse.ok) {
