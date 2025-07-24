@@ -13,10 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    console.log('URL crawl function started');
-    
     const { url } = await req.json();
-    
+    console.log('URL crawl function started with URL:', url);
     if (!url) {
       console.error('Missing URL in request');
       return new Response(
@@ -28,17 +26,22 @@ serve(async (req) => {
       );
     }
 
+    console.log('Validating URL format:', url);
+
     // Validate URL format
     let validUrl;
     try {
       validUrl = new URL(url);
+      console.log('URL parsed successfully:', validUrl.href);
+      
       if (!['http:', 'https:'].includes(validUrl.protocol)) {
+        console.error('Invalid protocol:', validUrl.protocol);
         throw new Error('Invalid protocol');
       }
     } catch (error) {
-      console.error('Invalid URL format:', url);
+      console.error('Invalid URL format:', url, 'Error:', error.message);
       return new Response(
-        JSON.stringify({ error: 'Invalid URL format' }), 
+        JSON.stringify({ error: `Invalid URL format: ${error.message}` }), 
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -46,7 +49,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Crawling URL:', url);
+    console.log('Starting fetch for URL:', url);
     
     // Fetch the webpage content
     const response = await fetch(url, {
@@ -61,10 +64,20 @@ serve(async (req) => {
       signal: AbortSignal.timeout(15000)
     });
 
-    console.log('Fetch response status:', response.status);
+    console.log('Fetch completed. Status:', response.status, 'StatusText:', response.statusText);
 
     if (!response.ok) {
       console.error('Failed to fetch URL:', response.status, response.statusText);
+      
+      // Try to read error body for more details
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+        console.error('Error response body:', errorBody.substring(0, 200));
+      } catch (e) {
+        console.error('Could not read error body:', e.message);
+      }
+      
       return new Response(
         JSON.stringify({ error: `Failed to fetch URL: ${response.status} ${response.statusText}` }), 
         { 
