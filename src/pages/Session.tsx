@@ -72,15 +72,16 @@ const Session = () => {
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [searchingPriorArt, setSearchingPriorArt] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   
   const sectionTypes = [
     'abstract',
-    'field_of_invention', 
+    'field', 
     'background',
     'summary',
     'claims',
-    'drawings_description',
-    'detailed_description'
+    'drawings',
+    'description'
   ];
 
   useEffect(() => {
@@ -341,44 +342,48 @@ const Session = () => {
   };
 
   const proceedToCanvas = async () => {
-    if (!id) return;
+    if (!id || generatingDraft) return;
+    
+    setGeneratingDraft(true);
     
     try {
-      // Generate initial patent sections (in a real app, this would call an AI service)
-      const initialSections = [
-        {
-          section_type: 'abstract',
-          content: 'This invention relates to an innovative system that addresses specific technical challenges...'
-        },
-        {
-          section_type: 'field_of_invention',
-          content: 'The present invention relates generally to the field of...'
-        },
-        {
-          section_type: 'background',
-          content: 'Existing solutions in this field have several limitations...'
-        }
-      ];
+      console.log('Starting patent draft generation...');
+      
+      // Call the edge function to generate patent draft
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft', {
+        body: { session_id: id }
+      });
 
-      for (const section of initialSections) {
-        await supabase
-          .from('patent_sections')
-          .insert([{
-            session_id: id,
-            ...section,
-            is_user_edited: false
-          }]);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to generate patent draft');
       }
 
+      if (!data?.success) {
+        console.error('Patent generation failed:', data);
+        throw new Error('Patent draft generation failed');
+      }
+
+      console.log('Patent draft generated successfully:', data);
+      
       setChatPhase('canvas');
       await fetchSessionData();
       
+      toast({
+        title: "Patent Draft Generated",
+        description: `Successfully generated ${data.sections_generated} patent sections`,
+        variant: "default",
+      });
+      
     } catch (error: any) {
+      console.error('Error generating patent draft:', error);
       toast({
         title: "Error generating patent draft",
         description: createSafeErrorMessage(error),
         variant: "destructive",
       });
+    } finally {
+      setGeneratingDraft(false);
     }
   };
 
@@ -426,12 +431,12 @@ const Session = () => {
   const getSectionTitle = (sectionType: string) => {
     const titles: Record<string, string> = {
       'abstract': 'Abstract',
-      'field_of_invention': 'Field of Invention',
+      'field': 'Field of Invention',
       'background': 'Background',
-      'summary': 'Summary',
+      'summary': 'Summary of Invention',
       'claims': 'Claims',
-      'drawings_description': 'Drawings Description',
-      'detailed_description': 'Detailed Description'
+      'drawings': 'Description of Drawings',
+      'description': 'Detailed Description'
     };
     return titles[sectionType] || sectionType;
   };
@@ -630,9 +635,20 @@ const Session = () => {
                       variant="gradient" 
                       size="sm"
                       onClick={proceedToCanvas}
+                      disabled={generatingDraft}
+                      className="min-w-[160px]"
                     >
-                      <CheckCircle className="h-4 w-4" />
-                      Yes, Proceed to Draft
+                      {generatingDraft ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Yes, Proceed to Draft
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
