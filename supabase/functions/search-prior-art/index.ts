@@ -15,8 +15,12 @@ serve(async (req) => {
 
   try {
     console.log('Prior art search function started');
+    console.log('Request method:', req.method);
     
-    const { session_id } = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body:', JSON.stringify(requestBody));
+    
+    const { session_id } = requestBody;
     
     if (!session_id) {
       console.error('Missing session_id in request');
