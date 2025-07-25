@@ -32,7 +32,7 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lensApiKey = Deno.env.get('LENS_ORG_API_KEY');
+    const lensApiKey = Deno.env.get('LENS_API_KEY');
 
     if (!lensApiKey) {
       console.error('Missing Lens.org API key');
