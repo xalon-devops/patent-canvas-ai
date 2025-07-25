@@ -34,6 +34,11 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const lensApiKey = Deno.env.get('LENS_API_KEY');
 
+    console.log('Environment check:');
+    console.log('SUPABASE_URL:', supabaseUrl ? 'Present' : 'Missing');
+    console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Present' : 'Missing');
+    console.log('LENS_API_KEY:', lensApiKey ? 'Present' : 'Missing');
+
     if (!lensApiKey) {
       console.error('Missing Lens.org API key');
       return new Response(
