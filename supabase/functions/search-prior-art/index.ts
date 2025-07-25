@@ -102,49 +102,36 @@ serve(async (req) => {
     const searchQuery = searchTerms.join(' ').substring(0, 200); // Limit query length
     console.log('Generated search query:', searchQuery);
 
-    // Search Lens.org via GraphQL API
-    const lensQuery = `
-      query SearchPatents($query: String!, $size: Int!) {
-        patentSearch(query: $query, size: $size) {
-          results {
-            patent {
-              title
-              publicationNumber
-              abstract
-              url
-              applicationReference {
-                documentId
-              }
-              publicationReference {
-                documentId
+    // Search Lens.org via REST API (correct format)
+    const searchRequest = {
+      query: {
+        bool: {
+          must: [
+            {
+              match: {
+                title: searchQuery
               }
             }
-            relevanceScore
-          }
+          ]
         }
-      }
-    `;
+      },
+      size: 5,
+      include: ["biblio", "doc_key"]
+    };
 
     console.log('Calling Lens.org API for prior art search');
-    console.log('Search query:', searchQuery);
+    console.log('Search request:', JSON.stringify(searchRequest));
     
-    const lensResponse = await fetch('https://api.lens.org/patent-search', {
+    const lensResponse = await fetch('https://api.lens.org/patent/search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${lensApiKey}`,
       },
-      body: JSON.stringify({
-        query: lensQuery,
-        variables: {
-          query: searchQuery,
-          size: 10
-        }
-      })
+      body: JSON.stringify(searchRequest)
     });
 
     console.log('Lens.org response status:', lensResponse.status);
-    console.log('Lens.org response headers:', Object.fromEntries(lensResponse.headers.entries()));
 
     if (!lensResponse.ok) {
       const errorText = await lensResponse.text();
@@ -163,9 +150,9 @@ serve(async (req) => {
     }
 
     const lensData = await lensResponse.json();
-    console.log('Lens.org response received');
+    console.log('Lens.org response received:', JSON.stringify(lensData, null, 2));
 
-    if (!lensData.data?.patentSearch?.results) {
+    if (!lensData.data || !Array.isArray(lensData.data) || lensData.data.length === 0) {
       console.warn('No results returned from Lens.org API');
       return new Response(
         JSON.stringify({ success: true, results_found: 0 }), 
@@ -175,18 +162,18 @@ serve(async (req) => {
       );
     }
 
-    // Process and store top 5 results
-    const results = lensData.data.patentSearch.results.slice(0, 5);
+    // Process and store top 5 results (REST API format)
+    const results = lensData.data.slice(0, 5);
     const priorArtResults = results.map((result: any) => ({
       session_id,
-      title: result.patent.title || 'Untitled Patent',
-      publication_number: result.patent.publicationNumber || 
-                         result.patent.publicationReference?.documentId || 
-                         result.patent.applicationReference?.documentId || 
+      title: result.title || result.biblio?.title || 'Untitled Patent',
+      publication_number: result.publication_number || 
+                         result.biblio?.publication_number || 
+                         result.doc_key?.publication_number || 
                          'Unknown',
-      similarity_score: result.relevanceScore || 0,
-      summary: result.patent.abstract || 'No abstract available',
-      url: result.patent.url || null
+      similarity_score: result.score || 0,
+      summary: result.abstract || result.biblio?.abstract || 'No abstract available',
+      url: result.external_ids?.patent_office_url || null
     }));
 
     console.log(`Storing ${priorArtResults.length} prior art results`);
