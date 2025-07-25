@@ -58,7 +58,7 @@ serve(async (req) => {
       .from('patent_sessions')
       .select('idea_prompt')
       .eq('id', session_id)
-      .single();
+      .maybeSingle();
 
     if (sessionError) {
       console.error('Error fetching session:', sessionError);
