@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { validatePatentIdea, sanitizeText, createSafeErrorMessage } from '@/utils/security';
 
@@ -21,6 +21,7 @@ const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [sessions, setSessions] = useState<PatentSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchingPriorArt, setSearchingPriorArt] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -100,6 +101,49 @@ const Dashboard = () => {
         description: createSafeErrorMessage(error),
         variant: "destructive",
       });
+    }
+  };
+
+  const performLensAPISearch = async (sessionId: string) => {
+    setSearchingPriorArt(true);
+    
+    try {
+      console.log('Calling search-prior-art edge function with Lens API...');
+      
+      const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art', {
+        body: { session_id: sessionId }
+      });
+
+      if (searchError) {
+        console.error('Lens API search error:', searchError);
+        throw new Error(searchError.message || 'Failed to search prior art with Lens API');
+      }
+
+      if (!searchData?.success) {
+        console.error('Lens API search failed:', searchData);
+        throw new Error('Lens API search failed');
+      }
+
+      console.log('Lens API search completed successfully:', searchData);
+      
+      toast({
+        title: "Lens API Search Complete",
+        description: `Found ${searchData.results_found} relevant patents`,
+        variant: "default",
+      });
+
+      // Redirect to the session to see results
+      navigate(`/session/${sessionId}`);
+      
+    } catch (error: any) {
+      console.error('Error in Lens API search:', error);
+      toast({
+        title: "Search Failed",
+        description: createSafeErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setSearchingPriorArt(false);
     }
   };
 
@@ -251,6 +295,23 @@ const Dashboard = () => {
                         </CardDescription>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            performLensAPISearch(patentSession.id);
+                          }}
+                          disabled={searchingPriorArt}
+                          className="mr-2"
+                        >
+                          {searchingPriorArt ? (
+                            <Search className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Search className="h-3 w-3" />
+                          )}
+                          Lens API
+                        </Button>
                         <span className="text-muted-foreground">
                           {getStatusLabel(patentSession.status)}
                         </span>
