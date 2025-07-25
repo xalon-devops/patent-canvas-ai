@@ -126,6 +126,7 @@ serve(async (req) => {
     `;
 
     console.log('Calling Lens.org API for prior art search');
+    console.log('Search query:', searchQuery);
     
     const lensResponse = await fetch('https://api.lens.org/patent-search', {
       method: 'POST',
@@ -142,11 +143,18 @@ serve(async (req) => {
       })
     });
 
+    console.log('Lens.org response status:', lensResponse.status);
+    console.log('Lens.org response headers:', Object.fromEntries(lensResponse.headers.entries()));
+
     if (!lensResponse.ok) {
       const errorText = await lensResponse.text();
-      console.error('Lens.org API error:', errorText);
+      console.error('Lens.org API error status:', lensResponse.status);
+      console.error('Lens.org API error body:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to search prior art' }), 
+        JSON.stringify({ 
+          error: 'Failed to search prior art', 
+          details: `Status: ${lensResponse.status}, Body: ${errorText}` 
+        }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
