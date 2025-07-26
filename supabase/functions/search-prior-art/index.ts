@@ -192,7 +192,7 @@ Provide analysis in this exact JSON format:
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer xalon_demo_token_12345',
+            'Authorization': 'Bearer PatentBotAI',
           },
           body: JSON.stringify({
             model: 'ollama:llama3.1:8b',

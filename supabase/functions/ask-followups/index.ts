@@ -36,7 +36,7 @@ serve(async (req) => {
     
     // XALON AI endpoint configuration
     const xalonApiUrl = 'https://llm.xalon.ai/v1/chat/completions';
-    const xalonApiKey = 'xalon_demo_token_12345';
+    const xalonApiKey = 'PatentBotAI';
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

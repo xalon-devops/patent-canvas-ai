@@ -1030,6 +1030,42 @@ const Session = () => {
             </div>
           )}
         </div>
+        
+        {/* XALON AI™ Footer */}
+        <div className="mt-4 flex justify-center">
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#000000',
+            padding: '12px',
+            borderRadius: '12px',
+            boxShadow: '0 0 20px #00e5ff80',
+          }}>
+            <button style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#000000',
+              border: 'none',
+              color: '#00e5ff',
+              fontWeight: 'bold',
+              fontFamily: '"Segoe UI", sans-serif',
+              fontSize: '14px',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 0 8px #00e5ff80',
+            }}>
+              Powered by XALON AI™
+              <img 
+                src="https://cdn.jsdelivr.net/gh/xalonai/assets@main/xalon-logo-light.svg" 
+                alt="XALON Logo" 
+                style={{height: '16px', width: 'auto'}} 
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
