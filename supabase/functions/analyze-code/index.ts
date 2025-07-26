@@ -28,8 +28,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Extract owner and repo from GitHub URL
-    const githubUrlMatch = repo_url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    // Extract owner and repo from GitHub URL - handle various URL formats
+    // Remove trailing slash and any parameters
+    const cleanUrl = repo_url.replace(/\/$/, '').split('?')[0];
+    const githubUrlMatch = cleanUrl.match(/github\.com\/([^\/]+)\/([^\/\?]+)/);
     if (!githubUrlMatch) {
       throw new Error('Invalid GitHub URL format');
     }
@@ -40,6 +42,9 @@ serve(async (req) => {
     if (repo.endsWith('.git')) {
       repo = repo.slice(0, -4);
     }
+    
+    // Remove any remaining query parameters or fragments
+    repo = repo.split('?')[0].split('#')[0];
     
     console.log('Extracted GitHub info:', { owner, repo });
 
