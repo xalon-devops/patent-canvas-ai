@@ -58,8 +58,17 @@ serve(async (req) => {
       }
     });
 
+    console.log('GitHub API response status:', repoResponse.status);
+    console.log('GitHub API URL called:', githubApiUrl);
+
     if (!repoResponse.ok) {
-      throw new Error(`GitHub API error: ${repoResponse.status} - ${repoResponse.statusText}`);
+      if (repoResponse.status === 404) {
+        throw new Error(`GitHub repository not found or private: ${owner}/${repo}. Please ensure the repository exists and is public.`);
+      } else if (repoResponse.status === 403) {
+        throw new Error('GitHub API rate limit exceeded. Please try again later.');
+      } else {
+        throw new Error(`GitHub API error: ${repoResponse.status} - ${repoResponse.statusText}`);
+      }
     }
 
     const repoContents = await repoResponse.json();
