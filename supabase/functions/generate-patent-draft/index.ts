@@ -133,11 +133,13 @@ Focus on:
 - Technical specifications and requirements
 - Implementation details
 
-Return a structured technical analysis in JSON format with these keys:
-- "technical_components": array of components
-- "mechanisms": array of processes/mechanisms
-- "innovations": array of novel aspects
-- "specifications": technical requirements`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
+{
+  "technical_components": ["component1", "component2"],
+  "mechanisms": ["mechanism1", "mechanism2"],
+  "innovations": ["innovation1", "innovation2"],
+  "specifications": "technical requirements description"
+}`;
 
     const technicalAnalysis = await callXalonAI('mixtral-8x7b', technicalExtractionPrompt, 
       `Invention Idea: ${idea_prompt}\n\nQ&A Results:\n${qa_text}`);
@@ -152,7 +154,13 @@ Transform the technical analysis into formal patent sections:
 - Create clear, defensible language
 - Ensure proper claim structure
 
-Return JSON with keys: "field", "background", "summary", "description"`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
+{
+  "field": "field description text",
+  "background": "background description text", 
+  "summary": "summary description text",
+  "description": "detailed description text"
+}`;
 
     const legalFormatted = await callXalonAI('phi-3', legalFormattingPrompt, technicalAnalysis);
 
@@ -166,7 +174,10 @@ Create:
 - Method claims and system claims where applicable
 - Proper claim numbering and dependencies
 
-Return JSON with key "claims" containing the complete claims section.`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have this exact structure:
+{
+  "claims": "1. A system for... 2. The system of claim 1, wherein..."
+}`;
 
     const expandedClaims = await callXalonAI('mixtral-8x7b', claimsExpansionPrompt, 
       `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
@@ -181,9 +192,13 @@ Generate:
 - Emphasis on unique advantages
 - Technical drawing descriptions
 
-Return JSON with keys: "abstract", "drawings"`;
+CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
+{
+  "abstract": "abstract text here",
+  "drawings": "technical drawing descriptions here"
+}`;
 
-    const priorArtDifferentiated = await callXalonAI('mixtral-8x7b', priorArtPrompt,
+    const priorArtDifferentiated = await callXalonAI('mixtral-8x7b', priorArtPrompt, 
       `Technical: ${technicalAnalysis}\nLegal: ${legalFormatted}\nClaims: ${expandedClaims}`);
 
     console.log('Multi-model chain completed, assembling final draft');
@@ -191,10 +206,23 @@ Return JSON with keys: "abstract", "drawings"`;
     // Combine all results into final draft
     let draft;
     try {
-      const technical = JSON.parse(technicalAnalysis);
-      const legal = JSON.parse(legalFormatted);
-      const claims = JSON.parse(expandedClaims);
-      const priorArt = JSON.parse(priorArtDifferentiated);
+      // Log raw responses for debugging
+      console.log('Raw AI responses:', {
+        technical: technicalAnalysis.substring(0, 200) + '...',
+        legal: legalFormatted.substring(0, 200) + '...',
+        claims: expandedClaims.substring(0, 200) + '...',
+        priorArt: priorArtDifferentiated.substring(0, 200) + '...'
+      });
+
+      // Clean responses before parsing (remove potential markdown formatting)
+      const cleanJson = (text: string) => {
+        return text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      };
+
+      const technical = JSON.parse(cleanJson(technicalAnalysis));
+      const legal = JSON.parse(cleanJson(legalFormatted));
+      const claims = JSON.parse(cleanJson(expandedClaims));
+      const priorArt = JSON.parse(cleanJson(priorArtDifferentiated));
 
       draft = {
         abstract: priorArt.abstract || 'Abstract not generated',
@@ -207,8 +235,14 @@ Return JSON with keys: "abstract", "drawings"`;
       };
     } catch (parseError) {
       console.error('Failed to parse AI chain responses:', parseError);
+      console.error('Raw responses for debugging:', {
+        technicalAnalysis,
+        legalFormatted,
+        expandedClaims,
+        priorArtDifferentiated
+      });
       return new Response(
-        JSON.stringify({ error: 'Failed to parse AI chain results' }), 
+        JSON.stringify({ error: 'Failed to parse AI chain results', debug: 'Check function logs for raw responses' }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
