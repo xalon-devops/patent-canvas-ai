@@ -744,10 +744,20 @@ const Session = () => {
         {/* Left Panel - Chat */}
         <div className="w-full lg:w-1/2 border-r bg-card/50 backdrop-blur-sm flex flex-col">
           <div className="p-4 border-b">
-            <h2 className="font-semibold flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
-              AI Patent Assistant
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                AI Patent Assistant
+              </h2>
+              <div className="flex items-center gap-1 bg-black/80 px-2 py-1 rounded-md">
+                <span className="text-[#00e5ff] text-xs font-medium">Powered by XALON AI™</span>
+                <img 
+                  src="https://i.ibb.co/D210QCV/Only-Pro-Logo-Horizontal-Transparent-6.png" 
+                  alt="XALON Logo" 
+                  className="h-3 w-auto opacity-80" 
+                />
+              </div>
+            </div>
             <p className="text-sm text-muted-foreground">
               {chatPhase === 'initial' && "Tell me about your invention idea"}
               {chatPhase === 'questioning' && "Let's gather more details about your invention"}
@@ -1031,41 +1041,6 @@ const Session = () => {
           )}
         </div>
         
-        {/* XALON AI™ Footer */}
-        <div className="mt-4 flex justify-center">
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#000000',
-            padding: '12px',
-            borderRadius: '12px',
-            boxShadow: '0 0 20px #00e5ff80',
-          }}>
-            <button style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: '#000000',
-              border: 'none',
-              color: '#00e5ff',
-              fontWeight: 'bold',
-              fontFamily: '"Segoe UI", sans-serif',
-              fontSize: '14px',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 0 8px #00e5ff80',
-            }}>
-              Powered by XALON AI™
-              <img 
-                src="https://i.ibb.co/D210QCV/Only-Pro-Logo-Horizontal-Transparent-6.png" 
-                alt="XALON Logo" 
-                style={{height: '16px', width: 'auto'}} 
-              />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
