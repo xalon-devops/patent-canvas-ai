@@ -190,14 +190,18 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-primary rounded-full blur-lg opacity-20"></div>
-                <div className="relative bg-primary rounded-full p-2">
-                  <Scale className="h-5 w-5 text-primary-foreground" />
+                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20"></div>
+                <div className="relative bg-white/10 rounded-lg p-2 backdrop-blur-sm">
+                  <img 
+                    src="https://i.ibb.co/8DbS569r/XALON-Apps-Full-Transparent.png" 
+                    alt="XALON Apps Logo"
+                    className="h-8 w-auto"
+                  />
                 </div>
               </div>
               <div>
                 <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  Patent Canvas AI
+                  XALON Patent Canvas AI
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Welcome back, {user?.email}

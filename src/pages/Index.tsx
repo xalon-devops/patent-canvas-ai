@@ -58,9 +58,13 @@ const Index = () => {
             {/* Logo */}
             <div className="flex items-center justify-center mb-6">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-primary rounded-full blur-xl opacity-30"></div>
-                <div className="relative bg-primary rounded-full p-4">
-                  <Scale className="h-12 w-12 text-primary-foreground" />
+                <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-xl opacity-30"></div>
+                <div className="relative bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
+                  <img 
+                    src="https://i.ibb.co/8DbS569r/XALON-Apps-Full-Transparent.png" 
+                    alt="XALON Apps Logo"
+                    className="h-16 w-auto"
+                  />
                 </div>
               </div>
             </div>
@@ -68,7 +72,7 @@ const Index = () => {
             {/* Headline */}
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
               <span className="bg-gradient-primary bg-clip-text text-transparent">
-                Patent Canvas AI
+                XALON Patent Canvas AI
               </span>
             </h1>
             
