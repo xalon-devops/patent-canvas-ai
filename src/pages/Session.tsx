@@ -78,6 +78,8 @@ const Session = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [searchingPriorArt, setSearchingPriorArt] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [filingPatent, setFilingPatent] = useState(false);
+  const [exportingPatent, setExportingPatent] = useState(false);
   
   const sectionTypes = [
     'abstract',
@@ -531,6 +533,103 @@ const Session = () => {
     return modelMap[sectionType] || { model: 'AI Generated', icon: '🤖' };
   };
 
+  const handleExportPatent = async () => {
+    if (!id || exportingPatent) return;
+    
+    setExportingPatent(true);
+    
+    try {
+      console.log('Exporting patent document...');
+      
+      const { data, error } = await supabase.functions.invoke('export-patent', {
+        body: { session_id: id }
+      });
+
+      if (error) {
+        console.error('Export error:', error);
+        throw new Error(error.message || 'Failed to export patent');
+      }
+
+      if (!data?.success) {
+        console.error('Export failed:', data);
+        throw new Error('Export failed');
+      }
+
+      console.log('Patent exported successfully:', data);
+      
+      // Open download link
+      if (data.download_url) {
+        window.open(data.download_url, '_blank');
+      }
+      
+      toast({
+        title: "Export Complete",
+        description: `Patent application exported with ${data.sections_exported} sections`,
+        variant: "default",
+      });
+      
+    } catch (error: any) {
+      console.error('Error exporting patent:', error);
+      toast({
+        title: "Export Error",
+        description: createSafeErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setExportingPatent(false);
+    }
+  };
+
+  const handleFilePatent = async () => {
+    if (!id || filingPatent) return;
+    
+    setFilingPatent(true);
+    
+    try {
+      console.log('Filing patent application...');
+      
+      const { data, error } = await supabase.functions.invoke('file-patent', {
+        body: { session_id: id }
+      });
+
+      if (error) {
+        console.error('Filing error:', error);
+        throw new Error(error.message || 'Failed to file patent');
+      }
+
+      if (!data?.success) {
+        console.error('Filing failed:', data);
+        throw new Error('Filing failed');
+      }
+
+      console.log('Patent filed successfully:', data);
+      
+      // Update local session status
+      setPatentSession(prev => prev ? { ...prev, status: 'filed' } : null);
+      
+      // Open download link
+      if (data.download_url) {
+        window.open(data.download_url, '_blank');
+      }
+      
+      toast({
+        title: "🎉 Patent Filed Successfully!",
+        description: "Your provisional patent application has been compiled with USPTO forms",
+        variant: "default",
+      });
+      
+    } catch (error: any) {
+      console.error('Error filing patent:', error);
+      toast({
+        title: "Filing Error",
+        description: createSafeErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setFilingPatent(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
@@ -593,9 +692,46 @@ const Session = () => {
                     <TreeDeciduous className="h-4 w-4" />
                     Claims Tree
                   </Button>
-                  <Button variant="gradient" className="hidden sm:flex">
-                    <Download className="h-4 w-4" />
-                    File Patent
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExportPatent}
+                    disabled={exportingPatent}
+                    className="hidden sm:flex"
+                  >
+                    {exportingPatent ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Export DOCX
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="gradient" 
+                    onClick={handleFilePatent}
+                    disabled={filingPatent || patentSession.status === 'filed'}
+                    className="hidden sm:flex"
+                  >
+                    {filingPatent ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Filing...
+                      </>
+                    ) : patentSession.status === 'filed' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        Filed
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        File Patent
+                      </>
+                    )}
                   </Button>
                 </>
               )}
