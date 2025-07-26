@@ -73,6 +73,8 @@ const Session = () => {
   const [priorArt, setPriorArt] = useState<PriorArtResult[]>([]);
   
   const [currentMessage, setCurrentMessage] = useState('');
+  const [githubRepoUrl, setGithubRepoUrl] = useState('');
+  const [analyzingGitHub, setAnalyzingGitHub] = useState(false);
   const [chatPhase, setChatPhase] = useState<'initial' | 'questioning' | 'search' | 'canvas'>('initial');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -630,6 +632,70 @@ const Session = () => {
     }
   };
 
+  const handleAnalyzeGitHub = async () => {
+    if (!id || !githubRepoUrl.trim() || analyzingGitHub) return;
+
+    // Validate GitHub URL format
+    const githubUrlRegex = /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/;
+    if (!githubUrlRegex.test(githubRepoUrl.trim())) {
+      toast({
+        title: "Invalid GitHub URL",
+        description: "Please enter a valid GitHub repository URL (e.g., https://github.com/username/repo)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAnalyzingGitHub(true);
+
+    try {
+      console.log('Analyzing GitHub repository:', githubRepoUrl);
+      
+      const { data, error } = await supabase.functions.invoke('analyze-code', {
+        body: { 
+          source: 'github',
+          repo_url: githubRepoUrl.trim(),
+          session_id: id
+        }
+      });
+
+      if (error) {
+        console.error('GitHub analysis error:', error);
+        throw new Error(error.message || 'Failed to analyze GitHub repository');
+      }
+
+      if (!data?.success) {
+        console.error('GitHub analysis failed:', data);
+        throw new Error(data?.error || 'GitHub analysis failed');
+      }
+
+      console.log('GitHub analysis completed successfully:', data);
+      
+      toast({
+        title: "🔗 GitHub Analysis Complete",
+        description: `Analyzed ${data.files_analyzed} code files and generated ${data.questions_generated} technical questions`,
+        variant: "default",
+      });
+
+      // Move to questioning phase and fetch updated data
+      setChatPhase('questioning');
+      await fetchSessionData();
+      
+      // Clear the GitHub URL input
+      setGithubRepoUrl('');
+      
+    } catch (error: any) {
+      console.error('Error analyzing GitHub repository:', error);
+      toast({
+        title: "GitHub Analysis Error",
+        description: createSafeErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingGitHub(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
@@ -769,15 +835,50 @@ const Session = () => {
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {chatPhase === 'initial' && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary" />
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
+                    <p className="text-sm">
+                      Hi! I'm your AI patent assistant. Let's start by understanding your invention. 
+                      Please describe your idea in detail - what does it do, how does it work, and what problem does it solve?
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                  <p className="text-sm">
-                    Hi! I'm your AI patent assistant. Let's start by understanding your invention. 
-                    Please describe your idea in detail - what does it do, how does it work, and what problem does it solve?
-                  </p>
+
+                {/* GitHub Repository Option */}
+                <div className="bg-card/80 border border-border rounded-lg p-4 space-y-3">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    🔗 Link a GitHub Repo to Help Auto-Generate Patent
+                    <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </label>
+                  <Input
+                    value={githubRepoUrl}
+                    onChange={(e) => setGithubRepoUrl(e.target.value)}
+                    placeholder="https://github.com/yourname/yourrepo"
+                    className="transition-smooth focus:shadow-glow/20"
+                    disabled={analyzingGitHub}
+                  />
+                  <Button 
+                    onClick={handleAnalyzeGitHub}
+                    disabled={!githubRepoUrl.trim() || analyzingGitHub}
+                    variant="gradient"
+                    size="sm"
+                    className="w-full"
+                  >
+                    {analyzingGitHub ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Analyzing Repository...
+                      </>
+                    ) : (
+                      <>
+                        🔍 Analyze GitHub Repository with XALON AI™
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             )}
