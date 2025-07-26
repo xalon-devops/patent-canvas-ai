@@ -1059,7 +1059,7 @@ const Session = () => {
             }}>
               Powered by XALON AI™
               <img 
-                src="https://cdn.jsdelivr.net/gh/xalonai/assets@main/xalon-logo-light.svg" 
+                src="https://i.ibb.co/D210QCV/Only-Pro-Logo-Horizontal-Transparent-6.png" 
                 alt="XALON Logo" 
                 style={{height: '16px', width: 'auto'}} 
               />
