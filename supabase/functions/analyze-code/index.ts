@@ -34,7 +34,13 @@ serve(async (req) => {
       throw new Error('Invalid GitHub URL format');
     }
 
-    const [, owner, repo] = githubUrlMatch;
+    let [, owner, repo] = githubUrlMatch;
+    
+    // Remove .git extension if present
+    if (repo.endsWith('.git')) {
+      repo = repo.slice(0, -4);
+    }
+    
     console.log('Extracted GitHub info:', { owner, repo });
 
     // Fetch repository contents from GitHub API
