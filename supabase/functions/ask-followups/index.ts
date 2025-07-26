@@ -32,19 +32,11 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-
-    if (!openaiApiKey) {
-      console.error('Missing OpenAI API key');
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    
+    // XALON AI endpoint configuration
+    const xalonApiUrl = 'https://llm.xalon.ai/v1/chat/completions';
+    const xalonApiKey = 'xalon_demo_token_12345';
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -154,9 +146,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('About to call OpenAI with context length:', contextualInfo.length);
+    console.log('About to call XALON AI with context length:', contextualInfo.length);
 
-    console.log('Calling OpenAI API for follow-up questions');
+    console.log('Calling XALON AI for follow-up questions');
     
     // Create the system prompt with optional contextual information
     let systemPrompt = `You are an expert patent attorney AI assistant. Your task is to generate 3-7 intelligent follow-up questions that will help fully describe and characterize an invention for patent filing purposes.
@@ -179,21 +171,25 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
       systemPrompt += `\n\nAdditional context from the provided URL:\n${contextualInfo}`;
     }
 
-    systemPrompt += `\n\nInitial invention idea: ${idea_prompt}`;
+    let userPrompt = `Initial invention idea: ${idea_prompt}`;
 
-    // Call OpenAI API to generate follow-up questions
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call XALON AI to generate follow-up questions using Mixtral for analysis
+    const aiResponse = await fetch(xalonApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${xalonApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'mixtral-8x7b',
         messages: [
           {
             role: 'system',
             content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
           }
         ],
         temperature: 0.7,
@@ -203,7 +199,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('OpenAI API error:', errorText);
+      console.error('XALON AI API error:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to generate follow-up questions' }), 
         { 
@@ -216,7 +212,7 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
     const aiData = await aiResponse.json();
     const generatedContent = aiData.choices[0].message.content;
 
-    console.log('OpenAI response received, parsing questions');
+    console.log('XALON AI response received, parsing questions');
 
     let questions;
     try {
@@ -225,8 +221,8 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
         throw new Error('Response is not an array');
       }
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON array:', parseError);
-      console.error('OpenAI response:', generatedContent);
+      console.error('Failed to parse XALON AI response as JSON array:', parseError);
+      console.error('XALON AI response:', generatedContent);
       return new Response(
         JSON.stringify({ error: 'Failed to parse generated questions' }), 
         { 

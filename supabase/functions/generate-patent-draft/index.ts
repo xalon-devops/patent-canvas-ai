@@ -32,18 +32,10 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-
-    if (!openaiApiKey) {
-      console.error('Missing OpenAI API key');
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    
+    // XALON AI endpoint configuration
+    const xalonApiUrl = 'https://llm.xalon.ai/v1/chat/completions';
+    const xalonApiKey = 'xalon_demo_token_12345';
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -100,71 +92,123 @@ serve(async (req) => {
     const qa_text = questions.map(q => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n');
     const idea_prompt = session.idea_prompt || 'No specific idea provided';
 
-    console.log('Calling OpenAI API for patent draft generation');
+    console.log('Starting multi-model AI drafting chain');
     
-    // Call OpenAI API to generate structured patent draft
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert patent attorney AI assistant. Generate a comprehensive utility patent application draft based on the provided invention idea and Q&A session.
+    // Helper function to call XALON AI with different models
+    async function callXalonAI(model: string, systemPrompt: string, userContent: string) {
+      const response = await fetch(xalonApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${xalonApiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      });
 
-IMPORTANT: Return your response as a valid JSON object with the following exact section types as keys:
-- "abstract"
-- "field"
-- "background" 
-- "summary"
-- "claims"
-- "drawings"
-- "description"
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`XALON AI API error for ${model}: ${response.status} ${errorText}`);
+      }
 
-Each section should contain well-structured, professional patent language appropriate for a utility patent application. Make sure the JSON is properly formatted and contains no syntax errors.
-
-Original Invention Idea: ${idea_prompt}
-
-Q&A Session Results:
-${qa_text}
-
-Generate a complete patent draft covering all sections with detailed, professional content suitable for patent filing.`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
-      })
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('OpenAI API error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate patent draft' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      const data = await response.json();
+      return data.choices[0].message.content;
     }
 
-    const aiData = await aiResponse.json();
-    const generatedContent = aiData.choices[0].message.content;
+    // Stage 1: Deep Technical Extraction using Mixtral 8x7B
+    console.log('Stage 1: Deep Technical Extraction with Mixtral 8x7B');
+    const technicalExtractionPrompt = `You are a technical patent expert. Extract and identify all technical details, mechanisms, components, and innovative aspects from the invention.
 
-    console.log('OpenAI response received, parsing JSON');
+Focus on:
+- Technical components and their relationships
+- Novel mechanisms and processes
+- Key innovations and differentiators
+- Technical specifications and requirements
+- Implementation details
 
+Return a structured technical analysis in JSON format with these keys:
+- "technical_components": array of components
+- "mechanisms": array of processes/mechanisms
+- "innovations": array of novel aspects
+- "specifications": technical requirements`;
+
+    const technicalAnalysis = await callXalonAI('mixtral-8x7b', technicalExtractionPrompt, 
+      `Invention Idea: ${idea_prompt}\n\nQ&A Results:\n${qa_text}`);
+
+    // Stage 2: Legal Language Formatting using Phi-3
+    console.log('Stage 2: Legal Language Formatting with Phi-3');
+    const legalFormattingPrompt = `You are a patent attorney specializing in legal language formatting. Convert technical content into proper patent legal language.
+
+Transform the technical analysis into formal patent sections:
+- Use precise legal terminology
+- Follow USPTO formatting guidelines
+- Create clear, defensible language
+- Ensure proper claim structure
+
+Return JSON with keys: "field", "background", "summary", "description"`;
+
+    const legalFormatted = await callXalonAI('phi-3', legalFormattingPrompt, technicalAnalysis);
+
+    // Stage 3: Claims Expansion using Mixtral again
+    console.log('Stage 3: Claims Expansion with Mixtral 8x7B');
+    const claimsExpansionPrompt = `You are a claims expert. Generate comprehensive patent claims based on the technical analysis and legal formatting.
+
+Create:
+- Independent claims covering core inventions
+- Dependent claims for variations and embodiments
+- Method claims and system claims where applicable
+- Proper claim numbering and dependencies
+
+Return JSON with key "claims" containing the complete claims section.`;
+
+    const expandedClaims = await callXalonAI('mixtral-8x7b', claimsExpansionPrompt, 
+      `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
+
+    // Stage 4: Prior Art Differentiation using Ollama 8B
+    console.log('Stage 4: Prior Art Differentiation with Ollama 8B');
+    const priorArtPrompt = `You are a prior art analyst. Create an abstract and ensure all content clearly differentiates from existing solutions.
+
+Generate:
+- A compelling abstract highlighting novelty
+- Clear differentiation language
+- Emphasis on unique advantages
+- Technical drawing descriptions
+
+Return JSON with keys: "abstract", "drawings"`;
+
+    const priorArtDifferentiated = await callXalonAI('ollama', priorArtPrompt, 
+      `Technical: ${technicalAnalysis}\nLegal: ${legalFormatted}\nClaims: ${expandedClaims}`);
+
+    console.log('Multi-model chain completed, assembling final draft');
+
+    // Combine all results into final draft
     let draft;
     try {
-      draft = JSON.parse(generatedContent);
+      const technical = JSON.parse(technicalAnalysis);
+      const legal = JSON.parse(legalFormatted);
+      const claims = JSON.parse(expandedClaims);
+      const priorArt = JSON.parse(priorArtDifferentiated);
+
+      draft = {
+        abstract: priorArt.abstract || 'Abstract not generated',
+        field: legal.field || 'Field not generated',
+        background: legal.background || 'Background not generated',
+        summary: legal.summary || 'Summary not generated', 
+        claims: claims.claims || 'Claims not generated',
+        drawings: priorArt.drawings || 'Drawings description not generated',
+        description: legal.description || 'Description not generated'
+      };
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', parseError);
-      console.error('OpenAI response:', generatedContent);
+      console.error('Failed to parse AI chain responses:', parseError);
       return new Response(
-        JSON.stringify({ error: 'Failed to parse generated content' }), 
+        JSON.stringify({ error: 'Failed to parse AI chain results' }), 
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

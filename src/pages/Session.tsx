@@ -786,10 +786,16 @@ const Session = () => {
                     title={getSectionTitle(sectionType)}
                     content={section?.content || ''}
                     isUserEdited={section?.is_user_edited || false}
+                    sectionType={sectionType}
+                    timestamp={section?.created_at}
                     onUpdate={(newContent) => {
                       if (section) {
                         updateSection(section.id, newContent);
                       }
+                    }}
+                    onRegenerate={() => {
+                      // TODO: Implement regeneration for specific section
+                      console.log('Regenerate section:', sectionType);
                     }}
                     isGenerated={!!section}
                   />
@@ -816,7 +822,10 @@ interface PatentSectionCardProps {
   content: string;
   isUserEdited: boolean;
   onUpdate: (content: string) => void;
+  onRegenerate?: () => void;
   isGenerated: boolean;
+  sectionType: string;
+  timestamp?: string;
 }
 
 const PatentSectionCard: React.FC<PatentSectionCardProps> = ({ 
@@ -824,7 +833,10 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
   content, 
   isUserEdited, 
   onUpdate, 
-  isGenerated 
+  onRegenerate,
+  isGenerated,
+  sectionType,
+  timestamp
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
@@ -838,6 +850,23 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
     setEditContent(content);
     setIsEditing(false);
   };
+
+  // Map section types to models used in the AI chain
+  const getModelInfo = (sectionType: string) => {
+    const modelMap: Record<string, { model: string; icon: string; phase: string }> = {
+      'claims': { model: 'Mixtral 8x7B', icon: '🧠', phase: 'Claims Expansion' },
+      'abstract': { model: 'Ollama 8B', icon: '🕵️', phase: 'Prior Art Analysis' },
+      'field': { model: 'Phi-3', icon: '✍️', phase: 'Legal Formatting' },
+      'background': { model: 'Phi-3', icon: '✍️', phase: 'Legal Formatting' },
+      'summary': { model: 'Phi-3', icon: '✍️', phase: 'Legal Formatting' },
+      'drawings': { model: 'Ollama 8B', icon: '🕵️', phase: 'Prior Art Analysis' },
+      'description': { model: 'Phi-3', icon: '✍️', phase: 'Legal Formatting' }
+    };
+    return modelMap[sectionType] || { model: 'AI Generated', icon: '🤖', phase: 'AI Processing' };
+  };
+
+  const modelInfo = getModelInfo(sectionType);
+  const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
 
   if (!isGenerated) {
     return (
@@ -859,25 +888,57 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
 
   return (
     <Card className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            {title}
-            {isUserEdited && (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                Edited
-              </span>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-base flex items-center gap-2 mb-2">
+              {title}
+              {isUserEdited && (
+                <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded">
+                  User Edited
+                </span>
+              )}
+            </CardTitle>
+            
+            {/* Model and stats info */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <span>{modelInfo.icon}</span>
+                <span>{modelInfo.model}</span>
+              </div>
+              <span>•</span>
+              <span>{wordCount} words</span>
+              {timestamp && (
+                <>
+                  <span>•</span>
+                  <span>{format(new Date(timestamp), 'MMM d, h:mm a')}</span>
+                </>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {onRegenerate && !isEditing && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={onRegenerate}
+                className="text-xs h-7"
+              >
+                Regenerate
+              </Button>
             )}
-          </CardTitle>
-          {!isEditing && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit3 className="h-4 w-4" />
-            </Button>
-          )}
+            {!isEditing && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="h-7"
+              >
+                <Edit3 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
