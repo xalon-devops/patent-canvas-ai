@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const KRONOS_SUPABASE_URL = "https://your-kronos.supabase.co"; // Replace with actual URL
-const KRONOS_SUPABASE_KEY = "public-anon-key"; // Replace with actual anon key
+// 🔗 Kronos Capital Supabase (do not change)
+const KRONOS_SUPABASE_URL = "https://omcetfxeloqyzuigzyag.supabase.co";
+const KRONOS_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tY2V0ZnhlbG9xeXp1aWd6eWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTA3MDUsImV4cCI6MjA2ODA4NjcwNX0.84rXj5CzaVSHFIkKcdOt2wfLFeepNAt-FAqEJCNSWbg";
 
 const supabase = createClient(KRONOS_SUPABASE_URL, KRONOS_SUPABASE_KEY);
 
