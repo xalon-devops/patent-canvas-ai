@@ -64,23 +64,33 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				'patent-blue': 'hsl(var(--patent-blue))',
-				'patent-blue-light': 'hsl(var(--patent-blue-light))',
-				'patent-purple': 'hsl(var(--patent-purple))',
-				'patent-purple-light': 'hsl(var(--patent-purple-light))'
+				/* XALON Brand Colors */
+				'xalon-cyan': 'hsl(var(--xalon-cyan))',
+				'xalon-cyan-light': 'hsl(var(--xalon-cyan-light))',
+				'xalon-cyan-dark': 'hsl(var(--xalon-cyan-dark))',
+				'xalon-blue': 'hsl(var(--xalon-blue))',
+				'xalon-blue-light': 'hsl(var(--xalon-blue-light))',
+				'xalon-dark': 'hsl(var(--xalon-dark))',
+				'xalon-dark-card': 'hsl(var(--xalon-dark-card))',
+				'xalon-dark-muted': 'hsl(var(--xalon-dark-muted))'
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-secondary': 'var(--gradient-secondary)',
 				'gradient-subtle': 'var(--gradient-subtle)',
+				'gradient-card': 'var(--gradient-card)',
 				'gradient-glow': 'var(--gradient-glow)'
 			},
 			boxShadow: {
+				'primary': 'var(--shadow-primary)',
 				'elegant': 'var(--shadow-elegant)',
 				'glow': 'var(--shadow-glow)',
-				'card': 'var(--shadow-card)'
+				'card': 'var(--shadow-card)',
+				'accent': 'var(--shadow-accent)'
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',
+				'fast': 'var(--transition-fast)',
 				'bounce': 'var(--transition-bounce)'
 			},
 			borderRadius: {

@@ -8,129 +8,123 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 240 10% 98%;
-    --foreground: 234 20% 12%;
+    /* XALON Brand Dark Theme - Primary Base */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 234 20% 12%;
+    --card: 240 8% 6%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 234 20% 12%;
+    --popover: 240 8% 6%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 234 89% 23%;
-    --primary-foreground: 240 10% 98%;
-    --primary-glow: 234 89% 45%;
+    /* XALON Primary - Electric Cyan */
+    --primary: 187 100% 50%;
+    --primary-foreground: 240 10% 3.9%;
+    --primary-glow: 187 100% 65%;
+    --primary-variant: 187 85% 45%;
 
-    --secondary: 240 8% 96%;
-    --secondary-foreground: 234 20% 12%;
+    /* XALON Secondary - Darker cards and elements */
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 8% 96%;
-    --muted-foreground: 234 12% 55%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 258 89% 23%;
-    --accent-foreground: 240 10% 98%;
-    --accent-glow: 258 89% 45%;
+    /* XALON Accent - Bright Electric Blue */
+    --accent: 220 100% 60%;
+    --accent-foreground: 240 10% 3.9%;
+    --accent-glow: 220 100% 70%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 240 10% 98%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 240 8% 92%;
-    --input: 240 8% 92%;
-    --ring: 234 89% 23%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 187 100% 50%;
 
-    /* Professional Patent Theme */
-    --patent-blue: 234 89% 23%;
-    --patent-blue-light: 234 89% 45%;
-    --patent-purple: 258 89% 23%;
-    --patent-purple-light: 258 89% 45%;
+    /* XALON Brand Theme Colors */
+    --xalon-cyan: 187 100% 50%;
+    --xalon-cyan-light: 187 100% 65%;
+    --xalon-cyan-dark: 187 85% 45%;
+    --xalon-blue: 220 100% 60%;
+    --xalon-blue-light: 220 100% 70%;
+    --xalon-dark: 240 10% 3.9%;
+    --xalon-dark-card: 240 8% 6%;
+    --xalon-dark-muted: 240 3.7% 15.9%;
     
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--patent-blue)), hsl(var(--patent-purple)));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(240 8% 95%));
-    --gradient-glow: linear-gradient(135deg, hsl(var(--patent-blue-light)), hsl(var(--patent-purple-light)));
+    /* XALON Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(187 100% 50%), hsl(220 100% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(220 100% 60%), hsl(187 100% 65%));
+    --gradient-subtle: linear-gradient(180deg, hsl(240 10% 3.9%), hsl(240 8% 6%));
+    --gradient-card: linear-gradient(145deg, hsl(240 8% 6% / 0.8), hsl(240 3.7% 15.9% / 0.6));
+    --gradient-glow: linear-gradient(135deg, hsl(187 100% 65%), hsl(220 100% 70%));
     
-    /* Shadows */
-    --shadow-elegant: 0 10px 40px -10px hsl(var(--patent-blue) / 0.2);
-    --shadow-glow: 0 0 60px hsl(var(--patent-blue-light) / 0.3);
-    --shadow-card: 0 4px 20px -2px hsl(234 20% 12% / 0.08);
+    /* XALON Shadows with brand colors */
+    --shadow-primary: 0 10px 30px -10px hsl(187 100% 50% / 0.3);
+    --shadow-glow: 0 0 40px hsl(187 100% 65% / 0.4);
+    --shadow-card: 0 8px 32px -8px hsl(240 10% 3.9% / 0.8);
+    --shadow-elegant: 0 20px 60px -10px hsl(187 100% 50% / 0.2);
+    --shadow-accent: 0 0 20px hsl(220 100% 60% / 0.3);
     
-    /* Animations */
-    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Smooth transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar using XALON colors */
+    --sidebar-background: 240 8% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 187 100% 50%;
+    --sidebar-primary-foreground: 240 10% 3.9%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 187 100% 50%;
   }
 
   .dark {
-    --background: 234 20% 8%;
-    --foreground: 240 10% 95%;
+    /* Same as root - XALON uses consistent dark theme */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 234 15% 12%;
-    --card-foreground: 240 10% 95%;
+    --card: 240 8% 6%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 234 15% 12%;
-    --popover-foreground: 240 10% 95%;
+    --popover: 240 8% 6%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 234 89% 65%;
-    --primary-foreground: 234 20% 8%;
-    --primary-glow: 234 89% 75%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 240 10% 3.9%;
+    --primary-glow: 187 100% 65%;
 
-    --secondary: 234 10% 18%;
-    --secondary-foreground: 240 10% 95%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 234 10% 18%;
-    --muted-foreground: 240 8% 65%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 258 89% 65%;
-    --accent-foreground: 234 20% 8%;
-    --accent-glow: 258 89% 75%;
+    --accent: 220 100% 60%;
+    --accent-foreground: 240 10% 3.9%;
+    --accent-glow: 220 100% 70%;
 
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 240 10% 95%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 234 10% 18%;
-    --input: 234 10% 18%;
-    --ring: 234 89% 65%;
-    
-    /* Dark Patent Theme */
-    --patent-blue: 234 89% 65%;
-    --patent-blue-light: 234 89% 75%;
-    --patent-purple: 258 89% 65%;
-    --patent-purple-light: 258 89% 75%;
-    
-    /* Dark Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--patent-blue)), hsl(var(--patent-purple)));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(234 15% 10%));
-    --gradient-glow: linear-gradient(135deg, hsl(var(--patent-blue-light)), hsl(var(--patent-purple-light)));
-    
-    /* Dark Shadows */
-    --shadow-elegant: 0 10px 40px -10px hsl(var(--patent-blue) / 0.4);
-    --shadow-glow: 0 0 60px hsl(var(--patent-blue-light) / 0.3);
-    --shadow-card: 0 4px 20px -2px hsl(0 0% 0% / 0.3);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 187 100% 50%;
+
+    --sidebar-background: 240 8% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 187 100% 50%;
+    --sidebar-primary-foreground: 240 10% 3.9%;
     --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 187 100% 50%;
   }
 }
 

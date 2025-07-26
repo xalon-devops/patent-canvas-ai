@@ -9,19 +9,24 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-elegant",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-primary",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        gradient: "bg-gradient-primary text-primary-foreground hover:shadow-glow hover:scale-105 transition-bounce",
+        link: "text-primary underline-offset-4 hover:underline hover:text-xalon-cyan-light transition-fast",
+        
+        /* XALON Brand Variants */
+        gradient: "bg-gradient-primary text-white hover:shadow-glow hover:scale-105 transition-fast font-semibold",
+        "gradient-secondary": "bg-gradient-secondary text-white hover:shadow-accent hover:scale-105 transition-fast font-semibold",
+        xalon: "bg-xalon-cyan text-xalon-dark hover:bg-xalon-cyan-light hover:shadow-primary transition-fast font-semibold",
+        "xalon-outline": "border-2 border-xalon-cyan text-xalon-cyan bg-transparent hover:bg-xalon-cyan hover:text-xalon-dark hover:shadow-primary transition-fast font-semibold",
+        "xalon-ghost": "text-xalon-cyan hover:bg-xalon-cyan/10 hover:text-xalon-cyan-light transition-fast",
+        glow: "bg-gradient-glow text-white hover:shadow-glow hover:scale-105 transition-fast border-0 font-semibold",
+        
+        /* Legacy variants for compatibility */
         professional: "bg-card text-card-foreground border border-border hover:bg-accent hover:text-accent-foreground hover:shadow-card transition-smooth",
         patent: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground hover:shadow-elegant transition-smooth",
-        glow: "bg-gradient-glow text-primary-foreground hover:shadow-glow hover:scale-105 transition-bounce border-0",
       },
       size: {
         default: "h-10 px-4 py-2",
