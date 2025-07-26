@@ -133,7 +133,9 @@ export type Database = {
       prior_art_results: {
         Row: {
           created_at: string | null
+          difference_claims: string[] | null
           id: string
+          overlap_claims: string[] | null
           publication_number: string | null
           session_id: string
           similarity_score: number | null
@@ -143,7 +145,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          difference_claims?: string[] | null
           id?: string
+          overlap_claims?: string[] | null
           publication_number?: string | null
           session_id: string
           similarity_score?: number | null
@@ -153,7 +157,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          difference_claims?: string[] | null
           id?: string
+          overlap_claims?: string[] | null
           publication_number?: string | null
           session_id?: string
           similarity_score?: number | null

@@ -164,17 +164,78 @@ serve(async (req) => {
 
     // Process and store top 5 results (REST API format)
     const results = lensData.data.slice(0, 5);
-    const priorArtResults = results.map((result: any) => ({
-      session_id,
-      title: result.title || result.biblio?.title || 'Untitled Patent',
-      publication_number: result.publication_number || 
-                         result.biblio?.publication_number || 
-                         result.doc_key?.publication_number || 
-                         'Unknown',
-      similarity_score: result.score || 0,
-      summary: result.abstract || result.biblio?.abstract || 'No abstract available',
-      url: result.external_ids?.patent_office_url || null
-    }));
+    
+    // Use Ollama to analyze overlaps and differences for each result
+    const priorArtResults = [];
+    for (const result of results) {
+      const title = result.title || result.biblio?.title || 'Untitled Patent';
+      const summary = result.abstract || result.biblio?.abstract || 'No abstract available';
+      
+      // Generate overlap and difference analysis using Ollama
+      const analysisPrompt = `Analyze this prior art patent against the invention idea "${session.idea_prompt}".
+
+Prior Art Patent: ${title}
+Abstract: ${summary}
+
+Provide analysis in this exact JSON format:
+{
+  "overlaps": ["specific overlapping claim or feature 1", "specific overlapping claim or feature 2"],
+  "differences": ["key difference 1", "key difference 2", "key difference 3"]
+}`;
+
+      let overlapClaims = [];
+      let differenceClaims = [];
+      
+      try {
+        console.log('Calling XALON AI for overlap analysis');
+        const analysisResponse = await fetch('https://llm.xalon.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer xalon_demo_token_12345',
+          },
+          body: JSON.stringify({
+            model: 'ollama:llama3.1:8b',
+            messages: [
+              {
+                role: 'user',
+                content: analysisPrompt
+              }
+            ],
+            temperature: 0.3
+          })
+        });
+
+        if (analysisResponse.ok) {
+          const analysisData = await analysisResponse.json();
+          const analysisContent = analysisData.choices[0]?.message?.content || '{}';
+          
+          try {
+            const parsed = JSON.parse(analysisContent);
+            overlapClaims = parsed.overlaps || [];
+            differenceClaims = parsed.differences || [];
+          } catch (parseError) {
+            console.warn('Failed to parse overlap analysis JSON:', parseError);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to analyze overlaps for result:', error);
+      }
+      
+      priorArtResults.push({
+        session_id,
+        title,
+        publication_number: result.publication_number || 
+                           result.biblio?.publication_number || 
+                           result.doc_key?.publication_number || 
+                           'Unknown',
+        similarity_score: result.score || 0,
+        summary,
+        url: result.external_ids?.patent_office_url || null,
+        overlap_claims: overlapClaims,
+        difference_claims: differenceClaims
+      });
+    }
 
     console.log(`Storing ${priorArtResults.length} prior art results`);
 

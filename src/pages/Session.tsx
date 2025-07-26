@@ -53,6 +53,8 @@ interface PriorArtResult {
   similarity_score: number;
   url: string;
   created_at: string;
+  overlap_claims?: string[];
+  difference_claims?: string[];
 }
 
 const Session = () => {
@@ -665,34 +667,86 @@ const Session = () => {
                 </div>
 
                 <div className="space-y-2 pl-11">
-                  {priorArt.map((art) => (
-                    <Card key={art.id} className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-sm">{art.title}</CardTitle>
-                            <CardDescription className="text-xs">
-                              {art.publication_number} • {formatSimilarityScore(art.similarity_score)}
-                            </CardDescription>
+                  {priorArt.map((art) => {
+                    const overlapCount = art.overlap_claims?.length || 0;
+                    const differenceCount = art.difference_claims?.length || 0;
+                    
+                    // Determine overlap badge color based on similarity
+                    const getOverlapBadge = () => {
+                      if (overlapCount === 0) return { color: '🟢', text: 'Low Overlap' };
+                      if (overlapCount <= 2) return { color: '🟡', text: 'Medium Overlap' };
+                      return { color: '🔴', text: 'High Overlap' };
+                    };
+                    
+                    const overlapBadge = getOverlapBadge();
+                    
+                    return (
+                      <Card key={art.id} className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                {art.title}
+                                <span className="text-xs flex items-center gap-1 bg-secondary px-2 py-1 rounded">
+                                  {overlapBadge.color} {overlapBadge.text}
+                                </span>
+                              </CardTitle>
+                              <CardDescription className="text-xs">
+                                {art.publication_number} • {formatSimilarityScore(art.similarity_score)}
+                              </CardDescription>
+                            </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {art.summary}
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => window.open(art.url, '_blank')}
-                          className="text-xs h-7"
-                        >
-                          <Eye className="h-3 w-3" />
-                          View Patent
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardHeader>
+                        <CardContent className="pt-0 space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            {art.summary}
+                          </p>
+                          
+                          {/* Overlap Analysis */}
+                          {art.overlap_claims && art.overlap_claims.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className="text-xs font-semibold text-destructive flex items-center gap-1">
+                                🔴 Overlapping Claims ({art.overlap_claims.length})
+                              </h5>
+                              <ul className="text-xs space-y-1">
+                                {art.overlap_claims.map((claim, idx) => (
+                                  <li key={idx} className="text-muted-foreground bg-destructive/5 p-2 rounded">
+                                    • {claim}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {/* Difference Analysis */}
+                          {art.difference_claims && art.difference_claims.length > 0 && (
+                            <div className="space-y-2">
+                              <h5 className="text-xs font-semibold text-green-600 flex items-center gap-1">
+                                🟢 Key Differences ({art.difference_claims.length})
+                              </h5>
+                              <ul className="text-xs space-y-1">
+                                {art.difference_claims.map((claim, idx) => (
+                                  <li key={idx} className="text-muted-foreground bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                                    • {claim}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(art.url, '_blank')}
+                            className="text-xs h-7"
+                          >
+                            <Eye className="h-3 w-3" />
+                            View Patent
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 <div className="flex gap-3">
