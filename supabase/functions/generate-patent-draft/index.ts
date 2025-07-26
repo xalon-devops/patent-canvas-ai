@@ -33,9 +33,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // XALON AI endpoint configuration
-    const xalonApiUrl = 'https://llm.xalon.ai/v1/chat/completions';
-    const xalonApiKey = 'PatentBotAI';
+    // OpenAI API configuration
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -94,16 +96,16 @@ serve(async (req) => {
 
     console.log('Starting multi-model AI drafting chain');
     
-    // Helper function to call XALON AI with different models
-    async function callXalonAI(model: string, systemPrompt: string, userContent: string) {
-      const response = await fetch(xalonApiUrl, {
+    // Helper function to call OpenAI
+    async function callOpenAI(systemPrompt: string, userContent: string) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${xalonApiKey}`,
+          'Authorization': `Bearer ${openAIApiKey}`,
         },
         body: JSON.stringify({
-          model,
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
@@ -115,15 +117,15 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`XALON AI API error for ${model}: ${response.status} ${errorText}`);
+        throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
       return data.choices[0].message.content;
     }
 
-    // Stage 1: Deep Technical Extraction using Mixtral 8x7B
-    console.log('Stage 1: Deep Technical Extraction with Mixtral 8x7B');
+    // Stage 1: Deep Technical Extraction using OpenAI
+    console.log('Stage 1: Deep Technical Extraction with OpenAI');
     const technicalExtractionPrompt = `You are a technical patent expert. Extract and identify all technical details, mechanisms, components, and innovative aspects from the invention.
 
 Focus on:
@@ -141,11 +143,11 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "specifications": "technical requirements description"
 }`;
 
-    const technicalAnalysis = await callXalonAI('mixtral-8x7b', technicalExtractionPrompt, 
+    const technicalAnalysis = await callOpenAI(technicalExtractionPrompt, 
       `Invention Idea: ${idea_prompt}\n\nQ&A Results:\n${qa_text}`);
 
-    // Stage 2: Legal Language Formatting using Phi-3
-    console.log('Stage 2: Legal Language Formatting with Phi-3');
+    // Stage 2: Legal Language Formatting using OpenAI
+    console.log('Stage 2: Legal Language Formatting with OpenAI');
     const legalFormattingPrompt = `You are a patent attorney specializing in legal language formatting. Convert technical content into proper patent legal language.
 
 Transform the technical analysis into formal patent sections:
@@ -162,10 +164,10 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "description": "detailed description text"
 }`;
 
-    const legalFormatted = await callXalonAI('phi-3', legalFormattingPrompt, technicalAnalysis);
+    const legalFormatted = await callOpenAI(legalFormattingPrompt, technicalAnalysis);
 
-    // Stage 3: Claims Expansion using Mixtral again
-    console.log('Stage 3: Claims Expansion with Mixtral 8x7B');
+    // Stage 3: Claims Expansion using OpenAI
+    console.log('Stage 3: Claims Expansion with OpenAI');
     const claimsExpansionPrompt = `You are a claims expert. Generate comprehensive patent claims based on the technical analysis and legal formatting.
 
 Create:
@@ -179,11 +181,11 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "claims": "1. A system for... 2. The system of claim 1, wherein..."
 }`;
 
-    const expandedClaims = await callXalonAI('mixtral-8x7b', claimsExpansionPrompt, 
+    const expandedClaims = await callOpenAI(claimsExpansionPrompt, 
       `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
 
-    // Stage 4: Prior Art Differentiation using Mixtral 8x7B
-    console.log('Stage 4: Prior Art Differentiation with Mixtral 8x7B');
+    // Stage 4: Prior Art Differentiation using OpenAI
+    console.log('Stage 4: Prior Art Differentiation with OpenAI');
     const priorArtPrompt = `You are a prior art analyst. Create an abstract and ensure all content clearly differentiates from existing solutions.
 
 Generate:
@@ -198,7 +200,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "drawings": "technical drawing descriptions here"
 }`;
 
-    const priorArtDifferentiated = await callXalonAI('mixtral-8x7b', priorArtPrompt, 
+    const priorArtDifferentiated = await callOpenAI(priorArtPrompt, 
       `Technical: ${technicalAnalysis}\nLegal: ${legalFormatted}\nClaims: ${expandedClaims}`);
 
     console.log('Multi-model chain completed, assembling final draft');
