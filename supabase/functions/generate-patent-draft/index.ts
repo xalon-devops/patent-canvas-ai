@@ -171,8 +171,8 @@ Return JSON with key "claims" containing the complete claims section.`;
     const expandedClaims = await callXalonAI('mixtral-8x7b', claimsExpansionPrompt, 
       `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
 
-    // Stage 4: Prior Art Differentiation using Ollama 8B
-    console.log('Stage 4: Prior Art Differentiation with Ollama 8B');
+    // Stage 4: Prior Art Differentiation using Mixtral 8x7B
+    console.log('Stage 4: Prior Art Differentiation with Mixtral 8x7B');
     const priorArtPrompt = `You are a prior art analyst. Create an abstract and ensure all content clearly differentiates from existing solutions.
 
 Generate:
@@ -183,7 +183,7 @@ Generate:
 
 Return JSON with keys: "abstract", "drawings"`;
 
-    const priorArtDifferentiated = await callXalonAI('ollama', priorArtPrompt, 
+    const priorArtDifferentiated = await callXalonAI('mixtral-8x7b', priorArtPrompt,
       `Technical: ${technicalAnalysis}\nLegal: ${legalFormatted}\nClaims: ${expandedClaims}`);
 
     console.log('Multi-model chain completed, assembling final draft');
