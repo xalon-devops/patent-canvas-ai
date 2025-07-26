@@ -742,49 +742,12 @@ const Session = () => {
 
       <div className="flex h-[calc(100vh-80px)]">
         {/* Left Panel - Chat */}
-        <div className="w-full border-r bg-card/50 backdrop-blur-sm flex flex-col">
+        <div className="w-full lg:w-1/2 border-r bg-card/50 backdrop-blur-sm flex flex-col">
           <div className="p-4 border-b">
             <h2 className="font-semibold flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
               AI Patent Assistant
             </h2>
-            
-            {/* Small XALON AI™ Footer */}
-            <div className="mt-1 mb-2">
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                background: '#000000',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                boxShadow: '0 0 8px #00e5ff40',
-                width: 'fit-content',
-              }}>
-                <button style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: '#000000',
-                  border: 'none',
-                  color: '#00e5ff',
-                  fontWeight: 'bold',
-                  fontFamily: '"Segoe UI", sans-serif',
-                  fontSize: '10px',
-                  padding: '2px 4px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}>
-                  Powered by XALON AI™
-                  <img 
-                    src="https://i.ibb.co/D210QCV/Only-Pro-Logo-Horizontal-Transparent-6.png" 
-                    alt="XALON Logo" 
-                    style={{height: '10px', width: 'auto'}} 
-                  />
-                </button>
-              </div>
-            </div>
-            
             <p className="text-sm text-muted-foreground">
               {chatPhase === 'initial' && "Tell me about your invention idea"}
               {chatPhase === 'questioning' && "Let's gather more details about your invention"}
@@ -1018,6 +981,91 @@ const Session = () => {
           )}
         </div>
 
+        {/* Right Panel - Patent Canvas */}
+        <div className={`${chatPhase === 'canvas' ? 'w-full lg:w-1/2' : 'hidden lg:block lg:w-1/2'} bg-background/50 backdrop-blur-sm`}>
+          <div className="p-4 border-b">
+            <h2 className="font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Patent Canvas
+              {chatPhase !== 'canvas' && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  (Will appear after search)
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {chatPhase === 'canvas' ? (
+            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-4">
+              {sectionTypes.map((sectionType) => {
+                const section = sections.find(s => s.section_type === sectionType);
+                return (
+                  <PatentSectionCard
+                    key={sectionType}
+                    title={getSectionTitle(sectionType)}
+                    content={section?.content || ''}
+                    isUserEdited={section?.is_user_edited || false}
+                    sectionType={sectionType}
+                    timestamp={section?.created_at}
+                    onUpdate={(newContent) => {
+                      if (section) {
+                        updateSection(section.id, newContent);
+                      }
+                    }}
+                    onRegenerate={() => {
+                      // TODO: Implement regeneration for specific section
+                      console.log('Regenerate section:', sectionType);
+                    }}
+                    isGenerated={!!section}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[calc(100vh-160px)]">
+              <div className="text-center text-muted-foreground">
+                <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                <p>Patent canvas will appear after completing the interview</p>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* XALON AI™ Footer */}
+        <div className="mt-4 flex justify-center">
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#000000',
+            padding: '12px',
+            borderRadius: '12px',
+            boxShadow: '0 0 20px #00e5ff80',
+          }}>
+            <button style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#000000',
+              border: 'none',
+              color: '#00e5ff',
+              fontWeight: 'bold',
+              fontFamily: '"Segoe UI", sans-serif',
+              fontSize: '14px',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 0 8px #00e5ff80',
+            }}>
+              Powered by XALON AI™
+              <img 
+                src="https://i.ibb.co/D210QCV/Only-Pro-Logo-Horizontal-Transparent-6.png" 
+                alt="XALON Logo" 
+                style={{height: '16px', width: 'auto'}} 
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
