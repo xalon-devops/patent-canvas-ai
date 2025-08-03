@@ -124,80 +124,147 @@ serve(async (req) => {
       return data.choices[0].message.content;
     }
 
-    // Stage 1: Deep Technical Extraction using OpenAI
-    console.log('Stage 1: Deep Technical Extraction with OpenAI');
-    const technicalExtractionPrompt = `You are a technical patent expert. Extract and identify all technical details, mechanisms, components, and innovative aspects from the invention.
+    // Stage 1: Legal-Grade Technical Analysis using USPTO Guidelines
+    console.log('Stage 1: Legal-Grade Technical Analysis (USPTO Compliant)');
+    const technicalExtractionPrompt = `You are a USPTO-certified patent examiner and technical expert. Perform a comprehensive technical analysis of this invention following USPTO MPEP guidelines.
 
-Focus on:
-- Technical components and their relationships
-- Novel mechanisms and processes
-- Key innovations and differentiators
-- Technical specifications and requirements
-- Implementation details
+CRITICAL REQUIREMENTS:
+1. Identify ALL technical elements that could form the basis of patentable claims
+2. Categorize innovations by statutory classes (35 U.S.C. § 101): process, machine, manufacture, composition of matter
+3. Determine technical improvements over prior art
+4. Identify specific, concrete implementations (avoid abstract ideas per Alice/Mayo)
+5. Extract measurable technical specifications where possible
+
+ANALYSIS FRAMEWORK:
+- TECHNICAL ELEMENTS: Specific hardware, software, chemical, mechanical components
+- FUNCTIONAL RELATIONSHIPS: How components interact to achieve technical objectives  
+- NOVEL MECHANISMS: New processes, algorithms, chemical reactions, mechanical operations
+- TECHNICAL ADVANTAGES: Measurable improvements (speed, efficiency, accuracy, etc.)
+- IMPLEMENTATION DETAILS: Specific materials, dimensions, parameters, protocols
+- CLAIM-WORTHY FEATURES: Elements that could form independent/dependent claims
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
 {
-  "technical_components": ["component1", "component2"],
-  "mechanisms": ["mechanism1", "mechanism2"],
-  "innovations": ["innovation1", "innovation2"],
-  "specifications": "technical requirements description"
+  "technical_elements": ["specific technical component descriptions"],
+  "functional_relationships": ["component A interacts with component B to achieve C"],
+  "novel_mechanisms": ["detailed process/mechanism descriptions"],
+  "technical_advantages": ["measurable improvement over prior art"],
+  "implementation_specifics": ["concrete technical details"],
+  "statutory_class": "process|machine|manufacture|composition",
+  "claim_worthy_features": ["features suitable for patent claims"]
 }`;
 
     const technicalAnalysis = await callOpenAI(technicalExtractionPrompt, 
       `Invention Idea: ${idea_prompt}\n\nQ&A Results:\n${qa_text}`);
 
-    // Stage 2: Legal Language Formatting using OpenAI
-    console.log('Stage 2: Legal Language Formatting with OpenAI');
-    const legalFormattingPrompt = `You are a patent attorney specializing in legal language formatting. Convert technical content into proper patent legal language.
+    // Stage 2: USPTO-Compliant Legal Document Structuring
+    console.log('Stage 2: USPTO-Compliant Legal Document Structuring');
+    const legalFormattingPrompt = `You are a USPTO-registered patent attorney specializing in patent prosecution. Transform the technical analysis into legally compliant patent sections following USPTO MPEP Chapter 600 guidelines.
 
-Transform the technical analysis into formal patent sections:
-- Use precise legal terminology
-- Follow USPTO formatting guidelines
-- Create clear, defensible language
-- Ensure proper claim structure
+LEGAL REQUIREMENTS PER USPTO MPEP:
+1. FIELD OF INVENTION (35 U.S.C. § 112(a)): Must clearly indicate field of art to which invention pertains
+2. BACKGROUND (35 U.S.C. § 112(a)): Describe prior art problems, limitations, and need for invention
+3. SUMMARY (35 U.S.C. § 112(a)): Concise summary of invention and its advantages
+4. DETAILED DESCRIPTION (35 U.S.C. § 112(a)): Enable person skilled in art to make and use invention
+
+LEGAL LANGUAGE REQUIREMENTS:
+- Use present tense for describing invention
+- Use past tense for describing prior art
+- Avoid subjective terms ("better," "superior") - use objective technical language
+- Include enablement details (materials, dimensions, parameters)
+- Reference figure numbers where applicable
+- Use claim language consistency throughout specification
+
+TECHNICAL WRITING STANDARDS:
+- Precise terminology throughout
+- Consistent component naming
+- Quantitative specifications where possible
+- Clear cause-and-effect relationships
+- Avoid vague terms ("substantially," "about" only when necessary)
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
 {
-  "field": "field description text",
-  "background": "background description text", 
-  "summary": "summary description text",
-  "description": "detailed description text"
+  "field": "Technical field statement following MPEP 608.01(c)",
+  "background": "Prior art description and problem statement per MPEP 608.01(c)", 
+  "summary": "Invention summary with advantages per MPEP 608.01(d)",
+  "description": "Detailed enablement description per 35 U.S.C. § 112(a)"
 }`;
 
     const legalFormatted = await callOpenAI(legalFormattingPrompt, technicalAnalysis);
 
-    // Stage 3: Claims Expansion using OpenAI
-    console.log('Stage 3: Claims Expansion with OpenAI');
-    const claimsExpansionPrompt = `You are a claims expert. Generate comprehensive patent claims based on the technical analysis and legal formatting.
+    // Stage 3: Professional Claims Drafting (35 U.S.C. § 112(b))
+    console.log('Stage 3: Professional Claims Drafting (35 U.S.C. § 112(b))');
+    const claimsExpansionPrompt = `You are a USPTO-registered patent attorney specializing in claim drafting. Generate legally compliant patent claims following 35 U.S.C. § 112(b) and MPEP Chapter 2100.
 
-Create:
-- Independent claims covering core inventions
-- Dependent claims for variations and embodiments
-- Method claims and system claims where applicable
-- Proper claim numbering and dependencies
+CLAIM DRAFTING REQUIREMENTS (35 U.S.C. § 112(b)):
+1. Claims must particularly point out and distinctly claim the subject matter
+2. Independent claims must be complete and standalone
+3. Dependent claims must refer back to and further limit preceding claims
+4. Use clear antecedent basis (first mention "a," subsequent "the")
+5. Avoid vague terms, use definite language
+6. Ensure claim scope is supported by specification
+
+CLAIM STRUCTURE RULES:
+- Start with preamble identifying statutory class
+- Include transitional phrase ("comprising," "consisting of," "consisting essentially of")
+- List claim elements with clear limitations
+- Use consistent terminology from specification
+- Number claims sequentially
+- Ensure dependent claims add meaningful limitations
+
+CLAIM TYPES TO GENERATE:
+- 1-3 Independent claims (system, method, apparatus)
+- 3-7 Dependent claims per independent claim
+- Include apparatus claims and method claims if applicable
+- Cover different embodiments and variations
+
+LEGAL LANGUAGE REQUIREMENTS:
+- Use "comprising" for open-ended claims
+- Use "consisting of" for closed claims
+- Avoid "means plus function" unless absolutely necessary
+- Use definite articles properly
+- Ensure measurable/definite limitations
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have this exact structure:
 {
-  "claims": "1. A system for... 2. The system of claim 1, wherein..."
+  "claims": "Patent claims formatted with proper numbering, dependencies, and legal language"
 }`;
 
     const expandedClaims = await callOpenAI(claimsExpansionPrompt, 
       `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
 
-    // Stage 4: Prior Art Differentiation using OpenAI
-    console.log('Stage 4: Prior Art Differentiation with OpenAI');
-    const priorArtPrompt = `You are a prior art analyst. Create an abstract and ensure all content clearly differentiates from existing solutions.
+    // Stage 4: USPTO Abstract & Drawing Descriptions (37 CFR 1.72)
+    console.log('Stage 4: USPTO Abstract & Drawing Descriptions (37 CFR 1.72)');
+    const priorArtPrompt = `You are a USPTO patent examiner specializing in abstracts and drawing descriptions. Generate USPTO-compliant abstract and drawing descriptions per 37 CFR 1.72.
 
-Generate:
-- A compelling abstract highlighting novelty
-- Clear differentiation language
-- Emphasis on unique advantages
-- Technical drawing descriptions
+ABSTRACT REQUIREMENTS (37 CFR 1.72):
+1. Concise summary of technical disclosure (preferably 50-150 words)
+2. Indicate technical field and nature of invention
+3. Describe problem solved and solution provided
+4. Highlight key technical features and advantages
+5. Avoid claims language and commercial significance
+6. Use present tense, objective language
+7. No references to drawings or examples
+
+DRAWING DESCRIPTION REQUIREMENTS (35 U.S.C. § 112(a)):
+1. Brief description of each drawing figure
+2. Explain relationship between drawings and invention
+3. Identify key components and reference numerals
+4. Describe views (plan, elevation, perspective, etc.)
+5. Note any special drawing features (exploded views, cross-sections)
+6. Ensure drawings enable understanding of invention
+
+TECHNICAL STANDARDS:
+- Precise, technical language avoiding marketing terms
+- Focus on novel technical aspects
+- Clear differentiation from prior art
+- Measurable advantages where possible
+- Consistent terminology with specification
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. The JSON must have these exact keys:
 {
-  "abstract": "abstract text here",
-  "drawings": "technical drawing descriptions here"
+  "abstract": "USPTO-compliant abstract (50-150 words) per 37 CFR 1.72",
+  "drawings": "Brief description of drawings per 35 U.S.C. § 112(a)"
 }`;
 
     const priorArtDifferentiated = await callOpenAI(priorArtPrompt, 

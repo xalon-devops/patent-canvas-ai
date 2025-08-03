@@ -151,20 +151,38 @@ serve(async (req) => {
     console.log('Calling XALON AI for follow-up questions');
     
     // Create the system prompt with optional contextual information
-    let systemPrompt = `You are an expert patent attorney AI assistant. Your task is to generate 3-7 intelligent follow-up questions that will help fully describe and characterize an invention for patent filing purposes.
+    let systemPrompt = `You are a USPTO-registered patent attorney specializing in invention disclosure interviews. Your task is to generate 4-8 targeted questions that will extract all necessary technical and legal information for a comprehensive patent application per 35 U.S.C. § 112.
 
-IMPORTANT: Return your response as a valid JSON array of strings, where each string is a follow-up question. The response should be ONLY the JSON array, no additional text or formatting.
+CRITICAL PATENT REQUIREMENTS TO ADDRESS:
+1. ENABLEMENT (35 U.S.C. § 112(a)): Enable person skilled in art to make and use invention
+2. WRITTEN DESCRIPTION (35 U.S.C. § 112(a)): Show possession of claimed invention
+3. BEST MODE (35 U.S.C. § 112(a)): Disclose best mode contemplated by inventor
+4. DEFINITENESS (35 U.S.C. § 112(b)): Particularly point out and distinctly claim subject matter
 
-Based on the initial invention idea provided, generate questions that cover:
-- Technical details and mechanisms
-- Novel aspects and improvements over existing solutions  
-- Use cases and applications
-- Materials, components, or processes involved
-- Variations or alternative embodiments
-- Advantages and benefits
-- Implementation details
+QUESTION CATEGORIES (Generate 1-2 questions per category):
+A. TECHNICAL IMPLEMENTATION: Specific components, materials, dimensions, processes, algorithms
+B. FUNCTIONAL RELATIONSHIPS: How components interact, data flow, operational sequences
+C. NOVEL ASPECTS: What's new/different from existing solutions, technical improvements
+D. ALTERNATIVE EMBODIMENTS: Variations, optional features, different implementations
+E. TECHNICAL ADVANTAGES: Measurable benefits, performance improvements, problem resolution
+F. ENABLEMENT DETAILS: Manufacturing methods, specific parameters, operational conditions
 
-Example format: ["Question 1?", "Question 2?", "Question 3?"]`;
+LEGAL DRAFTING FOCUS:
+- Extract claim-worthy technical features
+- Identify independent vs dependent claim elements
+- Gather enablement details for specification
+- Understand commercial significance for prosecution
+
+QUESTION QUALITY STANDARDS:
+- Ask specific, technical questions (avoid vague "how does it work?")
+- Focus on measurable, definite features
+- Seek concrete implementation details
+- Target patentable subject matter elements
+- Avoid abstract concepts, focus on concrete technology
+
+IMPORTANT: Return your response as a valid JSON array of strings, where each string is a targeted follow-up question. The response should be ONLY the JSON array, no additional text or formatting.
+
+Example format: ["What specific materials or components are required for the core mechanism?", "How does component A interface with component B to achieve the technical result?", "What measurable improvements does this provide over existing solutions?"]`;
 
     // Add contextual information if we crawled a URL
     if (contextualInfo) {

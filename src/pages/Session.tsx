@@ -312,10 +312,12 @@ const Session = () => {
           // Generate patent sections progressively after each answer
           await generatePatentSections();
 
-          // Check if we have enough questions answered (let's say 3 for demo)
+          // Check if all questions are answered OR we have sufficient technical detail
+          const allQuestionsAnswered = questions.every(q => q.answer);
           const answeredCount = questions.filter(q => q.answer).length;
+          const sufficientDetail = answeredCount >= Math.min(3, questions.length);
           
-          if (answeredCount >= 3) {
+          if (allQuestionsAnswered || sufficientDetail) {
             // Move to search phase
             setChatPhase('search');
             await performPriorArtSearch();
@@ -883,12 +885,32 @@ const Session = () => {
               </div>
             )}
 
-            {/* Show answered questions and current question only */}
+            {/* Show progress bar */}
+            {questions.length > 0 && chatPhase === 'questioning' && (
+              <div className="bg-card/80 border border-border rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Question Progress</span>
+                  <span className="text-xs text-muted-foreground">
+                    {questions.filter(q => q.answer).length} of {questions.length} answered
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div 
+                    className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(questions.filter(q => q.answer).length / questions.length) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {/* Show only answered questions and current question */}
             {questions.map((question, index) => {
               const currentQuestionIndex = questions.findIndex(q => !q.answer);
-              const shouldShow = question.answer || index === currentQuestionIndex;
+              const isCurrentQuestion = index === currentQuestionIndex;
+              const isAnswered = !!question.answer;
               
-              if (!shouldShow) return null;
+              // Only show answered questions and the current unanswered question
+              if (!isAnswered && !isCurrentQuestion) return null;
               
               return (
                 <div key={question.id} className="space-y-3">
@@ -898,6 +920,11 @@ const Session = () => {
                     </div>
                     <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
                       <p className="text-sm">{question.question}</p>
+                      {isCurrentQuestion && (
+                        <p className="text-xs text-muted-foreground mt-2 italic">
+                          💡 Tip: Be specific about technical details, materials, and measurable improvements
+                        </p>
+                      )}
                     </div>
                   </div>
                   
