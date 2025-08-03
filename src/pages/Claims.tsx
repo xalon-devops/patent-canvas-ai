@@ -398,7 +398,7 @@ const Claims = () => {
               <Link to={`/session/${id}`}>
                 <Button variant="outline">
                   <FileText className="h-4 w-4" />
-                  Go to Patent Canvas
+                  Go to PatentBot AI™
                 </Button>
               </Link>
             </div>

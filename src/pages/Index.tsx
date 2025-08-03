@@ -72,7 +72,7 @@ const Index = () => {
             {/* Headline */}
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
               <span className="bg-gradient-primary bg-clip-text text-transparent">
-                XALON Patent Canvas AI
+                PatentBot AI™
               </span>
             </h1>
             
@@ -182,7 +182,7 @@ const Index = () => {
                 <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
                   <FileText className="h-8 w-8 text-primary-foreground" />
                 </div>
-                <CardTitle className="text-xl">Patent Canvas</CardTitle>
+                <CardTitle className="text-xl">PatentBot AI™</CardTitle>
                 <CardDescription>
                   Professional patent application generated with editable sections and real-time collaboration
                 </CardDescription>
@@ -207,7 +207,7 @@ const Index = () => {
             Ready to Protect Your Innovation?
           </h2>
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-            Join thousands of inventors who trust Patent Canvas AI to transform their ideas into professional patent applications
+            Join thousands of inventors who trust PatentBot AI™ to transform their ideas into professional patent applications
           </p>
           <Button 
             variant="secondary"
@@ -226,7 +226,7 @@ const Index = () => {
       <footer className="py-8 border-t bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <p className="text-muted-foreground">
-            © 2024 Patent Canvas AI. Professional patent drafting with AI assistance.
+            © 2024 PatentBot AI™. Professional patent drafting with AI assistance.
           </p>
         </div>
       </footer>

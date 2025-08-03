@@ -192,17 +192,17 @@ const Dashboard = () => {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20"></div>
                 <div className="relative bg-white/10 rounded-lg p-2 backdrop-blur-sm">
-                  <img 
-                    src="https://i.ibb.co/8DbS569r/XALON-Apps-Full-Transparent.png" 
-                    alt="XALON Apps Logo"
-                    className="h-8 w-auto"
-                  />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  XALON Patent Canvas AI
-                </h1>
+              <img 
+                src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                alt="PatentBot AI Logo" 
+                className="h-8 w-auto"
+              />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              PatentBot AI™
+            </h1>
                 <p className="text-sm text-muted-foreground">
                   Welcome back, {user?.email}
                 </p>

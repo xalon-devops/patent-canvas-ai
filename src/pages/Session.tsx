@@ -1097,7 +1097,7 @@ const Session = () => {
           <div className="p-4 border-b">
             <h2 className="font-semibold flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Patent Canvas
+              PatentBot AI™
               {chatPhase !== 'canvas' && (
                 <span className="text-xs text-muted-foreground ml-2">
                   (Will appear after search)
@@ -1136,7 +1136,7 @@ const Session = () => {
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
               <div className="text-center text-muted-foreground">
                 <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                <p>Patent canvas will appear after completing the interview</p>
+                <p>PatentBot AI™ will appear after completing the interview</p>
               </div>
             </div>
           )}

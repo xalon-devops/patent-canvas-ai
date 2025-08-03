@@ -19,7 +19,7 @@ const RouteTracker = () => {
   const location = useLocation();
 
   useEffect(() => {
-    logEvent("page_view", {}, "Patent Canvas AI");
+    logEvent("page_view", {}, "PatentBot AI™");
   }, [location.pathname]);
 
   return null;

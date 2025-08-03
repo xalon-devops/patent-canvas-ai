@@ -126,15 +126,15 @@ const Auth = () => {
               <div className="absolute inset-0 bg-gradient-primary rounded-xl blur-lg opacity-20"></div>
               <div className="relative bg-white/10 rounded-xl p-3 backdrop-blur-sm">
                 <img 
-                  src="https://i.ibb.co/8DbS569r/XALON-Apps-Full-Transparent.png" 
-                  alt="XALON Apps Logo"
+                  src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                  alt="PatentBot AI Logo"
                   className="h-12 w-auto"
                 />
               </div>
             </div>
           </div>
           <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            XALON Patent Canvas AI
+            PatentBot AI™
           </h1>
           <p className="text-muted-foreground">
             Intelligent patent drafting made simple
