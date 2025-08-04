@@ -150,6 +150,13 @@ serve(async (req) => {
 
     console.log('Calling XALON AI for follow-up questions');
     
+    // Check if there's existing technical analysis from GitHub/code analysis
+    const { data: technicalAnalysis } = await supabase
+      .from('patent_sessions')
+      .select('technical_analysis')
+      .eq('id', session_id)
+      .single();
+    
     // Create the system prompt with optional contextual information
     let systemPrompt = `You are a USPTO-registered patent attorney specializing in invention disclosure interviews. Your task is to generate 4-8 targeted questions that will extract all necessary technical and legal information for a comprehensive patent application per 35 U.S.C. § 112.
 
@@ -184,12 +191,19 @@ IMPORTANT: Return your response as a valid JSON array of strings, where each str
 
 Example format: ["What specific materials or components are required for the core mechanism?", "How does component A interface with component B to achieve the technical result?", "What measurable improvements does this provide over existing solutions?"]`;
 
+    // Add technical analysis if available (from GitHub/code analysis)
+    if (technicalAnalysis?.technical_analysis) {
+      systemPrompt += `\n\nEXISTING TECHNICAL ANALYSIS FROM CODE:\n${technicalAnalysis.technical_analysis}\n\nBased on this technical analysis, generate specific, contextual questions that dig deeper into the unique technical aspects, implementation details, and novel features identified in the code. Avoid generic questions - focus on the specific technical innovations mentioned in the analysis.`;
+    }
+    
     // Add contextual information if we crawled a URL
     if (contextualInfo) {
       systemPrompt += `\n\nAdditional context from the provided URL:\n${contextualInfo}`;
     }
 
-    let userPrompt = `Initial invention idea: ${idea_prompt}`;
+    let userPrompt = technicalAnalysis?.technical_analysis 
+      ? `Based on the technical analysis above, the user's invention relates to: ${idea_prompt}`
+      : `Initial invention idea: ${idea_prompt}`;
 
     // Call XALON AI to generate follow-up questions using Mixtral for analysis
     const aiResponse = await fetch(xalonApiUrl, {
