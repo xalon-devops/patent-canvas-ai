@@ -1,22 +1,16 @@
-# Welcome to your Lovable project
+# PatentBot AI™
 
-## Project info
+## Project Overview
 
-**URL**: https://lovable.dev/projects/63144af2-671a-4c2a-a48a-e4f755a004db
+PatentBot AI™ is an AI-powered patent application generator that helps users create comprehensive patent applications through an intelligent interview process and automated document generation.
 
-## How can I edit this code?
+## Development Setup
 
-There are several ways of editing your application.
+This is a React + TypeScript application built with Vite and Tailwind CSS, integrated with Supabase for backend functionality.
 
-**Use Lovable**
+### Local Development
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/63144af2-671a-4c2a-a48a-e4f755a004db) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Clone this repository and install dependencies to work locally. Changes pushed to the main branch will be automatically deployed.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -50,7 +44,7 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+## Technology Stack
 
 This project is built with:
 
@@ -59,15 +53,12 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Backend & Database)
 
-## How can I deploy this project?
+## Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/63144af2-671a-4c2a-a48a-e4f755a004db) and click on Share -> Publish.
+Use your preferred deployment platform (Vercel, Netlify, etc.) or configure custom domains through your hosting provider.
 
-## Can I connect a custom domain to my Lovable project?
+## Custom Domain Setup
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Connect your custom domain through your hosting platform's domain management interface.
