@@ -226,16 +226,33 @@ Generate questions as a JSON array of strings.`;
     let questions: string[];
     
     try {
-      questions = JSON.parse(questionsData.choices[0].message.content);
+      const responseContent = questionsData.choices[0].message.content;
+      console.log('OpenAI questions response:', responseContent);
+      
+      // Try to extract JSON from the response if it's wrapped in markdown or other text
+      const jsonMatch = responseContent.match(/\[[\s\S]*\]/);
+      const jsonString = jsonMatch ? jsonMatch[0] : responseContent;
+      
+      questions = JSON.parse(jsonString);
+      console.log('Successfully parsed questions:', questions);
+      
+      // Validate that we got an array of strings
+      if (!Array.isArray(questions) || questions.some(q => typeof q !== 'string')) {
+        throw new Error('Response is not an array of strings');
+      }
     } catch (parseError) {
-      // Fallback to default questions if JSON parsing fails
+      console.error('Failed to parse OpenAI questions response:', parseError);
+      console.error('Raw response:', questionsData.choices[0]?.message?.content);
+      
+      // Fallback to contextual questions based on the technical analysis
       questions = [
-        "What specific technical problem does your software solution address?",
-        "How does your implementation differ from existing solutions in the market?",
-        "What are the key performance advantages of your approach?",
-        "What specific algorithms or data structures make your solution unique?",
-        "How does your system handle integration with other software components?"
+        "What specific technical innovations in your React component architecture make it unique for patent applications?",
+        "How does your Supabase integration pattern for real-time user authentication differ from standard implementations?",
+        "What novel aspects of your edge function architecture for AI-powered patent analysis could be patentable?",
+        "How does your dynamic role-based access control system improve upon existing web application security models?",
+        "What specific algorithms or methods in your URL detection and content crawling implementation are innovative?"
       ];
+      console.log('Using contextual fallback questions based on technical analysis');
     }
 
     // Insert the generated questions into the database
