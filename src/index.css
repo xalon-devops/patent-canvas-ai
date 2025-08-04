@@ -72,7 +72,20 @@ All colors MUST be HSL.
     --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --radius: 0.75rem;
+    /* Glassmorphism */
+    --glass-bg: 240 8% 6% / 0.8;
+    --glass-border: 255 255 255 / 0.1;
+    --glass-blur: blur(16px);
+
+    /* Premium spacing */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+
+    --radius: 1rem;
 
     /* Sidebar using XALON colors */
     --sidebar-background: 240 8% 6%;
@@ -134,6 +147,139 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    line-height: 1.6;
   }
+
+  /* Premium scroll styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/30;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/30;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
+  }
+}
+
+@layer components {
+  /* Glassmorphism utilities */
+  .glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-strong {
+    background: hsl(240 8% 6% / 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid hsl(255 255 255 / 0.15);
+  }
+
+  /* Premium card variants */
+  .card-premium {
+    @apply bg-card/80 backdrop-blur-sm border-0 shadow-elegant rounded-2xl;
+    background: linear-gradient(145deg, hsl(240 8% 6% / 0.8), hsl(240 3.7% 15.9% / 0.6));
+  }
+
+  .card-glass {
+    @apply glass rounded-2xl shadow-glow/20;
+  }
+
+  /* Interactive elements */
+  .interactive {
+    @apply transition-all duration-200 ease-in-out transform-gpu;
+  }
+
+  .interactive:hover {
+    @apply scale-[1.02] shadow-glow/30;
+  }
+
+  .interactive:active {
+    @apply scale-[0.98];
+  }
+
+  /* Button variants */
+  .btn-premium {
+    @apply bg-gradient-primary text-primary-foreground shadow-elegant rounded-xl px-6 py-3 font-medium;
+    @apply hover:shadow-glow transition-all duration-300 transform-gpu;
+  }
+
+  .btn-premium:hover {
+    @apply scale-105 shadow-glow;
+  }
+
+  .btn-glass {
+    @apply glass rounded-xl px-6 py-3 font-medium text-foreground;
+    @apply hover:bg-white/10 transition-all duration-200;
+  }
+
+  /* Layout utilities */
+  .safe-area {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+
+  .content-width {
+    @apply max-w-7xl mx-auto;
+  }
+
+  /* Animation utilities */
+  .fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+
+  .stagger {
+    animation-delay: calc(var(--stagger) * 100ms);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Skeleton loader */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
 }

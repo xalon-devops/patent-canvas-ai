@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { validatePatentIdea, sanitizeText, createSafeErrorMessage } from '@/utils/security';
 
@@ -249,58 +249,60 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20"></div>
-                <div className="relative rounded-lg p-2">
-              <img 
-                src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
-                alt="PatentBot AI Logo" 
-                className="h-8 w-auto"
-              />
-            </div>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              PatentBot AI™
-            </h1>
-                <p className="text-sm text-muted-foreground">
-                  Welcome back, {user?.email}
-                </p>
+      <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
+        <div className="safe-area">
+          <div className="content-width">
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-lg opacity-30"></div>
+                  <div className="relative rounded-2xl p-3 bg-card/50 backdrop-blur-sm">
+                    <img 
+                      src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                      alt="PatentBot AI Logo" 
+                      className="h-8 w-auto"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                    PatentBot AI™
+                  </h1>
+                  <p className="text-sm text-muted-foreground hidden sm:block">
+                    Welcome back, {user?.email}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate('/admin')}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Shield className="h-4 w-4" />
-                Admin
-              </Button>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                    <Settings className="h-4 w-4" />
-                    <MoreVertical className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
-                    <Key className="h-4 w-4 mr-2" />
-                    Change Password
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/admin')}
+                  className="text-muted-foreground hover:text-foreground hidden sm:flex"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                      <Settings className="h-4 w-4" />
+                      <MoreVertical className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass border-white/10">
+                    <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
+                      <Key className="h-4 w-4 mr-2" />
+                      Change Password
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>
@@ -308,19 +310,21 @@ const Dashboard = () => {
 
       {/* Password Change Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
+        <DialogContent className="sm:max-w-md glass">
+          <DialogHeader className="text-center">
+            <DialogTitle className="flex items-center justify-center gap-3 text-xl">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Key className="h-5 w-5 text-primary" />
+              </div>
               Change Password
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Enter your new password below. You don't need to enter your current password.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handlePasswordChange} className="space-y-4">
+          <form onSubmit={handlePasswordChange} className="space-y-6 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password" className="text-sm font-medium">New Password</Label>
               <Input
                 id="new-password"
                 type="password"
@@ -329,11 +333,11 @@ const Dashboard = () => {
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
                 required
                 minLength={6}
-                className="transition-smooth focus:shadow-glow/20"
+                className="glass border-white/10 focus:border-primary/50 transition-all duration-200"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Label htmlFor="confirm-password" className="text-sm font-medium">Confirm New Password</Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -342,136 +346,168 @@ const Dashboard = () => {
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                 required
                 minLength={6}
-                className="transition-smooth focus:shadow-glow/20"
+                className="glass border-white/10 focus:border-primary/50 transition-all duration-200"
               />
             </div>
-            <div className="flex gap-2 pt-4">
+            <div className="flex gap-3 pt-4">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setIsPasswordDialogOpen(false)}
-                className="flex-1"
+                className="flex-1 glass border-white/10"
               >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
+                variant="gradient"
                 disabled={passwordLoading}
-                className="flex-1 bg-gradient-primary hover:shadow-glow transition-smooth"
+                className="flex-1 shadow-glow"
               >
-                {passwordLoading ? "Updating..." : "Update Password"}
+                {passwordLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Key className="h-4 w-4" />
+                    Update Password
+                  </>
+                )}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <main className="container mx-auto px-4 py-8">
-        {/* New Patent Button */}
-        <div className="mb-8">
-          <Card className="shadow-elegant border-0 bg-gradient-primary text-primary-foreground overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-glow opacity-10"></div>
-            <CardContent className="p-8 relative">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                    <Sparkles className="h-6 w-6" />
-                    Start Your Next Patent
-                  </h2>
-                  <p className="text-primary-foreground/80 mb-4">
-                    Transform your innovative ideas into professional patent applications with AI assistance
-                  </p>
-                  <Button 
-                    variant="secondary" 
-                    onClick={createNewSession}
-                    className="bg-white/10 text-white border-white/20 hover:bg-white/20 hover:shadow-glow transition-smooth"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Start New Patent
-                  </Button>
-                </div>
-                <div className="hidden md:block">
-                  <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center">
-                    <FileText className="h-16 w-16 text-white/60" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sessions List */}
-        <div>
-          <h3 className="text-xl font-semibold mb-4 text-foreground">
-            Your Patent Applications
-          </h3>
-          
-          {sessions.length === 0 ? (
-            <Card className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h4 className="text-lg font-medium mb-2">No patents yet</h4>
-                <p className="text-muted-foreground mb-4">
-                  Start your first patent application to see it here
-                </p>
-                <Button variant="gradient" onClick={createNewSession}>
-                  <Plus className="h-4 w-4" />
-                  Create Your First Patent
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {sessions.map((patentSession) => (
-                <Card 
-                  key={patentSession.id} 
-                  className="shadow-card border-0 bg-card/80 backdrop-blur-sm hover:shadow-elegant transition-smooth cursor-pointer"
-                  onClick={() => navigate(`/session/${patentSession.id}`)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-base flex items-center gap-2 mb-1">
-                          {getStatusIcon(patentSession.status)}
-                          {patentSession.idea_prompt ? 
-                            patentSession.idea_prompt.slice(0, 80) + (patentSession.idea_prompt.length > 80 ? '...' : '') :
-                            'Untitled Patent Application'
-                          }
-                        </CardTitle>
-                        <CardDescription className="text-sm">
-                          Created {format(new Date(patentSession.created_at), 'MMM d, yyyy')}
-                        </CardDescription>
+      <main className="safe-area py-8">
+        <div className="content-width">
+          {/* New Patent Button */}
+          <div className="mb-8">
+            <Card className="card-premium overflow-hidden relative group hover:shadow-glow/30 transition-all duration-500">
+              <div className="absolute inset-0 bg-gradient-glow opacity-5 group-hover:opacity-10 transition-opacity duration-500"></div>
+              <CardContent className="p-8 sm:p-12 relative">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                  <div className="flex-1 text-center lg:text-left">
+                    <h2 className="text-3xl sm:text-4xl font-bold mb-4 flex items-center justify-center lg:justify-start gap-3">
+                      <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
+                        <Sparkles className="h-8 w-8 text-primary animate-pulse-glow" />
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            performLensAPISearch(patentSession.id);
-                          }}
-                          disabled={searchingPriorArt}
-                          className="mr-2"
-                        >
-                          {searchingPriorArt ? (
-                            <Search className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Search className="h-3 w-3" />
-                          )}
-                          Lens API
-                        </Button>
-                        <span className="text-muted-foreground">
-                          {getStatusLabel(patentSession.status)}
-                        </span>
+                      Start Your Next Patent
+                    </h2>
+                    <p className="text-lg text-muted-foreground mb-6 max-w-2xl">
+                      Transform your innovative ideas into professional patent applications with AI assistance. 
+                      Get started in minutes with our intelligent interview process.
+                    </p>
+                    <Button 
+                      variant="gradient" 
+                      size="xl"
+                      onClick={createNewSession}
+                      className="shadow-glow hover:shadow-glow/80 group/btn"
+                    >
+                      <Plus className="h-5 w-5 group-hover/btn:rotate-90 transition-transform duration-300" />
+                      Start New Patent
+                      <ArrowRight className="h-5 w-5 group-hover/btn:translate-x-1 transition-transform duration-300" />
+                    </Button>
+                  </div>
+                  <div className="hidden lg:block">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-primary rounded-full blur-2xl opacity-20 animate-pulse-glow"></div>
+                      <div className="relative w-40 h-40 bg-white/5 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/10">
+                        <FileText className="h-20 w-20 text-primary/60" />
                       </div>
                     </div>
-                  </CardHeader>
-                </Card>
-              ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sessions List */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-bold text-foreground">
+                Your Patent Applications
+              </h3>
+              <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
+                {sessions.length} {sessions.length === 1 ? 'Patent' : 'Patents'}
+              </div>
             </div>
-          )}
+            
+            {sessions.length === 0 ? (
+              <Card className="card-premium">
+                <CardContent className="p-12 text-center">
+                  <div className="w-20 h-20 bg-gradient-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <FileText className="h-10 w-10 text-primary" />
+                  </div>
+                  <h4 className="text-xl font-semibold mb-3">No patents yet</h4>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    Start your first patent application to see it here. Our AI will guide you through the entire process.
+                  </p>
+                  <Button variant="gradient" size="lg" onClick={createNewSession} className="shadow-glow">
+                    <Plus className="h-5 w-5" />
+                    Create Your First Patent
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 lg:gap-6">
+                {sessions.map((patentSession, index) => (
+                  <Card 
+                    key={patentSession.id} 
+                    className="card-premium group cursor-pointer transition-all duration-300 hover:shadow-glow/20 hover:scale-[1.01] fade-in"
+                    style={{ '--stagger': index } as React.CSSProperties}
+                    onClick={() => navigate(`/session/${patentSession.id}`)}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg flex items-center gap-3 mb-2 group-hover:text-primary transition-colors duration-200">
+                            <div className="p-2 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors duration-200">
+                              {getStatusIcon(patentSession.status)}
+                            </div>
+                            <span className="truncate">
+                              {patentSession.idea_prompt ? 
+                                patentSession.idea_prompt.slice(0, 80) + (patentSession.idea_prompt.length > 80 ? '...' : '') :
+                                'Untitled Patent Application'
+                              }
+                            </span>
+                          </CardTitle>
+                          <CardDescription className="text-sm flex items-center gap-4 flex-wrap">
+                            <span>Created {format(new Date(patentSession.created_at), 'MMM d, yyyy')}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                              {getStatusLabel(patentSession.status)}
+                            </span>
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              performLensAPISearch(patentSession.id);
+                            }}
+                            disabled={searchingPriorArt}
+                            className="bg-white/5 border-white/10 hover:bg-white/10"
+                          >
+                            {searchingPriorArt ? (
+                              <Search className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Search className="h-3 w-3" />
+                            )}
+                            <span className="hidden sm:inline ml-2">Lens API</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
