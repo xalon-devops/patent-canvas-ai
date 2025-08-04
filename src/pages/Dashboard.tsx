@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { validatePatentIdea, sanitizeText, createSafeErrorMessage } from '@/utils/security';
 
@@ -208,14 +208,25 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
-            <Button 
-              variant="ghost" 
-              onClick={handleSignOut}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate('/admin')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>

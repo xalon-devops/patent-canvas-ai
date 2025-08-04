@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
+import SystemMessage from '@/components/SystemMessage';
 
 interface PatentSession {
   id: string;
@@ -774,9 +775,46 @@ const Session = () => {
                     ) : (
                       <>
                         <Download className="h-4 w-4" />
-                        Export DOCX
+                        Download DOCX
                       </>
                     )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={async () => {
+                      try {
+                        const { data, error } = await supabase.functions.invoke('download-docx', {
+                          body: { session_id: id }
+                        });
+                        
+                        if (error) throw error;
+                        
+                        if (data) {
+                          // Create blob and download
+                          const blob = new Blob([data], { 
+                            type: 'application/rtf' 
+                          });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `patent-${id}.rtf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        }
+                      } catch (error: any) {
+                        toast({
+                          title: "Download Error",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    className="hidden sm:flex"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download RTF
                   </Button>
                   <Button 
                     variant="gradient" 
@@ -943,17 +981,63 @@ const Session = () => {
             })}
 
             {searchingPriorArt && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary animate-pulse" />
-                </div>
-                <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                  <p className="text-sm flex items-center gap-2">
-                    <Search className="h-4 w-4 animate-spin" />
-                    Searching for prior art and similar patents...
-                  </p>
-                </div>
-              </div>
+              <SystemMessage
+                type="loading"
+                title="Prior Art Search in Progress"
+                description="Searching patent databases using Lens.org API"
+                details={[
+                  "Analyzing invention claims",
+                  "Searching global patent databases",
+                  "Evaluating similarity scores",
+                  "Generating overlap analysis"
+                ]}
+                progress={searchingPriorArt ? 50 : 100}
+              />
+            )}
+
+            {generatingDraft && (
+              <SystemMessage
+                type="loading"
+                title="Generating Patent Draft"
+                description="Creating USPTO-compliant patent sections"
+                details={[
+                  "Legal-grade AI analysis",
+                  "USPTO format validation",
+                  "Claims structure optimization",
+                  "Abstract and description generation"
+                ]}
+                progress={generatingDraft ? 75 : 100}
+              />
+            )}
+
+            {filingPatent && (
+              <SystemMessage
+                type="loading"
+                title="Filing Patent Application"
+                description="Compiling USPTO forms and creating filing bundle"
+                details={[
+                  "Generating Form SB/16",
+                  "Creating ADS form",
+                  "Claims map analysis",
+                  "Document compilation"
+                ]}
+                progress={filingPatent ? 90 : 100}
+              />
+            )}
+
+            {exportingPatent && (
+              <SystemMessage
+                type="loading"
+                title="Exporting Patent Document"
+                description="Creating DOCX and uploading to storage"
+                details={[
+                  "Formatting USPTO document",
+                  "Converting to DOCX",
+                  "Uploading to secure storage",
+                  "Generating download link"
+                ]}
+                progress={exportingPatent ? 85 : 100}
+              />
             )}
 
             {chatPhase === 'search' && priorArt.length > 0 && (

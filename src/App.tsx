@@ -11,7 +11,10 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Session from "./pages/Session";
 import Claims from "./pages/Claims";
+import Admin from "./pages/Admin";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -36,8 +39,31 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/session/:id" element={<Session />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/session/:id" 
+              element={
+                <ProtectedRoute requiresPremium>
+                  <Session />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute requiresAdmin>
+                  <Admin />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/session/:id/claims" element={<Claims />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
