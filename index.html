@@ -16,6 +16,45 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@patentbot_ai" />
     <meta name="twitter:image" content="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" />
+
+    <!-- ✅ NEXUS Universal Tracking Script -->
+    <script>
+    (function() {
+      const ENDPOINT = "https://nfhocvpfbzrvqlscvqec.supabase.co/functions/v1/track-visit";
+
+      const params = new URLSearchParams(window.location.search);
+      const referral_code = params.get("ref");
+      const offer_id = params.get("offer_id");
+
+      let cid = localStorage.getItem("nexus_cid");
+      if (!cid) {
+        cid = "cid_" + Math.random().toString(36).substring(2) + "_" + Date.now();
+        localStorage.setItem("nexus_cid", cid);
+      }
+
+      if (referral_code && offer_id) {
+        fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cid,
+            referral_code,
+            offer_id,
+            url: window.location.href,
+            timestamp: new Date().toISOString()
+          })
+        }).then(res => {
+          if (!res.ok) {
+            console.error("❌ NEXUS tracking failed:", res.statusText);
+          } else {
+            console.log("✅ NEXUS click tracked");
+          }
+        }).catch(console.error);
+      } else {
+        console.log("⚠️ NEXUS: Missing `ref` or `offer_id` in URL.");
+      }
+    })();
+    </script>
   </head>
 
   <body>

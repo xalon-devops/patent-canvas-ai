@@ -19,7 +19,10 @@ import {
   Filter,
   RefreshCw,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  Activity,
+  Globe,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,11 +36,19 @@ interface AdminPatentSession {
   user_email?: string;
 }
 
+interface TrackingStatus {
+  nexus: boolean;
+  kronos: boolean;
+  nexusLastSeen?: string;
+  kronosLastSeen?: string;
+}
+
 const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessions, setSessions] = useState<AdminPatentSession[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<AdminPatentSession[]>([]);
+  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>({ nexus: false, kronos: false });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -85,6 +96,7 @@ const Admin = () => {
       if (data) {
         setIsAdmin(true);
         fetchAllSessions();
+        checkTrackingStatus();
       } else {
         toast({
           title: "Access Denied",
@@ -132,6 +144,30 @@ const Admin = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkTrackingStatus = async () => {
+    try {
+      // Check if NEXUS tracking script is present in DOM
+      const nexusPresent = document.querySelector('script')?.textContent?.includes('NEXUS Universal Tracking') || false;
+      
+      // Check Kronos tracking by looking at localStorage and recent network activity
+      const sessionId = localStorage.getItem("session_id");
+      const kronosPresent = !!sessionId;
+      
+      // Check last activity times
+      const nexusLastSeen = localStorage.getItem("nexus_cid") ? new Date().toISOString() : undefined;
+      const kronosLastSeen = sessionId ? new Date().toISOString() : undefined;
+      
+      setTrackingStatus({
+        nexus: nexusPresent,
+        kronos: kronosPresent,
+        nexusLastSeen,
+        kronosLastSeen
+      });
+    } catch (error) {
+      console.error('Error checking tracking status:', error);
     }
   };
 
@@ -311,6 +347,74 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Tracking Status Card */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Tracking Systems Status
+            </CardTitle>
+            <CardDescription>
+              Real-time status of analytics and conversion tracking systems
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* NEXUS Tracking */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Globe className="h-5 w-5 text-purple-500" />
+                  <div>
+                    <h4 className="font-medium">NEXUS Tracking</h4>
+                    <p className="text-sm text-muted-foreground">Referral & conversion tracking</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge variant={trackingStatus.nexus ? "default" : "secondary"}>
+                    {trackingStatus.nexus ? "✅ Active" : "⚠️ Inactive"}
+                  </Badge>
+                  {trackingStatus.nexusLastSeen && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      CID Generated
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Kronos Capital Tracking */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Eye className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <h4 className="font-medium">Kronos Capital</h4>
+                    <p className="text-sm text-muted-foreground">Session & page view tracking</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge variant={trackingStatus.kronos ? "default" : "secondary"}>
+                    {trackingStatus.kronos ? "✅ Active" : "⚠️ Inactive"}
+                  </Badge>
+                  {trackingStatus.kronosLastSeen && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Session Active
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={checkTrackingStatus}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Status
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
