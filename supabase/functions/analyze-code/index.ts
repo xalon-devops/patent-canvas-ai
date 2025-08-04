@@ -254,6 +254,17 @@ Generate questions as a JSON array of strings.`;
       throw new Error(`Questions insert error: ${questionsError.message}`);
     }
 
+    // Save the technical analysis to the patent_sessions table
+    const { error: analysisError } = await supabase
+      .from('patent_sessions')
+      .update({ technical_analysis: technicalAnalysis })
+      .eq('id', session_id);
+
+    if (analysisError) {
+      console.error('Error saving technical analysis:', analysisError);
+      throw new Error(`Technical analysis save error: ${analysisError.message}`);
+    }
+
     console.log('GitHub analysis completed successfully');
 
     return new Response(
