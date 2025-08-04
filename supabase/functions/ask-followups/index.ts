@@ -33,10 +33,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    
-    // XALON AI endpoint configuration
-    const xalonApiUrl = 'https://llm.xalon.ai/v1/chat/completions';
-    const xalonApiKey = 'PatentBotAI';
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -146,9 +143,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('About to call XALON AI with context length:', contextualInfo.length);
+    console.log('About to call OpenAI with context length:', contextualInfo.length);
 
-    console.log('Calling XALON AI for follow-up questions');
+    console.log('Calling OpenAI for follow-up questions');
     
     // Check if there's existing technical analysis from GitHub/code analysis
     const { data: technicalAnalysis } = await supabase
@@ -205,15 +202,15 @@ Example format: ["What specific materials or components are required for the cor
       ? `Based on the technical analysis above, the user's invention relates to: ${idea_prompt}`
       : `Initial invention idea: ${idea_prompt}`;
 
-    // Call XALON AI to generate follow-up questions using Mixtral for analysis
-    const aiResponse = await fetch(xalonApiUrl, {
+    // Call OpenAI to generate follow-up questions using GPT-4o-mini
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${xalonApiKey}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -231,7 +228,7 @@ Example format: ["What specific materials or components are required for the cor
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('XALON AI API error:', errorText);
+      console.error('OpenAI API error:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to generate follow-up questions' }), 
         { 
@@ -244,7 +241,7 @@ Example format: ["What specific materials or components are required for the cor
     const aiData = await aiResponse.json();
     const generatedContent = aiData.choices[0].message.content;
 
-    console.log('XALON AI response received, parsing questions');
+    console.log('OpenAI response received, parsing questions');
 
     let questions;
     try {
@@ -253,8 +250,8 @@ Example format: ["What specific materials or components are required for the cor
         throw new Error('Response is not an array');
       }
     } catch (parseError) {
-      console.error('Failed to parse XALON AI response as JSON array:', parseError);
-      console.error('XALON AI response:', generatedContent);
+      console.error('Failed to parse OpenAI response as JSON array:', parseError);
+      console.error('OpenAI response:', generatedContent);
       return new Response(
         JSON.stringify({ error: 'Failed to parse generated questions' }), 
         { 
