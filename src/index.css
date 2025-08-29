@@ -201,7 +201,9 @@ All colors MUST be HSL.
   }
 
   .interactive:hover {
-    @apply scale-[1.02] shadow-glow/30;
+    @apply scale-[1.02];
+    box-shadow: var(--shadow-glow);
+    opacity: 0.3;
   }
 
   .interactive:active {
