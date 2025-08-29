@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles, Play, Eye } from 'lucide-react';
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -96,11 +96,11 @@ const Index = () => {
               <Button 
                 variant="professional" 
                 size="lg"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/demo')}
                 className="text-lg h-14 px-8"
               >
-                <FileText className="h-5 w-5" />
-                View Demo
+                <Play className="h-5 w-5" />
+                Watch Demo
               </Button>
             </div>
 
@@ -119,6 +119,76 @@ const Index = () => {
                 <span>Secure & Private</span>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Section */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm overflow-hidden hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigate('/demo')}>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-primary opacity-5"></div>
+                <CardHeader className="text-center pb-6 relative">
+                  <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Play className="h-8 w-8 text-primary-foreground" />
+                  </div>
+                  <CardTitle className="text-2xl md:text-3xl mb-2">
+                    See PatentBot AI™ in Action
+                  </CardTitle>
+                  <CardDescription className="text-lg">
+                    Watch our interactive demo and discover how AI transforms your ideas into professional patents
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="text-center relative">
+                  <div className="mb-6">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>AI-Guided Process</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>Real User Journey</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>2 Minute Demo</span>
+                      </div>
+                    </div>
+                    
+                    <div className="relative group">
+                      <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20 group-hover:opacity-30 transition-smooth"></div>
+                      <div className="relative bg-muted/20 rounded-lg p-8 border">
+                        <div className="flex items-center justify-center gap-3 mb-4">
+                          <img 
+                            src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                            alt="PatentBot AI Logo"
+                            className="h-8 w-auto"
+                          />
+                          <span className="text-lg font-semibold">Interactive Demo</span>
+                        </div>
+                        <p className="text-muted-foreground mb-6">
+                          Experience the complete patent application journey from idea to professional filing
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="gradient" 
+                    size="lg"
+                    onClick={() => navigate('/demo')}
+                    className="text-lg h-14 px-8 group"
+                  >
+                    <Eye className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                    Watch Demo Now
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </CardContent>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
