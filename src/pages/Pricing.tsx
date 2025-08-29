@@ -68,31 +68,40 @@ const Pricing = () => {
     setLoading(true);
     
     try {
-      // For demo purposes, we'll simulate a subscription upgrade
-      // In a real app, this would integrate with Stripe
-      const { error } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: user.id,
-          plan: 'premium',
-          status: 'active',
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        });
-
-      if (error) throw error;
-
       toast({
-        title: "Welcome to Premium!",
-        description: "Your subscription has been activated. Enjoy unlimited access to PatentBot AI™.",
-        variant: "default",
+        title: "Redirecting to checkout...",
+        description: "Please wait while we prepare your subscription.",
       });
 
-      navigate('/dashboard');
+      // Create Stripe checkout session
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: {
+          priceId: 'price_1QV6gYFNwHcT0mL0YhCz5aBJ', // Replace with your actual Stripe price ID
+          planType: 'premium'
+        }
+      });
+
+      if (error) {
+        console.error('Error creating checkout session:', error);
+        toast({
+          title: "Checkout Error",
+          description: "Failed to create checkout session. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout in new tab
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No checkout URL received');
+      }
     } catch (error: any) {
+      console.error('Error during upgrade:', error);
       toast({
         title: "Upgrade Failed",
-        description: error.message,
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -494,7 +494,7 @@ const Admin = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="flex gap-2 flex-wrap">
+                   <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       size="sm"
@@ -506,7 +506,7 @@ const Admin = () => {
                     
                     {session.status !== 'filed' && (
                       <Button
-                        variant="outline"
+                        variant="professional"
                         size="sm"
                         onClick={() => updateSessionStatus(session.id, 'filed')}
                       >
@@ -526,7 +526,7 @@ const Admin = () => {
                     
                     {session.download_url && (
                       <Button
-                        variant="outline"
+                        variant="premium"
                         size="sm"
                         onClick={() => window.open(session.download_url, '_blank')}
                       >
@@ -534,6 +534,36 @@ const Admin = () => {
                         Download Latest
                       </Button>
                     )}
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await supabase.functions.invoke('send-email', {
+                            body: {
+                              type: 'patent_completion',
+                              userId: session.user_id,
+                              sessionId: session.id,
+                              userEmail: session.user_email
+                            }
+                          });
+                          toast({
+                            title: "Email Sent",
+                            description: "Patent completion notification sent to user",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Email Failed",
+                            description: "Failed to send email notification",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Send Email
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
