@@ -414,8 +414,8 @@ const Demo = () => {
         )}
       </div>
 
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      {/* Light Overlay - Reduced opacity for better demo visibility */}
+      <div className="absolute inset-0 bg-black/20"></div>
 
       {/* Content Overlay */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
