@@ -10,15 +10,15 @@ const Demo = () => {
   const [showCTA, setShowCTA] = useState(false);
   const navigate = useNavigate();
 
-  const introText = "Turn any idea into a professional patent in minutes, not months";
+  const introText = "What if your apps could patent themselves with AI?";
   const outroText = "Join 10,000+ inventors who've protected their innovations with AI";
 
   const demoSteps = [
-    { title: "Login & Dashboard", duration: 4000 },
-    { title: "AI Interview Process", duration: 6000 },
-    { title: "Prior Art Search", duration: 5000 },
-    { title: "Patent Generation", duration: 6000 },
-    { title: "Review & Export", duration: 4000 }
+    { title: "Login & Dashboard", duration: 2000 },
+    { title: "AI Interview Process", duration: 3000 },
+    { title: "Prior Art Search", duration: 3000 },
+    { title: "Patent Generation", duration: 4000 },
+    { title: "Review & Export", duration: 3000 }
   ];
 
   // Typewriter effect
@@ -40,13 +40,13 @@ const Demo = () => {
           setTypewriterText(currentText);
           
           if (index < targetText.length) {
-            timeoutId = setTimeout(() => typeCharacter(index + 1), 80);
+            timeoutId = setTimeout(() => typeCharacter(index + 1), 50);
           } else if (currentPhase === 'intro') {
             // After intro is done, start demo phase
             setTimeout(() => {
               setCurrentPhase('demo');
               setTypewriterText('');
-            }, 2000);
+            }, 1000);
           } else if (currentPhase === 'outro') {
             // Show CTA after outro is done
             setTimeout(() => setShowCTA(true), 1000);
@@ -54,7 +54,7 @@ const Demo = () => {
         }
       };
 
-      timeoutId = setTimeout(() => typeCharacter(0), 1000);
+      timeoutId = setTimeout(() => typeCharacter(0), 500);
     }
 
     return () => {
@@ -94,7 +94,7 @@ const Demo = () => {
         setTypewriterText('');
         setShowCTA(false);
         setDemoStep(0);
-      }, 8000);
+      }, 4000);
     }
 
     return () => {
@@ -160,8 +160,11 @@ const Demo = () => {
                           <FileText className="h-8 w-8 mb-3" />
                           <h3 className="text-xl font-semibold mb-2">File New Patent</h3>
                           <p className="text-sm opacity-90 mb-4">AI-powered patent drafting in minutes</p>
-                          <div className="bg-white/20 px-4 py-2 rounded text-sm font-medium animate-pulse">
-                            Starting new application...
+                          <div className="bg-white/20 px-4 py-2 rounded text-sm font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                              <span className="animate-pulse">Starting new application...</span>
+                            </div>
                           </div>
                         </div>
                         
@@ -220,22 +223,32 @@ const Demo = () => {
                           </div>
                         </div>
                         
-                        <div className="bg-muted/50 p-4 rounded-lg animate-slide-in-right" style={{ animationDelay: '1s' }}>
+                        <div className="bg-muted/50 p-4 rounded-lg animate-slide-in-right" style={{ animationDelay: '0.5s' }}>
                           <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 bg-secondary rounded-full"></div>
+                            <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-secondary-foreground text-sm font-bold">
+                              U
+                            </div>
                             <div className="flex-1">
-                              <p className="bg-background p-3 rounded">I've invented a new type of smartphone battery that charges in 30 seconds using quantum energy transfer.</p>
+                              <div className="bg-background p-3 rounded">
+                                <div className="animate-pulse">I've invented a mobile app that automatically generates patent applications by analyzing code repositories...</div>
+                              </div>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="bg-primary/10 p-4 rounded-lg border-l-4 border-primary animate-slide-in-right" style={{ animationDelay: '2s' }}>
+                        <div className="bg-primary/10 p-4 rounded-lg border-l-4 border-primary animate-slide-in-right" style={{ animationDelay: '1s' }}>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-bold">
                               AI
                             </div>
                             <div className="flex-1">
-                              <div className="animate-pulse">Analyzing your invention... This sounds innovative! Let me ask some follow-up questions...</div>
+                              <div className="space-y-2">
+                                <p>Fascinating! An AI-powered patent generator for software...</p>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                                  <span className="animate-pulse">Analyzing GitHub integration capabilities...</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -251,32 +264,38 @@ const Demo = () => {
                         <p className="text-muted-foreground">Searching 120M+ patents worldwide</p>
                       </div>
                       
-                      <div className="bg-card p-6 rounded-lg border">
+                        <div className="bg-card p-6 rounded-lg border">
                         <div className="flex items-center gap-3 mb-4">
                           <Search className="h-5 w-5 text-primary animate-spin" />
-                          <span className="font-medium">Searching patent databases...</span>
+                          <span className="font-medium">Searching 120M+ patents...</span>
+                          <div className="ml-auto bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
+                            87% complete
+                          </div>
                         </div>
                         
                         <div className="space-y-3">
                           <div className="bg-green-50 border border-green-200 p-4 rounded-lg animate-slide-in-right">
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold">US Patent 9,876,543</h4>
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">15% Similar</span>
+                              <h4 className="font-semibold">US Patent 11,234,567</h4>
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">12% Similar</span>
                             </div>
-                            <p className="text-sm text-muted-foreground">Fast-charging battery technology using lithium polymer...</p>
+                            <p className="text-sm text-muted-foreground">Automated code analysis system for software documentation...</p>
                           </div>
                           
-                          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg animate-slide-in-right" style={{ animationDelay: '0.5s' }}>
+                          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg animate-slide-in-right" style={{ animationDelay: '0.3s' }}>
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold">US Patent 10,123,456</h4>
-                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">8% Similar</span>
+                              <h4 className="font-semibold">US Patent 10,789,123</h4>
+                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">6% Similar</span>
                             </div>
-                            <p className="text-sm text-muted-foreground">Wireless energy transfer for mobile devices...</p>
+                            <p className="text-sm text-muted-foreground">Machine learning for document generation and classification...</p>
                           </div>
                           
-                          <div className="bg-primary/10 p-4 rounded-lg border-l-4 border-primary animate-slide-in-right" style={{ animationDelay: '1s' }}>
-                            <CheckCircle className="h-5 w-5 text-green-500 mb-2" />
-                            <p className="font-medium">Great news! Your quantum energy transfer approach appears to be novel.</p>
+                          <div className="bg-primary/10 p-4 rounded-lg border-l-4 border-primary animate-slide-in-right" style={{ animationDelay: '0.6s' }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                              <span className="font-medium text-green-700">Novel invention detected!</span>
+                            </div>
+                            <p className="text-sm">Your AI-powered patent generation approach with GitHub integration appears to be highly novel and patentable.</p>
                           </div>
                         </div>
                       </div>
@@ -325,15 +344,15 @@ const Demo = () => {
                           <h3 className="font-semibold mb-4">Live Preview</h3>
                           <div className="space-y-3 text-sm">
                             <div>
-                              <div className="font-medium mb-1">ABSTRACT</div>
+                            <div className="font-medium mb-1">ABSTRACT</div>
                               <div className="text-muted-foreground leading-relaxed">
-                                A revolutionary quantum energy transfer system for rapid battery charging, comprising a quantum field generator that enables 30-second charge cycles through controlled quantum entanglement...
+                                <div className="animate-pulse">An artificial intelligence system for automated patent application generation, comprising code analysis modules that examine software repositories and generate comprehensive patent documentation...</div>
                               </div>
                             </div>
                             <div className="border-t pt-3">
                               <div className="font-medium mb-1">TECHNICAL FIELD</div>
                               <div className="text-muted-foreground">
-                                This invention relates to energy storage devices and more particularly to quantum-enhanced battery charging systems...
+                                <div className="animate-pulse">This invention relates to artificial intelligence and software analysis, more particularly to automated patent generation systems...</div>
                               </div>
                             </div>
                           </div>
