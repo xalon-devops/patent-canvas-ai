@@ -143,12 +143,13 @@ const Demo = () => {
                 </div>
                 
                 {/* Demo Content */}
-                <div className="p-6 h-full bg-gradient-subtle overflow-hidden">
+                <div className="p-6 h-full bg-background overflow-hidden">
+                  {/* Demo Content - Changed from bg-gradient-subtle for better text visibility */}
                   {/* Step 0: Dashboard */}
                   {demoStep === 0 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="flex items-center justify-between">
-                        <h1 className="text-3xl font-bold">Welcome to PatentBot AI™</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Welcome to PatentBot AI™</h1>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Users className="h-4 w-4" />
                           10,247 patents filed
@@ -156,7 +157,8 @@ const Demo = () => {
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-gradient-primary p-6 rounded-lg text-primary-foreground animate-slide-in-right">
+                        <div className="bg-gradient-primary p-6 rounded-lg text-white animate-slide-in-right">
+                          {/* Changed to text-white for better contrast on gradient */}
                           <FileText className="h-8 w-8 mb-3" />
                           <h3 className="text-xl font-semibold mb-2">File New Patent</h3>
                           <p className="text-sm opacity-90 mb-4">AI-powered patent drafting in minutes</p>
@@ -168,7 +170,8 @@ const Demo = () => {
                           </div>
                         </div>
                         
-                        <div className="bg-card p-6 rounded-lg border animate-slide-in-right" style={{ animationDelay: '0.3s' }}>
+                        <div className="bg-card p-6 rounded-lg border animate-slide-in-right text-card-foreground" style={{ animationDelay: '0.3s' }}>
+                          {/* Added text-card-foreground for visibility */}
                           <Search className="h-8 w-8 mb-3 text-primary" />
                           <h3 className="text-xl font-semibold mb-2">Check & See</h3>
                           <p className="text-sm text-muted-foreground mb-4">Search existing patents</p>
@@ -176,7 +179,8 @@ const Demo = () => {
                         </div>
                       </div>
                       
-                      <div className="bg-card p-4 rounded-lg border">
+                      <div className="bg-card p-4 rounded-lg border text-card-foreground">
+                        {/* Added text-card-foreground for visibility */}
                         <h4 className="font-semibold mb-3">Recent Applications</h4>
                         <div className="space-y-2">
                           {[1, 2, 3].map((i) => (
@@ -197,7 +201,7 @@ const Demo = () => {
                   {demoStep === 1 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold mb-2">AI Patent Interview</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">AI Patent Interview</h2>
                         <p className="text-muted-foreground">Tell us about your invention</p>
                       </div>
                       
@@ -260,7 +264,7 @@ const Demo = () => {
                   {demoStep === 2 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-2">Prior Art Search</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">Prior Art Search</h2>
                         <p className="text-muted-foreground">Searching 120M+ patents worldwide</p>
                       </div>
                       
@@ -306,7 +310,7 @@ const Demo = () => {
                   {demoStep === 3 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-2">Generating Patent Application</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">Generating Patent Application</h2>
                         <p className="text-muted-foreground">AI is drafting your professional patent</p>
                       </div>
                       
@@ -340,7 +344,8 @@ const Demo = () => {
                           ))}
                         </div>
                         
-                        <div className="bg-card p-6 rounded-lg border animate-scale-in" style={{ animationDelay: '1s' }}>
+                        <div className="bg-card p-6 rounded-lg border animate-scale-in text-card-foreground" style={{ animationDelay: '1s' }}>
+                          {/* Added text-card-foreground for visibility */}
                           <h3 className="font-semibold mb-4">Live Preview</h3>
                           <div className="space-y-3 text-sm">
                             <div>
@@ -365,7 +370,7 @@ const Demo = () => {
                   {demoStep === 4 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-2">Patent Application Complete</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">Patent Application Complete</h2>
                         <p className="text-muted-foreground">Review and file your professional patent</p>
                       </div>
                       
@@ -400,7 +405,8 @@ const Demo = () => {
                         </div>
                       </div>
                       
-                      <div className="bg-card p-6 rounded-lg border">
+                      <div className="bg-card p-6 rounded-lg border text-card-foreground">
+                        {/* Added text-card-foreground for visibility */}
                         <h4 className="font-semibold mb-4">What's Included</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center gap-2">
