@@ -169,41 +169,63 @@ const Dashboard = () => {
   };
 
   const performLensAPISearch = async (sessionId: string) => {
+    // Check if session has an idea prompt first
+    const sessionToSearch = sessions.find(s => s.id === sessionId);
+    if (!sessionToSearch?.idea_prompt) {
+      toast({
+        title: "No Patent Idea Found",
+        description: "Please complete the patent application first before searching for prior art.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSearchingPriorArt(true);
     
     try {
-      console.log('Calling search-prior-art edge function with Lens API...');
+      console.log('Calling search-prior-art edge function...');
       
       const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art', {
         body: { session_id: sessionId }
       });
 
       if (searchError) {
-        console.error('Lens API search error:', searchError);
-        throw new Error(searchError.message || 'Failed to search prior art with Lens API');
+        console.error('Prior art search error:', searchError);
+        throw new Error(searchError.message || 'Failed to search prior art');
       }
 
       if (!searchData?.success) {
-        console.error('Lens API search failed:', searchData);
-        throw new Error('Lens API search failed');
+        console.error('Prior art search failed:', searchData);
+        throw new Error(searchData?.error || 'Prior art search failed');
       }
 
-      console.log('Lens API search completed successfully:', searchData);
+      console.log('Prior art search completed successfully:', searchData);
       
       toast({
-        title: "Lens API Search Complete",
-        description: `Found ${searchData.results_found} relevant patents`,
+        title: "Prior Art Search Complete",
+        description: `Found ${searchData.results_found || 0} relevant patents`,
         variant: "default",
       });
 
-      // Redirect to the session to see results
+      // Navigate to the session to see results
       navigate(`/session/${sessionId}`);
       
     } catch (error: any) {
-      console.error('Error in Lens API search:', error);
+      console.error('Error in prior art search:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'An unexpected error occurred';
+      if (error.message?.includes('Lens.org API key')) {
+        errorMessage = 'Lens API is not configured. Please check system configuration.';
+      } else if (error.message?.includes('session not found')) {
+        errorMessage = 'Patent session not found. Please try refreshing the page.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Search Failed",
-        description: createSafeErrorMessage(error),
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
