@@ -255,7 +255,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between py-4">
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <div className="relative rounded-2xl p-2 bg-white/20 backdrop-blur-md border border-white/30 shadow-lg">
+                  <div className="relative rounded-2xl p-2 bg-white/60 backdrop-blur-md border border-white/50 shadow-lg">
                     <img 
                       src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
                       alt="PatentBot AI Logo" 
