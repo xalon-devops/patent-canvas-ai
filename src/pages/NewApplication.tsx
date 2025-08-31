@@ -436,14 +436,14 @@ const NewApplication = () => {
             <div key={step} className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
                 ${step <= currentStep 
-                  ? 'bg-primary text-primary-foreground' 
+                  ? 'bg-primary text-primary-foreground shadow-glow' 
                   : 'bg-muted text-muted-foreground'
                 }`}>
                 {step}
               </div>
               {step < 3 && (
                 <div className={`w-16 h-1 rounded
-                  ${step < currentStep ? 'bg-primary' : 'bg-muted'}
+                  ${step < currentStep ? 'bg-primary shadow-glow' : 'bg-muted'}
                 `} />
               )}
             </div>
@@ -451,41 +451,43 @@ const NewApplication = () => {
         </div>
 
         {/* Content */}
-        <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
-          <CardContent className="p-8">
-            <AnimatePresence mode="wait">
-              {currentStep === 1 && !existingIdea && renderStep1()}
-              {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
-            </AnimatePresence>
+        <Card className="glass-strong border-white/20 shadow-elegant backdrop-blur-xl bg-gradient-to-br from-card/95 via-card/90 to-background/80">
+          <CardContent className="relative p-12 bg-gradient-to-br from-card/60 via-transparent to-background/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_8px_32px_-12px_rgba(0,255,255,0.3)] before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-br before:from-primary/5 before:via-transparent before:to-accent/5 before:pointer-events-none">
+            <div className="relative z-10">
+              <AnimatePresence mode="wait">
+                {currentStep === 1 && !existingIdea && renderStep1()}
+                {currentStep === 2 && renderStep2()}
+                {currentStep === 3 && renderStep3()}
+              </AnimatePresence>
 
-            {/* Navigation */}
-            <div className="flex justify-between mt-8 pt-6 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep(prev => prev - 1)}
-                disabled={currentStep === 1 || (existingIdea && currentStep === 2)}
-                className="gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Previous
-              </Button>
-
-              {currentStep < 3 ? (
-                <Button onClick={handleNext} className="gap-2">
-                  Next
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              ) : (
-                <Button 
-                  onClick={handleSubmit} 
-                  disabled={loading}
-                  className="gap-2"
+              {/* Navigation */}
+              <div className="flex justify-between mt-8 pt-6 border-t border-white/10">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep(prev => prev - 1)}
+                  disabled={currentStep === 1 || (existingIdea && currentStep === 2)}
+                  className="gap-2 bg-background/50 backdrop-blur-sm border-white/20 hover:bg-background/70 hover:border-white/30 transition-all duration-300"
                 >
-                  {loading ? 'Creating...' : 'Create Application'}
-                  <Sparkles className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4" />
+                  Previous
                 </Button>
-              )}
+
+                {currentStep < 3 ? (
+                  <Button onClick={handleNext} className="gap-2 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105">
+                    Next
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleSubmit} 
+                    disabled={loading}
+                    className="gap-2 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    {loading ? 'Creating...' : 'Create Application'}
+                    <Sparkles className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
