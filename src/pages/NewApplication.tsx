@@ -141,6 +141,7 @@ const NewApplication = () => {
     if (!user || !patentType) return;
     setLoading(true);
     try {
+      console.log('Creating patent session...');
       // Create a real patent session NOW to avoid FK errors in ask-followups
       const { data: sessionRow, error: createErr } = await supabase
         .from('patent_sessions')
@@ -158,8 +159,13 @@ const NewApplication = () => {
         .select('id')
         .single();
 
-      if (createErr) throw createErr;
+      if (createErr) {
+        console.error('Failed to create session:', createErr);
+        throw createErr;
+      }
 
+      console.log('Session created successfully:', sessionRow.id);
+      
       const tempSessionData: SessionData = {
         sessionId: sessionRow.id,
         patentType,
@@ -172,6 +178,7 @@ const NewApplication = () => {
       setSessionData(tempSessionData);
       setCurrentStep(4); // Move to AI Q&A step
     } catch (error: any) {
+      console.error('Error in handleStartAIAnalysis:', error);
       toast({
         title: 'Error starting analysis',
         description: error.message,

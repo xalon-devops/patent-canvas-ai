@@ -57,6 +57,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
   const generateAIQuestions = async () => {
     setIsGeneratingQuestions(true);
     try {
+      console.log('AIQuestionInterface: Starting question generation for session:', sessionData.sessionId);
       // Ask backend to generate and (if session exists) persist questions
       const { error: invokeError } = await supabase.functions.invoke('ask-followups', {
         body: {
@@ -66,7 +67,12 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
           github_url: sessionData.githubUrl,
         },
       });
-      if (invokeError) throw invokeError;
+      if (invokeError) {
+        console.error('AIQuestionInterface: ask-followups error:', invokeError);
+        throw invokeError;
+      }
+
+      console.log('AIQuestionInterface: ask-followups completed, fetching questions from DB...');
 
       // Then fetch any saved questions for this session
       const { data: qRows, error: qErr } = await supabase
