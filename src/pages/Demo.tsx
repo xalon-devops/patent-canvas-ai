@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCircle, Clock, Users, Star } from 'lucide-react';
+import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCircle, Clock, Users, Star, Brain, Atom } from 'lucide-react';
+import PatentCanvas from '@/components/PatentCanvas';
+import PriorArtDisplay from '@/components/PriorArtDisplay';
 
 const Demo = () => {
   const [currentPhase, setCurrentPhase] = useState<'intro' | 'demo' | 'outro'>('intro');
   const [demoStep, setDemoStep] = useState(0);
   const [typewriterText, setTypewriterText] = useState('');
   const [showCTA, setShowCTA] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const navigate = useNavigate();
 
   const introText = "What if your apps could patent themselves with AI?";
@@ -16,9 +20,54 @@ const Demo = () => {
   const demoSteps = [
     { title: "Login & Dashboard", duration: 2000 },
     { title: "AI Interview Process", duration: 3000 },
-    { title: "Prior Art Search", duration: 3000 },
-    { title: "Patent Generation", duration: 4000 },
+    { title: "Enhanced Prior Art Search", duration: 4000 },
+    { title: "Live Patent Generation", duration: 5000 },
     { title: "Review & Export", duration: 3000 }
+  ];
+
+  // Mock data for enhanced components
+  const mockPatentSections = [
+    { id: '1', section_type: 'abstract', content: 'A revolutionary AI-powered system for automated patent application generation through code repository analysis...', is_user_edited: false, created_at: new Date().toISOString() },
+    { id: '2', section_type: 'background', content: 'The field of patent law has traditionally required extensive manual documentation...', is_user_edited: false, created_at: new Date().toISOString() },
+    { id: '3', section_type: 'summary', content: 'The present invention provides a novel approach to automated patent generation...', is_user_edited: false, created_at: new Date().toISOString() },
+    { id: '4', section_type: 'claims', content: '1. A computer-implemented method for generating patent applications...', is_user_edited: false, created_at: new Date().toISOString() },
+    { id: '5', section_type: 'description', content: 'The detailed description of the invention includes comprehensive technical specifications...', is_user_edited: false, created_at: new Date().toISOString() }
+  ];
+
+  const mockPriorArt = [
+    {
+      id: "1",
+      title: "Automated Software Documentation Generation System",
+      publication_number: "US11234567B2",
+      summary: "A machine learning system for analyzing source code and generating technical documentation with natural language processing capabilities.",
+      similarity_score: 0.23,
+      url: "https://patents.google.com/patent/US11234567B2/en",
+      publication_date: "2023-01-15",
+      filing_date: "2021-08-20",
+      created_at: new Date().toISOString()
+    },
+    {
+      id: "2",
+      title: "AI-Driven Code Analysis for Patent Prior Art Search",
+      publication_number: "US10987654B1", 
+      summary: "System and method for using artificial intelligence to analyze patent databases and identify relevant prior art for software inventions.",
+      similarity_score: 0.18,
+      url: "https://patents.google.com/patent/US10987654B1/en",
+      publication_date: "2022-11-30",
+      filing_date: "2020-05-12",
+      created_at: new Date().toISOString()
+    },
+    {
+      id: "3",
+      title: "Natural Language Processing for Legal Document Generation",
+      publication_number: "US10456789B2",
+      summary: "A natural language processing system for automated generation of legal documents including patent applications and claims.",
+      similarity_score: 0.15,
+      url: "https://patents.google.com/patent/US10456789B2/en", 
+      publication_date: "2022-07-08",
+      filing_date: "2019-12-03",
+      created_at: new Date().toISOString()
+    }
   ];
 
   // Typewriter effect
@@ -74,6 +123,26 @@ const Demo = () => {
         const nextStep = () => {
           if (currentStep < demoSteps.length) {
             setDemoStep(currentStep);
+            
+            // Start patent generation animation on step 3
+            if (currentStep === 3) {
+              setIsGenerating(true);
+              setCurrentSectionIndex(0);
+              
+              // Animate sections filling up
+              const sectionInterval = setInterval(() => {
+                setCurrentSectionIndex(prev => {
+                  if (prev < mockPatentSections.length - 1) {
+                    return prev + 1;
+                  } else {
+                    clearInterval(sectionInterval);
+                    setIsGenerating(false);
+                    return prev;
+                  }
+                });
+              }, 800);
+            }
+            
             stepTimeout = setTimeout(() => {
               currentStep++;
               nextStep();
@@ -94,6 +163,8 @@ const Demo = () => {
         setTypewriterText('');
         setShowCTA(false);
         setDemoStep(0);
+        setIsGenerating(false);
+        setCurrentSectionIndex(0);
       }, 4000);
     }
 
@@ -113,6 +184,22 @@ const Demo = () => {
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden">
+      {/* Logo and Branding - Only show during intro and outro */}
+      {(currentPhase === 'intro' || currentPhase === 'outro') && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-40">
+          <div className="flex items-center justify-center mb-8 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center shadow-lg">
+                <Brain className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">
+                PatentBot AI™
+              </h1>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Close Button */}
       <Button
         variant="ghost"
@@ -137,14 +224,22 @@ const Demo = () => {
                     <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                   </div>
-                  <div className="text-xs text-muted-foreground ml-4 bg-background/50 px-3 py-1 rounded-md">
-                    patentbot.ai/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : 'export'}
+                  <div className="flex items-center gap-3 ml-4">
+                    <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-md">
+                      patentbot.ai/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : 'export'}
+                    </div>
+                    {/* Mini logo in browser header during demo */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-4 h-4 bg-gradient-to-br from-primary to-primary/60 rounded flex items-center justify-center">
+                        <Brain className="h-2.5 w-2.5 text-white" />
+                      </div>
+                      <span className="font-medium">PatentBot AI™</span>
+                    </div>
                   </div>
                 </div>
                 
                 {/* Demo Content */}
-                <div className="p-6 h-full bg-background overflow-hidden">
-                  {/* Demo Content - Changed from bg-gradient-subtle for better text visibility */}
+                <div className="p-6 h-full bg-background overflow-auto">
                   {/* Step 0: Dashboard */}
                   {demoStep === 0 && (
                     <div className="space-y-6 animate-fade-in">
@@ -158,7 +253,6 @@ const Demo = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-gradient-primary p-6 rounded-lg text-white animate-slide-in-right">
-                          {/* Changed to text-white for better contrast on gradient */}
                           <FileText className="h-8 w-8 mb-3" />
                           <h3 className="text-xl font-semibold mb-2">File New Patent</h3>
                           <p className="text-sm opacity-90 mb-4">AI-powered patent drafting in minutes</p>
@@ -171,7 +265,6 @@ const Demo = () => {
                         </div>
                         
                         <div className="bg-card p-6 rounded-lg border animate-slide-in-right text-card-foreground" style={{ animationDelay: '0.3s' }}>
-                          {/* Added text-card-foreground for visibility */}
                           <Search className="h-8 w-8 mb-3 text-primary" />
                           <h3 className="text-xl font-semibold mb-2">Check & See</h3>
                           <p className="text-sm text-muted-foreground mb-4">Search existing patents</p>
@@ -180,7 +273,6 @@ const Demo = () => {
                       </div>
                       
                       <div className="bg-card p-4 rounded-lg border text-card-foreground">
-                        {/* Added text-card-foreground for visibility */}
                         <h4 className="font-semibold mb-3">Recent Applications</h4>
                         <div className="space-y-2">
                           {[1, 2, 3].map((i) => (
@@ -260,108 +352,67 @@ const Demo = () => {
                     </div>
                   )}
                   
-                  {/* Step 2: Prior Art Search */}
+                  {/* Step 2: Enhanced Prior Art Search */}
                   {demoStep === 2 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-2 text-foreground">Prior Art Search</h2>
-                        <p className="text-muted-foreground">Searching 120M+ patents worldwide</p>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">Enhanced Prior Art Search</h2>
+                        <p className="text-muted-foreground">AI-powered search across 120M+ patents with similarity scoring</p>
                       </div>
                       
-                        <div className="bg-card p-6 rounded-lg border">
-                        <div className="flex items-center gap-3 mb-4">
-                          <Search className="h-5 w-5 text-primary animate-spin" />
-                          <span className="font-medium">Searching 120M+ patents...</span>
-                          <div className="ml-auto bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
-                            87% complete
+                      <div className="bg-card p-6 rounded-lg border">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="flex items-center gap-2">
+                            <Atom className="h-5 w-5 text-primary animate-spin" />
+                            <Search className="h-4 w-4 text-primary/60" />
+                          </div>
+                          <span className="font-medium">Analyzing patent landscape with AI...</span>
+                          <div className="ml-auto bg-gradient-to-r from-primary/20 to-secondary/20 text-primary px-3 py-1 rounded-full text-xs font-medium">
+                            Processing complete
                           </div>
                         </div>
                         
-                        <div className="space-y-3">
-                          <div className="bg-green-50 border border-green-200 p-4 rounded-lg animate-slide-in-right">
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold">US Patent 11,234,567</h4>
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">12% Similar</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">Automated code analysis system for software documentation...</p>
-                          </div>
-                          
-                          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg animate-slide-in-right" style={{ animationDelay: '0.3s' }}>
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold">US Patent 10,789,123</h4>
-                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">6% Similar</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">Machine learning for document generation and classification...</p>
-                          </div>
-                          
-                          <div className="bg-primary/10 p-4 rounded-lg border-l-4 border-primary animate-slide-in-right" style={{ animationDelay: '0.6s' }}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                              <span className="font-medium text-green-700">Novel invention detected!</span>
-                            </div>
-                            <p className="text-sm">Your AI-powered patent generation approach with GitHub integration appears to be highly novel and patentable.</p>
-                          </div>
-                        </div>
+                        <PriorArtDisplay 
+                          priorArt={mockPriorArt}
+                          isSearching={false}
+                        />
                       </div>
                     </div>
                   )}
                   
-                  {/* Step 3: Patent Generation */}
+                  {/* Step 3: Live Patent Generation */}
                   {demoStep === 3 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-2 text-foreground">Generating Patent Application</h2>
-                        <p className="text-muted-foreground">AI is drafting your professional patent</p>
+                        <h2 className="text-2xl font-bold mb-2 text-foreground flex items-center justify-center gap-3">
+                          <Brain className="h-7 w-7 text-primary animate-pulse" />
+                          Live Patent Generation
+                        </h2>
+                        <p className="text-muted-foreground">Watch AI craft your professional patent application in real-time</p>
                       </div>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          {[
-                            { title: "Abstract", status: "complete", icon: CheckCircle },
-                            { title: "Technical Field", status: "complete", icon: CheckCircle },
-                            { title: "Background", status: "complete", icon: CheckCircle },
-                            { title: "Summary", status: "generating", icon: Clock },
-                            { title: "Detailed Description", status: "pending", icon: Clock },
-                            { title: "Claims", status: "pending", icon: Clock }
-                          ].map((section, i) => (
-                            <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border animate-slide-in-right ${
-                              section.status === 'complete' ? 'bg-green-50 border-green-200' :
-                              section.status === 'generating' ? 'bg-primary/10 border-primary' :
-                              'bg-muted/50'
-                            }`} style={{ animationDelay: `${i * 0.2}s` }}>
-                              {section.status === 'complete' ? (
-                                <CheckCircle className="h-5 w-5 text-green-500" />
-                              ) : section.status === 'generating' ? (
-                                <Clock className="h-5 w-5 text-primary animate-pulse" />
-                              ) : (
-                                <Clock className="h-5 w-5 text-muted-foreground" />
-                              )}
-                              <span className="font-medium">{section.title}</span>
-                              {section.status === 'generating' && (
-                                <div className="ml-auto text-xs text-primary animate-pulse">Generating...</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                      <div className="max-w-5xl mx-auto">
+                        <PatentCanvas
+                          sections={mockPatentSections.slice(0, currentSectionIndex + 1)}
+                          onUpdateSection={async () => {}}
+                          onRegenerateSection={async () => {}}
+                          isGenerating={isGenerating}
+                        />
                         
-                        <div className="bg-card p-6 rounded-lg border animate-scale-in text-card-foreground" style={{ animationDelay: '1s' }}>
-                          {/* Added text-card-foreground for visibility */}
-                          <h3 className="font-semibold mb-4">Live Preview</h3>
-                          <div className="space-y-3 text-sm">
-                            <div>
-                            <div className="font-medium mb-1">ABSTRACT</div>
-                              <div className="text-muted-foreground leading-relaxed">
-                                <div className="animate-pulse">An artificial intelligence system for automated patent application generation, comprising code analysis modules that examine software repositories and generate comprehensive patent documentation...</div>
+                        {isGenerating && (
+                          <div className="mt-6 bg-gradient-to-r from-primary/10 to-secondary/10 p-4 rounded-lg border border-primary/20">
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                               </div>
-                            </div>
-                            <div className="border-t pt-3">
-                              <div className="font-medium mb-1">TECHNICAL FIELD</div>
-                              <div className="text-muted-foreground">
-                                <div className="animate-pulse">This invention relates to artificial intelligence and software analysis, more particularly to automated patent generation systems...</div>
-                              </div>
+                              <span className="text-sm font-medium text-primary">
+                                AI is analyzing your invention and crafting professional patent language...
+                              </span>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -406,7 +457,6 @@ const Demo = () => {
                       </div>
                       
                       <div className="bg-card p-6 rounded-lg border text-card-foreground">
-                        {/* Added text-card-foreground for visibility */}
                         <h4 className="font-semibold mb-4">What's Included</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center gap-2">
@@ -434,139 +484,113 @@ const Demo = () => {
             </div>
           </div>
         ) : (
-          // Static background for intro/outro
-          <div className="w-full h-full bg-gradient-to-br from-black via-primary/10 to-black"></div>
+          <div className="w-full h-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center p-8">
+            <div className="text-center max-w-4xl mx-auto">
+              {/* Typewriter Text */}
+              {(currentPhase === 'intro' || currentPhase === 'outro') && (
+                <div className="h-24 flex items-center justify-center mb-8">
+                  <p className="text-xl md:text-2xl text-white/90 max-w-4xl leading-relaxed min-h-[3rem] animate-fade-in">
+                    {typewriterText}
+                    <span className="animate-pulse text-primary">|</span>
+                  </p>
+                </div>
+              )}
+
+              {/* CTA Button */}
+              {showCTA && (
+                <div className="mt-8 space-y-6 animate-scale-in">
+                  {/* Social Proof */}
+                  <div className="flex items-center justify-center gap-6 text-white/80 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                        ))}
+                      </div>
+                      <span>4.9/5 rating</span>
+                    </div>
+                    <div className="w-px h-4 bg-white/30"></div>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      <span>10,000+ patents filed</span>
+                    </div>
+                    <div className="w-px h-4 bg-white/30"></div>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      <span>$50M+ IP protected</span>
+                    </div>
+                  </div>
+
+                  {/* Testimonial */}
+                  <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-8 h-8 bg-gradient-primary rounded-full"></div>
+                      <div>
+                        <div className="font-medium text-white text-sm">Sarah Chen</div>
+                        <div className="text-white/70 text-xs">Tech Startup Founder</div>
+                      </div>
+                    </div>
+                    <p className="text-white/90 text-sm italic">
+                      "PatentBot AI helped me file my first patent in just 2 hours. What would have taken months with a law firm cost me $1,000 and was done the same day."
+                    </p>
+                  </div>
+                  
+                  <Button
+                    variant="default"
+                    size="lg"
+                    onClick={handleSignUp}
+                    className="text-lg h-16 px-12 bg-gradient-primary text-white hover:scale-105 transition-all duration-300"
+                  >
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    Start Your Patent Journey Now
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                  </Button>
+                  
+                  <div className="text-white/70 text-sm space-y-1">
+                    <p className="font-medium">✨ Get started in under 60 seconds</p>
+                    <p>💳 Only pay $1,000 when you're ready to file</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Light Overlay - Reduced opacity for better demo visibility */}
-      <div className="absolute inset-0 bg-black/20"></div>
-
-      {/* Content Overlay */}
-      <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-        {/* Logo */}
-        <div className="mb-8 animate-fade-in">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-xl opacity-40"></div>
-            <div className="relative bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
-              <img 
-                src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
-                alt="PatentBot AI Logo"
-                className="h-16 w-auto"
-              />
+      {/* Demo Phase Progress */}
+      {currentPhase === 'demo' && (
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-black/40 backdrop-blur-md rounded-lg px-6 py-4 animate-slide-in-right">
+            <div className="flex items-center gap-3 text-white mb-3">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium">Live Demo: {demoSteps[demoStep]?.title}</span>
+            </div>
+            <div className="flex gap-1">
+              {demoSteps.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1 w-8 rounded-full transition-all duration-300 ${
+                    i === demoStep ? 'bg-primary' : i < demoStep ? 'bg-green-500' : 'bg-white/30'
+                  }`}
+                />
+              ))}
             </div>
           </div>
         </div>
+      )}
 
-        {/* Brand Name */}
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-8 animate-fade-in">
-          <span className="bg-gradient-primary bg-clip-text text-transparent">
-            PatentBot AI™
-          </span>
-        </h1>
-
-        {/* Typewriter Text */}
-        {(currentPhase === 'intro' || currentPhase === 'outro') && (
-          <div className="h-24 flex items-center justify-center mb-8">
-            <p className="text-xl md:text-2xl text-white/90 max-w-4xl leading-relaxed min-h-[3rem] animate-fade-in">
-              {typewriterText}
-              <span className="animate-pulse text-primary">|</span>
-            </p>
-          </div>
-        )}
-
-        {/* Demo Phase Content */}
-        {currentPhase === 'demo' && (
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
-            <div className="bg-black/40 backdrop-blur-md rounded-lg px-6 py-4 animate-slide-in-bottom">
-              <div className="flex items-center gap-3 text-white mb-3">
-                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium">Live Demo: {demoSteps[demoStep]?.title}</span>
-              </div>
-              <div className="flex gap-1">
-                {demoSteps.map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`h-1 w-8 rounded-full transition-all duration-300 ${
-                      i === demoStep ? 'bg-primary' : i < demoStep ? 'bg-green-500' : 'bg-white/30'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* CTA Button */}
-        {showCTA && (
-          <div className="mt-8 space-y-6 animate-scale-in">
-            {/* Social Proof */}
-            <div className="flex items-center justify-center gap-6 text-white/80 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="flex">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <span>4.9/5 rating</span>
-              </div>
-              <div className="w-px h-4 bg-white/30"></div>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span>10,000+ patents filed</span>
-              </div>
-              <div className="w-px h-4 bg-white/30"></div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <span>$50M+ IP protected</span>
-              </div>
-            </div>
-
-            {/* Testimonial */}
-            <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-gradient-primary rounded-full"></div>
-                <div>
-                  <div className="font-medium text-white text-sm">Sarah Chen</div>
-                  <div className="text-white/70 text-xs">Tech Startup Founder</div>
-                </div>
-              </div>
-              <p className="text-white/90 text-sm italic">
-                "PatentBot AI helped me file my first patent in just 2 hours. What would have taken months with a law firm cost me $1,000 and was done the same day."
-              </p>
-            </div>
-            
-            <Button
-              variant="gradient"
-              size="lg"
-              onClick={handleSignUp}
-              className="text-lg h-16 px-12 shadow-glow hover:shadow-2xl hover:scale-105 transition-all duration-300"
-            >
-              <Sparkles className="h-5 w-5" />
-              Start Your Patent Journey Now
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-            
-            <div className="text-white/70 text-sm space-y-1">
-              <p className="font-medium">✨ Get started in under 60 seconds</p>
-              <p>💳 Only pay $1,000 when you're ready to file</p>
-            </div>
-          </div>
-        )}
-
-        {/* Progress Indicator */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-          <div className="flex gap-2">
-            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              currentPhase === 'intro' ? 'bg-primary' : 'bg-white/30'
-            }`}></div>
-            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              currentPhase === 'demo' ? 'bg-primary' : 'bg-white/30'
-            }`}></div>
-            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              currentPhase === 'outro' ? 'bg-primary' : 'bg-white/30'
-            }`}></div>
-          </div>
+      {/* Progress Indicator */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-40">
+        <div className="flex gap-2">
+          <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            currentPhase === 'intro' ? 'bg-primary' : 'bg-white/30'
+          }`}></div>
+          <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            currentPhase === 'demo' ? 'bg-primary' : 'bg-white/30'
+          }`}></div>
+          <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            currentPhase === 'outro' ? 'bg-primary' : 'bg-white/30'
+          }`}></div>
         </div>
       </div>
     </div>
