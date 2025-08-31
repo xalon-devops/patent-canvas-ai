@@ -383,7 +383,87 @@ const Dashboard = () => {
 
       <main className="safe-area py-8">
         <div className="content-width">
-          {/* New Patent Button */}
+          {/* Pricing Cards */}
+          <div className="grid gap-6 md:grid-cols-2 mb-8">
+            <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-glow/30 transition-all duration-500">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">File Patent Application</h3>
+                  <p className="text-muted-foreground">Complete AI-guided patent drafting</p>
+                </div>
+              </div>
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>Complete patent sections generated</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>Professional USPTO-ready format</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <span>Export to DOCX/PDF</span>
+                </div>
+                <div className="text-2xl font-bold text-primary mb-2">$1,000</div>
+                <div className="text-sm text-muted-foreground mb-4">One-time payment per application</div>
+              </div>
+              <Button 
+                onClick={createNewSession} 
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  <>Start New Patent ($1,000)</>
+                )}
+              </Button>
+            </Card>
+
+            <Card className="p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-glow/30 transition-all duration-500">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-secondary/10 rounded-lg">
+                  <Search className="h-6 w-6 text-secondary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">Check & See</h3>
+                  <p className="text-muted-foreground">Search for existing patents before you file</p>
+                </div>
+              </div>
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-secondary" />
+                  <span>Search multiple patent databases</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-secondary" />
+                  <span>AI-powered similarity analysis</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle className="h-4 w-4 text-secondary" />
+                  <span>Unlimited searches with subscription</span>
+                </div>
+                <div className="text-2xl font-bold text-secondary mb-2">$9.99</div>
+                <div className="text-sm text-muted-foreground mb-4">Monthly subscription</div>
+              </div>
+              <Button 
+                variant="secondary" 
+                className="w-full"
+                onClick={() => navigate('/pricing')}
+              >
+                Subscribe for Check & See
+              </Button>
+            </Card>
+          </div>
+
+          {/* Start New Patent CTA */}
           <div className="mb-8">
             <Card className="card-premium overflow-hidden relative group hover:shadow-glow/30 transition-all duration-500">
               <div className="absolute inset-0 bg-gradient-glow opacity-5 group-hover:opacity-10 transition-opacity duration-500"></div>
@@ -394,7 +474,7 @@ const Dashboard = () => {
                       <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
                         <Sparkles className="h-8 w-8 text-primary animate-pulse-glow" />
                       </div>
-                      Start Your Next Patent
+                      Ready to Start?
                     </h2>
                     <p className="text-lg text-muted-foreground mb-6 max-w-2xl">
                       Transform your innovative ideas into professional patent applications with AI assistance. 
@@ -407,7 +487,7 @@ const Dashboard = () => {
                       className="shadow-glow hover:shadow-glow/80 group/btn"
                     >
                       <Plus className="h-5 w-5 group-hover/btn:rotate-90 transition-transform duration-300" />
-                      Start New Patent
+                      Start New Patent Application
                       <ArrowRight className="h-5 w-5 group-hover/btn:translate-x-1 transition-transform duration-300" />
                     </Button>
                   </div>
