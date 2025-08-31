@@ -65,19 +65,50 @@ const Pending = () => {
   }, [navigate]);
 
   const fetchSessions = async (userId: string) => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('patent_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // Fetch both patent_sessions and patent_ideas to show all applications
+      const [sessionsResult, ideasResult] = await Promise.all([
+        supabase
+          .from('patent_sessions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('patent_ideas')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (error) throw error;
-      setSessions(data || []);
+      if (sessionsResult.error) throw sessionsResult.error;
+      if (ideasResult.error) throw ideasResult.error;
 
-      // Fetch prior art results for each session
-      if (data && data.length > 0) {
-        const sessionIds = data.map(s => s.id);
+      // Convert patent_ideas to match PatentSession format for display
+      const convertedIdeas = (ideasResult.data || []).map(idea => ({
+        id: idea.id,
+        user_id: idea.user_id,
+        created_at: idea.created_at,
+        idea_prompt: idea.description,
+        status: idea.status === 'monitoring' ? 'in_progress' : idea.status,
+        patent_type: idea.patent_type,
+        patentability_score: null,
+        download_url: null,
+        ai_analysis_complete: false,
+        data_source: idea.data_source || {},
+        visual_analysis: {},
+        technical_analysis: null
+      }));
+
+      // Combine and sort all applications by creation date
+      const allSessions = [...(sessionsResult.data || []), ...convertedIdeas]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setSessions(allSessions);
+
+      // Fetch prior art results for patent_sessions only
+      const sessionIds = (sessionsResult.data || []).map(s => s.id);
+      if (sessionIds.length > 0) {
         const { data: priorArtData, error: priorArtError } = await supabase
           .from('prior_art_results')
           .select('*')

@@ -178,7 +178,7 @@ const NewApplication = () => {
         variant: "default",
       });
 
-      navigate(`/session/${sessionData.id}`);
+      navigate('/pending');
     } catch (error: any) {
       toast({
         title: "Error creating application",
