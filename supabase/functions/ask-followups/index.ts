@@ -261,11 +261,35 @@ Example format: ["What specific materials or components are required for the cor
       );
     }
 
+    // Check that the session exists to avoid FK violations
+    const { data: sessionCheck, error: sessionErr } = await supabase
+      .from('patent_sessions')
+      .select('id')
+      .eq('id', session_id)
+      .maybeSingle();
+
+    if (!sessionCheck) {
+      console.warn('Session not found for session_id:', session_id, 'Returning questions without DB writes.');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          saved: false,
+          questions,
+          url_crawled: isUrl,
+          context_length: contextualInfo.length,
+          reason: 'session_not_found',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     // Prepare questions for database insertion
     const questionRecords = questions.map((question: string) => ({
       session_id,
       question: question.trim(),
-      answer: null
+      answer: null,
     }));
 
     console.log(`Inserting ${questionRecords.length} questions into database`);
@@ -280,7 +304,6 @@ Example format: ["What specific materials or components are required for the cor
       console.warn('Error clearing existing questions:', deleteError);
     }
 
-    // Insert new questions
     const { error: insertError } = await supabase
       .from('ai_questions')
       .insert(questionRecords);
@@ -288,10 +311,10 @@ Example format: ["What specific materials or components are required for the cor
     if (insertError) {
       console.error('Error inserting questions:', insertError);
       return new Response(
-        JSON.stringify({ error: 'Failed to save questions' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify({ error: 'Failed to save questions' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
@@ -299,12 +322,13 @@ Example format: ["What specific materials or components are required for the cor
     console.log('Follow-up questions generated and saved successfully');
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
+        saved: true,
         questions_generated: questionRecords.length,
         url_crawled: isUrl,
-        context_length: contextualInfo.length
-      }), 
+        context_length: contextualInfo.length,
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

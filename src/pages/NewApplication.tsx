@@ -139,27 +139,43 @@ const NewApplication = () => {
 
   const handleStartAIAnalysis = async () => {
     if (!user || !patentType) return;
-    
     setLoading(true);
     try {
-      // Create temporary session data without storing in database yet
+      // Create a real patent session NOW to avoid FK errors in ask-followups
+      const { data: sessionRow, error: createErr } = await supabase
+        .from('patent_sessions')
+        .insert([
+          {
+            user_id: user.id,
+            idea_prompt: `${ideaTitle}: ${ideaDescription}`,
+            patent_type: patentType,
+            data_source: {
+              github_url: githubUrl || null,
+              files: uploadedFiles.map(f => f.name),
+            },
+          },
+        ])
+        .select('id')
+        .single();
+
+      if (createErr) throw createErr;
+
       const tempSessionData: SessionData = {
-        sessionId: crypto.randomUUID(),
+        sessionId: sessionRow.id,
         patentType,
         ideaTitle,
         ideaDescription,
         githubUrl,
-        uploadedFiles
+        uploadedFiles,
       };
-      
+
       setSessionData(tempSessionData);
       setCurrentStep(4); // Move to AI Q&A step
-      
     } catch (error: any) {
       toast({
-        title: "Error starting analysis",
+        title: 'Error starting analysis',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -202,11 +218,10 @@ const NewApplication = () => {
     
     setLoading(true);
     try {
-      // Now create the actual patent session in the database
-      const { data: patentSessionData, error: sessionError } = await supabase
+      // Update the existing patent session with analysis results before drafting
+      const { data: updated, error: updateErr } = await supabase
         .from('patent_sessions')
-        .insert([{
-          user_id: user.id,
+        .update({
           idea_prompt: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`,
           patent_type: sessionData.patentType,
           technical_analysis: sessionData.technicalAnalysis,
@@ -215,27 +230,22 @@ const NewApplication = () => {
             github_url: sessionData.githubUrl,
             files: sessionData.uploadedFiles.map(f => f.name),
             ai_questions: sessionData.aiQuestions,
-            prior_art_results: sessionData.priorArtResults
-          }
-        }])
-        .select()
+            prior_art_results: sessionData.priorArtResults,
+          },
+        })
+        .eq('id', sessionData.sessionId)
+        .select('id')
         .single();
 
-      if (sessionError) throw sessionError;
-
-      // Update session data with real session ID
-      setSessionData({
-        ...sessionData,
-        sessionId: patentSessionData.id
-      });
+      if (updateErr) throw updateErr;
 
       setCurrentStep(8); // Move to patent drafter
       
     } catch (error: any) {
       toast({
-        title: "Error creating session",
+        title: 'Error updating session',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);

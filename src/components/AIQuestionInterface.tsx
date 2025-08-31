@@ -51,83 +51,83 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
     generateAIQuestions();
   }, []);
 
+  const isUuid = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
   const generateAIQuestions = async () => {
     setIsGeneratingQuestions(true);
     try {
-      // Use the existing ask-followups edge function
-      const { data, error } = await supabase.functions.invoke('ask-followups', {
+      // Ask backend to generate and (if session exists) persist questions
+      const { error: invokeError } = await supabase.functions.invoke('ask-followups', {
         body: {
           session_id: sessionData.sessionId,
           idea_prompt: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`,
           patent_type: sessionData.patentType,
-          github_url: sessionData.githubUrl
-        }
+          github_url: sessionData.githubUrl,
+        },
       });
+      if (invokeError) throw invokeError;
 
-      if (error) throw error;
+      // Then fetch any saved questions for this session
+      const { data: qRows, error: qErr } = await supabase
+        .from('ai_questions')
+        .select('id, question, answer, created_at')
+        .eq('session_id', sessionData.sessionId)
+        .order('created_at', { ascending: true });
 
-      // Mock AI questions generation for now
-      const mockQuestions: AIQuestion[] = [
-        {
-          id: '1',
-          question: `What specific problem does your ${sessionData.patentType === 'software' ? 'software application' : 'invention'} solve that existing solutions don't address?`,
-          answer: ''
-        },
-        {
-          id: '2',
-          question: `What are the key technical components or mechanisms that make your invention work?`,
-          answer: ''
-        },
-        {
-          id: '3',
-          question: `How is your invention different from existing solutions in the market?`,
-          answer: ''
-        },
-        {
-          id: '4',
-          question: `What are the main benefits or advantages your invention provides to users?`,
-          answer: ''
-        },
-        {
-          id: '5',
-          question: `Are there any alternative ways to achieve the same result, and how does your approach compare?`,
-          answer: ''
-        }
-      ];
-
-      // Add patent-type specific questions
-      if (sessionData.patentType === 'software') {
-        mockQuestions.push({
-          id: '6',
-          question: 'What algorithms or computational methods are used in your software?',
-          answer: ''
-        });
-        if (sessionData.githubUrl) {
-          mockQuestions.push({
-            id: '7',
-            question: 'Which specific functions or modules in your code repository represent the core innovation?',
-            answer: ''
-          });
-        }
-      } else {
-        mockQuestions.push({
-          id: '6',
-          question: 'What materials or components are used in your invention?',
-          answer: ''
-        });
-        mockQuestions.push({
-          id: '7',
-          question: 'How is your invention manufactured or assembled?',
-          answer: ''
-        });
+      if (!qErr && qRows && qRows.length > 0) {
+        const mapped: AIQuestion[] = qRows.map((r) => ({
+          id: r.id as string,
+          question: (r as any).question || '',
+          answer: ((r as any).answer as string | null) || '',
+        }));
+        setQuestions(mapped);
+        return;
       }
 
-      setQuestions(mockQuestions);
+      // Fallback to smart local questions if none in DB
+      const fallback: AIQuestion[] = [
+        {
+          id: 'local-1',
+          question: `What specific problem does your ${sessionData.patentType === 'software' ? 'software application' : 'invention'} solve that existing solutions don't address?`,
+          answer: '',
+        },
+        {
+          id: 'local-2',
+          question: 'What are the key technical components or mechanisms that make your invention work?',
+          answer: '',
+        },
+        {
+          id: 'local-3',
+          question: 'How is your invention different from existing solutions in the market?',
+          answer: '',
+        },
+        {
+          id: 'local-4',
+          question: 'What are the main benefits or advantages your invention provides to users?',
+          answer: '',
+        },
+        {
+          id: 'local-5',
+          question: 'Are there any alternative ways to achieve the same result, and how does your approach compare?',
+          answer: '',
+        },
+      ];
+      if (sessionData.patentType === 'software') {
+        fallback.push({ id: 'local-6', question: 'What algorithms or computational methods are used in your software?', answer: '' });
+        if (sessionData.githubUrl) {
+          fallback.push({ id: 'local-7', question: 'Which specific functions or modules in your code repository represent the core innovation?', answer: '' });
+        }
+      } else {
+        fallback.push({ id: 'local-6', question: 'What materials or components are used in your invention?', answer: '' });
+        fallback.push({ id: 'local-7', question: 'How is your invention manufactured or assembled?', answer: '' });
+      }
+      setQuestions(fallback);
     } catch (error: any) {
       toast({
-        title: "Error generating questions",
+        title: 'Error generating questions',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -135,23 +135,33 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
     }
   };
 
-  const handleAnswerSubmit = () => {
+  const handleAnswerSubmit = async () => {
     if (!currentAnswer.trim()) {
       toast({
-        title: "Answer required",
-        description: "Please provide an answer before continuing.",
-        variant: "destructive",
+        title: 'Answer required',
+        description: 'Please provide an answer before continuing.',
+        variant: 'destructive',
       });
       return;
     }
 
     const updatedQuestions = [...questions];
     updatedQuestions[currentQuestionIndex].answer = currentAnswer.trim();
+    const justAnswered = updatedQuestions[currentQuestionIndex];
     setQuestions(updatedQuestions);
+
+    // Persist answer if this question exists in DB
+    if (isUuid(justAnswered.id)) {
+      await supabase
+        .from('ai_questions')
+        .update({ answer: currentAnswer.trim() })
+        .eq('id', justAnswered.id);
+    }
+
     setCurrentAnswer('');
 
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      setCurrentQuestionIndex((prev) => prev + 1);
     } else {
       handleComplete();
     }

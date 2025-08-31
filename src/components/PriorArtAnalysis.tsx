@@ -61,18 +61,39 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
   const searchPriorArt = async () => {
     setAnalyzing(true);
     try {
-      // Use existing search-prior-art function
-      const { data, error } = await supabase.functions.invoke('search-prior-art', {
+      // Trigger backend search
+      const { error: invokeError } = await supabase.functions.invoke('search-prior-art', {
         body: {
           session_id: sessionData.sessionId,
           search_query: `${sessionData.ideaTitle} ${sessionData.ideaDescription}`,
-          patent_type: sessionData.patentType
-        }
+          patent_type: sessionData.patentType,
+        },
       });
+      if (invokeError) throw invokeError;
 
-      if (error) throw error;
+      // Then fetch stored results for this session
+      const { data: rows, error: fetchErr } = await supabase
+        .from('prior_art_results')
+        .select('id, title, publication_number, summary, similarity_score, url, overlap_claims, difference_claims, created_at')
+        .eq('session_id', sessionData.sessionId)
+        .order('created_at', { ascending: true });
 
-      // Mock results for better UX
+      if (!fetchErr && rows && rows.length > 0) {
+        const mapped: PriorArtResult[] = rows.map((r: any) => ({
+          id: r.id,
+          title: r.title || 'Untitled',
+          publication_number: r.publication_number || '',
+          summary: r.summary || '',
+          similarity_score: r.similarity_score ?? 0,
+          url: r.url || '#',
+          overlap_claims: r.overlap_claims || [],
+          difference_claims: r.difference_claims || [],
+        }));
+        setResults(mapped);
+        return;
+      }
+
+      // Fallback UX if no results yet
       const mockResults: PriorArtResult[] = [
         {
           id: '1',
@@ -84,13 +105,13 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           overlap_claims: [
             'Energy monitoring sensors throughout the home',
             'Machine learning algorithms for pattern recognition',
-            'Automated device control based on predictions'
+            'Automated device control based on predictions',
           ],
           difference_claims: [
             'Your system includes real-time pricing optimization',
             'Novel integration with renewable energy sources',
-            'Advanced user behavior modeling'
-          ]
+            'Advanced user behavior modeling',
+          ],
         },
         {
           id: '2',
@@ -102,13 +123,13 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           overlap_claims: [
             'Automated scheduling of energy-consuming devices',
             'User preferences for energy management',
-            'Central control unit for home devices'
+            'Central control unit for home devices',
           ],
           difference_claims: [
             'Your system uses AI for predictive analytics',
             'Integration with smart grid technology',
-            'Mobile app with advanced analytics'
-          ]
+            'Mobile app with advanced analytics',
+          ],
         },
         {
           id: '3',
@@ -120,22 +141,22 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           overlap_claims: [
             'Energy consumption monitoring',
             'Basic device control capabilities',
-            'User interface for energy management'
+            'User interface for energy management',
           ],
           difference_claims: [
             'Your system is significantly more advanced',
             'Machine learning vs basic automation',
-            'Comprehensive ecosystem integration'
-          ]
-        }
+            'Comprehensive ecosystem integration',
+          ],
+        },
       ];
 
       setResults(mockResults);
     } catch (error: any) {
       toast({
-        title: "Error searching prior art",
+        title: 'Error searching prior art',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
