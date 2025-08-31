@@ -349,15 +349,18 @@ const NewApplication = () => {
           </div>
 
           <div>
-            <Label htmlFor="files">Upload Code Files</Label>
+            <Label htmlFor="files">Upload Documentation Files</Label>
             <input
               id="files"
               type="file"
               multiple
-              accept=".js,.ts,.py,.java,.cpp,.c,.cs,.rb,.go,.php,.swift,.kt"
+              accept=".txt,.doc,.docx,.pdf,.md,.rtf"
               onChange={handleFileUpload}
-              className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+              className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-primary file:to-primary/80 file:text-primary-foreground hover:file:from-primary/90 hover:file:to-primary/70 file:shadow-lg hover:file:shadow-xl file:transition-all file:duration-300 bg-background/50 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/30 transition-all duration-300"
             />
+            <p className="text-sm text-muted-foreground mt-2">
+              Upload text documents, Word files, PDFs, or Markdown files describing your software
+            </p>
             {uploadedFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {uploadedFiles.map((file, index) => (
@@ -377,12 +380,12 @@ const NewApplication = () => {
               id="files"
               type="file"
               multiple
-              accept="image/*,.pdf,.doc,.docx,.dwg,.step,.iges"
+              accept=".txt,.doc,.docx,.pdf,.md,.rtf,image/*,.dwg,.step,.iges"
               onChange={handleFileUpload}
-              className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+              className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-primary file:to-primary/80 file:text-primary-foreground hover:file:from-primary/90 hover:file:to-primary/70 file:shadow-lg hover:file:shadow-xl file:transition-all file:duration-300 bg-background/50 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/30 transition-all duration-300"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Upload images, technical drawings, CAD files, or documents that illustrate your invention
+              Upload documents, images, technical drawings, CAD files, or other files that illustrate your invention
             </p>
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
