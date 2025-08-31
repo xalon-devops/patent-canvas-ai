@@ -93,131 +93,121 @@ serve(async (req) => {
       console.error('Error clearing existing prior art:', deleteError);
     }
 
-    // Generate realistic prior art results based on the patent idea
-    const ideaPrompt = sessionData.idea_prompt || '';
-    const questionsContext = questionsData?.map(q => `${q.question}: ${q.answer || 'No answer'}`).join('\n') || '';
-    
-    console.log('Generating prior art based on idea:', ideaPrompt.substring(0, 100));
+    // Build context from request or session + Q&A
+    const clientQuery: string | undefined = requestBody?.search_query;
+    const patentType: string | undefined = requestBody?.patent_type;
 
-    // Create realistic prior art results with varying similarity scores
-    const priorArtResults = [
-      {
-        title: "AI-Powered Document Generation and Analysis System",
-        publication_number: "US10,567,123",
-        summary: "A system that employs artificial intelligence and machine learning algorithms to automatically generate, analyze, and optimize technical documents with natural language processing capabilities.",
-        similarity_score: 0.82,
-        url: "https://patents.google.com/patent/US10567123B2",
-        overlap_claims: [
-          "Use of AI algorithms for document generation",
-          "Machine learning-based content optimization",
-          "Natural language processing integration",
-          "Automated document structure analysis"
-        ],
-        difference_claims: [
-          "Real-time collaborative editing features",
-          "Multi-language translation capabilities",
-          "Advanced formatting and styling options",
-          "Integration with external APIs"
-        ]
-      },
-      {
-        title: "Intelligent Content Management Platform with ML Analytics",
-        publication_number: "EP3,789,456",
-        summary: "An intelligent platform for managing and analyzing content using machine learning techniques, providing automated insights and recommendations for document improvement.",
-        similarity_score: 0.71,
-        url: "https://patents.google.com/patent/EP3789456A1",
-        overlap_claims: [
-          "Content analysis using machine learning",
-          "Automated similarity detection",
-          "Document management system",
-          "User guidance and recommendations"
-        ],
-        difference_claims: [
-          "Blockchain-based version control",
-          "Advanced security encryption",
-          "Custom workflow automation",
-          "Enterprise integration features"
-        ]
-      },
-      {
-        title: "Method for Computer-Assisted Technical Writing",
-        publication_number: "JP2021-123456",
-        summary: "A computer-implemented method for assisting users in technical writing tasks through AI-powered suggestions, grammar checking, and content optimization techniques.",
-        similarity_score: 0.64,
-        url: "https://patents.google.com/patent/JP2021123456A",
-        overlap_claims: [
-          "AI-powered writing assistance",
-          "Technical writing optimization",
-          "Automated content suggestions",
-          "Grammar and style analysis"
-        ],
-        difference_claims: [
-          "Voice-to-text capabilities",
-          "Industry-specific templates",
-          "Cultural adaptation features",
-          "Collaborative review workflows"
-        ]
-      },
-      {
-        title: "Automated Research and Prior Art Analysis Tool",
-        publication_number: "CN112,345,678",
-        summary: "An automated tool for conducting research and prior art analysis using advanced search algorithms and machine learning for similarity assessment in patent documents.",
-        similarity_score: 0.58,
-        url: "https://patents.google.com/patent/CN112345678A",
-        overlap_claims: [
-          "Automated research capabilities",
-          "Prior art analysis and comparison",
-          "Similarity assessment algorithms",
-          "Patent document processing"
-        ],
-        difference_claims: [
-          "Geographic market analysis",
-          "Licensing opportunity identification",
-          "Visual similarity mapping",
-          "Predictive trend analysis"
-        ]
-      },
-      {
-        title: "System for Digital Document Creation and Validation",
-        publication_number: "WO2021/234567",
-        summary: "A comprehensive system for creating, validating, and managing digital documents with automated quality checks and compliance verification features.",
-        similarity_score: 0.45,
-        url: "https://patents.google.com/patent/WO2021234567A1",
-        overlap_claims: [
-          "Digital document creation",
-          "Automated quality validation",
-          "Document management features",
-          "Compliance checking systems"
-        ],
-        difference_claims: [
-          "Biometric authentication",
-          "Cloud-based storage solutions",
-          "Mobile application interface",
-          "Advanced reporting analytics"
-        ]
-      },
-      {
-        title: "Knowledge Management System with Semantic Analysis",
-        publication_number: "KR10-2021-0123456",
-        summary: "A knowledge management system that uses semantic analysis and natural language understanding to organize, categorize, and retrieve technical information efficiently.",
-        similarity_score: 0.39,
-        url: "https://patents.google.com/patent/KR102021123456B1",
-        overlap_claims: [
-          "Knowledge management capabilities",
-          "Semantic analysis techniques",
-          "Natural language understanding",
-          "Information categorization"
-        ],
-        difference_claims: [
-          "Social collaboration features",
-          "Augmented reality interfaces",
-          "IoT device integration",
-          "Advanced visualization tools"
-        ]
-      }
+    const questionsText = questionsData?.map((q) => `${q.question}: ${q.answer || ''}`).join('\n') || '';
+    const contextText = (
+      clientQuery && clientQuery.trim().length > 0
+        ? clientQuery
+        : [
+            sessionData.idea_prompt || '',
+            typeof sessionData.technical_analysis === 'string' ? sessionData.technical_analysis : '',
+            questionsText,
+            patentType || sessionData.patent_type || ''
+          ].join('\n')
+    ).slice(0, 8000); // keep reasonable length
+
+    // Simple keyword extraction
+    const stopwords = new Set([
+      'the','and','for','with','that','this','from','into','over','under','between','of','a','to','in','on','is','are','be','as','by','or','an','at','it','its','their','your','our','you','we','can','will','may','could','should','would'
+    ]);
+    const tokenize = (text: string) =>
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !stopwords.has(w));
+
+    const termFreq = new Map<string, number>();
+    for (const w of tokenize(contextText)) {
+      termFreq.set(w, (termFreq.get(w) || 0) + 1);
+    }
+    const keywords = Array.from(termFreq.entries())
+      .sort((a,b) => b[1]-a[1])
+      .slice(0, 20)
+      .map(([w]) => w)
+      .join(' ');
+
+    console.log('Derived keywords for search:', keywords);
+
+    // Query PatentsView API using title/abstract text search
+    const queryObj = {
+      _or: [
+        { _text_any: { patent_title: keywords } },
+        { _text_any: { patent_abstract: keywords } }
+      ]
+    } as any;
+
+    const fields = [
+      'patent_number',
+      'patent_title',
+      'patent_abstract',
+      'patent_date'
     ];
 
-    console.log('Generated realistic prior art results:', priorArtResults.length);
+    const options = { per_page: 10 };
+
+    let apiResults: any[] = [];
+    try {
+      const url = `https://api.patentsview.org/patents/query?q=${encodeURIComponent(JSON.stringify(queryObj))}&f=${encodeURIComponent(JSON.stringify(fields))}&o=${encodeURIComponent(JSON.stringify(options))}`;
+      const apiResp = await fetch(url, { method: 'GET' });
+      if (!apiResp.ok) throw new Error(`PatentsView HTTP ${apiResp.status}`);
+      const apiJson = await apiResp.json();
+      apiResults = apiJson?.patents || [];
+      console.log('PatentsView results:', apiResults.length);
+    } catch (apiErr) {
+      console.error('PatentsView API error, will fallback to heuristic:', apiErr);
+      apiResults = [];
+    }
+
+    // Compute simple Jaccard similarity between context tokens and abstract tokens
+    const contextTokens = new Set(tokenize(contextText));
+    const jaccard = (a: Set<string>, b: Set<string>) => {
+      const inter = new Set([...a].filter(x => b.has(x)));
+      const uni = new Set([...a, ...b]);
+      return uni.size === 0 ? 0 : inter.size / uni.size;
+    };
+
+    let priorArtResults = apiResults.map((p: any) => {
+      const abstract: string = p.patent_abstract || '';
+      const absTokens = new Set(tokenize(abstract));
+      const score = jaccard(contextTokens, absTokens);
+      const overlap = [...absTokens].filter(t => contextTokens.has(t)).slice(0, 6);
+      const missing = [...contextTokens].filter(t => !absTokens.has(t)).slice(0, 6);
+      const pubNum = p.patent_number ? `US${p.patent_number}` : '';
+      return {
+        title: p.patent_title || 'Untitled',
+        publication_number: pubNum,
+        summary: abstract || 'No abstract available',
+        similarity_score: Number(score.toFixed(2)),
+        url: pubNum ? `https://patents.google.com/patent/${pubNum}` : 'https://patents.google.com',
+        overlap_claims: overlap.map(w => `Overlapping concept: ${w}`),
+        difference_claims: missing.map(w => `Unique aspect emphasized: ${w}`)
+      };
+    });
+
+    // Fallback to mock if API returns nothing
+    if (priorArtResults.length === 0) {
+      console.log('No API results, using minimal fallback tailored to keywords');
+      priorArtResults = [
+        {
+          title: `Related systems concerning ${keywords.split(' ').slice(0,3).join(', ')}`,
+          publication_number: 'N/A',
+          summary: `Fallback generated based on your invention context mentioning: ${keywords}`,
+          similarity_score: 0.35,
+          url: 'https://patents.google.com/',
+          overlap_claims: keywords.split(' ').slice(0,4).map(k => `Concept match: ${k}`),
+          difference_claims: keywords.split(' ').slice(4,8).map(k => `Likely novelty area: ${k}`)
+        }
+      ];
+    }
+
+    // Sort by similarity desc
+    priorArtResults.sort((a,b) => b.similarity_score - a.similarity_score);
+
+    console.log('Prepared prior art results:', priorArtResults.length);
 
     // Insert the prior art results into the database
     const priorArtInserts = priorArtResults.map(result => ({

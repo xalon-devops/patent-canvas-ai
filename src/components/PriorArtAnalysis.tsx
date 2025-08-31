@@ -61,11 +61,16 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
   const searchPriorArt = async () => {
     setAnalyzing(true);
     try {
-      // Trigger backend search
+      const qaContext = (sessionData.aiQuestions || [])
+        .map(q => `${q.question} ${q.answer || ''}`)
+        .join(' ');
+      const context = `${sessionData.ideaTitle} ${sessionData.ideaDescription} ${qaContext}`.slice(0, 4000);
+
+      // Trigger backend search with rich context
       const { error: invokeError } = await supabase.functions.invoke('search-prior-art', {
         body: {
           session_id: sessionData.sessionId,
-          search_query: `${sessionData.ideaTitle} ${sessionData.ideaDescription}`,
+          search_query: context,
           patent_type: sessionData.patentType,
         },
       });
@@ -248,6 +253,12 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         <p className="text-muted-foreground">
           We found {results.length} relevant patents in our comprehensive search
         </p>
+        <div className="mt-4 flex justify-center">
+          <Button variant="outline" size="sm" onClick={searchPriorArt} disabled={analyzing} className="gap-2">
+            {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            Re-run with latest answers
+          </Button>
+        </div>
       </div>
 
       {/* Summary Stats */}
