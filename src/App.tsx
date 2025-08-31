@@ -15,6 +15,10 @@ import Admin from "./pages/Admin";
 import Pricing from "./pages/Pricing";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
+import Ideas from "./pages/Ideas";
+import Pending from "./pages/Pending";
+import Active from "./pages/Active";
+import NewApplication from "./pages/NewApplication";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -47,6 +51,38 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/ideas" 
+              element={
+                <ProtectedRoute>
+                  <Ideas />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/pending" 
+              element={
+                <ProtectedRoute>
+                  <Pending />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/active" 
+              element={
+                <ProtectedRoute>
+                  <Active />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/new-application" 
+              element={
+                <ProtectedRoute>
+                  <NewApplication />
                 </ProtectedRoute>
               } 
             />
