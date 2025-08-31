@@ -52,3 +52,6 @@ verify_jwt = false
 
 [functions.draft-patent-section]
 verify_jwt = false
+
+[functions.enhance-answer]
+verify_jwt = false

@@ -45,6 +45,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
+  const [enhancing, setEnhancing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -170,6 +171,41 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
       handleComplete();
+    }
+  };
+
+  const handleEnhanceAnswer = async () => {
+    if (!currentAnswer.trim()) {
+      toast({
+        title: 'Add a quick answer first',
+        description: 'Type a brief answer, then let AI enhance it.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      setEnhancing(true);
+      const { data, error } = await supabase.functions.invoke('enhance-answer', {
+        body: {
+          session_id: sessionData.sessionId,
+          question: questions[currentQuestionIndex]?.question,
+          answer: currentAnswer,
+          github_url: sessionData.githubUrl,
+        },
+      });
+      if (error) throw error;
+
+      const enhanced = data?.enhancedAnswer || data?.enhanced_answer || '';
+      if (enhanced) {
+        setCurrentAnswer(enhanced);
+        toast({ title: 'Answer enhanced', description: 'Review and edit as needed.' });
+      } else {
+        toast({ title: 'No enhancement returned', description: 'Try again or continue.' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Enhancement failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setEnhancing(false);
     }
   };
 
@@ -300,7 +336,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
             <Textarea
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
-              placeholder="Please provide a detailed answer..."
+              placeholder="Provide a brief answer, then let AI enhance it..."
               className="min-h-[120px] resize-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.ctrlKey) {
@@ -308,9 +344,30 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
                 }
               }}
             />
-            <p className="text-xs text-muted-foreground">
-              Tip: Press Ctrl+Enter to submit your answer quickly
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Tip: Press Ctrl+Enter to submit your answer quickly
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleEnhanceAnswer}
+                disabled={enhancing || !currentAnswer.trim()}
+                className="gap-2"
+              >
+                {enhancing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Enhancing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Have AI enhance answer
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

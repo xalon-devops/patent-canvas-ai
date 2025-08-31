@@ -24,6 +24,13 @@ serve(async (req) => {
 
     const { session_id }: RequestBody = await req.json();
 
+    if (!session_id) {
+      return new Response(
+        JSON.stringify({ error: 'session_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Analyzing patentability for session:', session_id);
 
     // Get session data, questions/answers, and prior art
