@@ -696,15 +696,6 @@ const Demo = () => {
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center p-8">
             <div className="text-center max-w-4xl mx-auto">
-              {/* Typewriter Text */}
-              {(currentPhase === 'intro' || currentPhase === 'outro') && (
-                <div className="h-24 flex items-center justify-center mb-8">
-                  <p className="text-xl md:text-2xl text-white/90 max-w-4xl leading-relaxed min-h-[3rem] animate-fade-in">
-                    {typewriterText}
-                    <span className="animate-pulse text-primary">|</span>
-                  </p>
-                </div>
-              )}
 
               {/* CTA Button */}
               {showCTA && (
