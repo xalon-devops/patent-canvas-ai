@@ -187,8 +187,9 @@ const Demo = () => {
     <div className="fixed inset-0 bg-black z-50 overflow-hidden">
       {/* Logo and Branding - Only show during intro and outro */}
       {(currentPhase === 'intro' || currentPhase === 'outro') && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-40">
-          <div className="flex items-center justify-center mb-8 animate-fade-in">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-40 space-y-8">
+          {/* Logo positioned above text */}
+          <div className="flex items-center justify-center animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center shadow-lg">
                 <Brain className="h-6 w-6 text-white" />
@@ -197,6 +198,16 @@ const Demo = () => {
                 PatentBot AI™
               </h1>
             </div>
+          </div>
+          
+          {/* Typewriter text positioned below logo */}
+          <div className="max-w-2xl px-8">
+            <p className="text-2xl text-white/90 leading-relaxed">
+              {typewriterText}
+              {(currentPhase === 'intro' || currentPhase === 'outro') && typewriterText.length > 0 && (
+                <span className="animate-pulse">|</span>
+              )}
+            </p>
           </div>
         </div>
       )}
@@ -431,7 +442,7 @@ const Demo = () => {
                     </div>
                   )}
                   
-                  {/* Step 3: Live Patent Generation */}
+                  {/* Step 3: Live Patent Generation with Visual Drawings */}
                   {demoStep === 3 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
@@ -439,32 +450,118 @@ const Demo = () => {
                           <Brain className="h-7 w-7 text-primary animate-pulse" />
                           Live Patent Generation
                         </h2>
-                        <p className="text-muted-foreground">Watch AI craft your professional patent application in real-time</p>
+                        <p className="text-muted-foreground">Watch AI craft your patent application and generate visual diagrams</p>
                       </div>
                       
-                      <div className="max-w-5xl mx-auto">
-                        <PatentCanvas
-                          sections={mockPatentSections.slice(0, currentSectionIndex + 1)}
-                          onUpdateSection={async () => {}}
-                          onRegenerateSection={async () => {}}
-                          isGenerating={isGenerating}
-                        />
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                        {/* Patent Canvas */}
+                        <div className="lg:col-span-2">
+                          <PatentCanvas
+                            sections={mockPatentSections.slice(0, currentSectionIndex + 1)}
+                            onUpdateSection={async () => {}}
+                            onRegenerateSection={async () => {}}
+                            isGenerating={isGenerating}
+                          />
+                        </div>
                         
-                        {isGenerating && (
-                          <div className="mt-6 bg-gradient-to-r from-primary/10 to-secondary/10 p-4 rounded-lg border border-primary/20">
-                            <div className="flex items-center gap-3">
-                              <div className="flex gap-1">
-                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                              </div>
-                              <span className="text-sm font-medium text-primary">
-                                AI is analyzing your invention and crafting professional patent language...
-                              </span>
+                        {/* AI Design Generation Panel */}
+                        <div className="bg-card rounded-lg border p-4 space-y-4">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/60 rounded-lg flex items-center justify-center">
+                              <Atom className="h-4 w-4 text-white" />
+                            </div>
+                            <h3 className="font-semibold text-card-foreground">AI Design Generation</h3>
+                          </div>
+                          
+                          {/* System Architecture Diagram */}
+                          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <div className={`w-2 h-2 rounded-full ${currentSectionIndex >= 1 ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`}></div>
+                              System Architecture
+                            </div>
+                            <div className="bg-background rounded p-3 min-h-[80px] flex items-center justify-center">
+                              {currentSectionIndex >= 1 ? (
+                                <div className="text-center space-y-2">
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-primary/20 p-2 rounded text-xs">Mobile App</div>
+                                    <div className="bg-primary/20 p-2 rounded text-xs">AI Engine</div>
+                                    <div className="bg-primary/20 p-2 rounded text-xs">Patent DB</div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">Architecture diagram generated</div>
+                                </div>
+                              ) : (
+                                <div className="animate-pulse text-xs text-muted-foreground">Generating...</div>
+                              )}
                             </div>
                           </div>
-                        )}
+                          
+                          {/* Process Flow Diagram */}
+                          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <div className={`w-2 h-2 rounded-full ${currentSectionIndex >= 2 ? 'bg-green-500' : currentSectionIndex >= 1 ? 'bg-yellow-500 animate-pulse' : 'bg-muted'}`}></div>
+                              Process Flow
+                            </div>
+                            <div className="bg-background rounded p-3 min-h-[80px] flex items-center justify-center">
+                              {currentSectionIndex >= 2 ? (
+                                <div className="text-center space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center text-xs">1</div>
+                                    <div className="flex-1 h-px bg-primary/40 mx-1"></div>
+                                    <div className="bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center text-xs">2</div>
+                                    <div className="flex-1 h-px bg-primary/40 mx-1"></div>
+                                    <div className="bg-primary/20 rounded-full w-8 h-8 flex items-center justify-center text-xs">3</div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">Flow diagram generated</div>
+                                </div>
+                              ) : (
+                                <div className="animate-pulse text-xs text-muted-foreground">Generating...</div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Technical Specifications */}
+                          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <div className={`w-2 h-2 rounded-full ${currentSectionIndex >= 3 ? 'bg-green-500' : currentSectionIndex >= 2 ? 'bg-yellow-500 animate-pulse' : 'bg-muted'}`}></div>
+                              Technical Drawings
+                            </div>
+                            <div className="bg-background rounded p-3 min-h-[80px] flex items-center justify-center">
+                              {currentSectionIndex >= 3 ? (
+                                <div className="text-center space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-3 rounded">
+                                      <div className="w-8 h-8 bg-primary/30 rounded mx-auto mb-1"></div>
+                                      <div className="text-xs">UI Component</div>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-3 rounded">
+                                      <div className="w-8 h-8 bg-primary/30 rounded mx-auto mb-1"></div>
+                                      <div className="text-xs">Data Flow</div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">Technical drawings ready</div>
+                                </div>
+                              ) : (
+                                <div className="animate-pulse text-xs text-muted-foreground">Generating...</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {isGenerating && (
+                        <div className="mt-6 bg-gradient-to-r from-primary/10 to-secondary/10 p-4 rounded-lg border border-primary/20 max-w-5xl mx-auto">
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-1">
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                            <span className="text-sm font-medium text-primary">
+                              AI is analyzing your invention and crafting professional patent language...
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   
