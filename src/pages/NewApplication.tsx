@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { 
   Code, 
-  Upload, 
   ArrowLeft, 
   ArrowRight,
   Github,
@@ -19,9 +18,20 @@ import {
   Lightbulb,
   Zap,
   Brain,
-  Sparkles
+  Sparkles,
+  MessageCircle,
+  Search,
+  BarChart3,
+  Gavel,
+  FileCheck,
+  Send,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AIQuestionInterface from '@/components/AIQuestionInterface';
+import PriorArtAnalysis from '@/components/PriorArtAnalysis';
+import PatentabilityAssessment from '@/components/PatentabilityAssessment';
+import PatentDrafter from '@/components/PatentDrafter';
 
 type PatentType = 'software' | 'non-software' | null;
 
@@ -30,6 +40,19 @@ interface PatentIdea {
   title: string;
   description: string;
   patent_type: string;
+}
+
+interface SessionData {
+  sessionId: string;
+  patentType: PatentType;
+  ideaTitle: string;
+  ideaDescription: string;
+  githubUrl?: string;
+  uploadedFiles: File[];
+  aiQuestions?: Array<{question: string; answer: string}>;
+  priorArtResults?: any[];
+  patentabilityScore?: number;
+  technicalAnalysis?: string;
 }
 
 const NewApplication = () => {
@@ -42,6 +65,7 @@ const NewApplication = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [existingIdea, setExistingIdea] = useState<PatentIdea | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,58 +137,85 @@ const NewApplication = () => {
     setCurrentStep(prev => prev + 1);
   };
 
-  const handleSubmit = async () => {
+  const handleStartAIAnalysis = async () => {
     if (!user || !patentType) return;
     
     setLoading(true);
     try {
-      // Create or update patent idea
-      let ideaData;
-      if (existingIdea) {
-        const { data, error } = await supabase
-          .from('patent_ideas')
-          .update({
-            title: ideaTitle,
-            description: ideaDescription,
-            status: 'drafted'
-          })
-          .eq('id', existingIdea.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        ideaData = data;
-      } else {
-        const { data, error } = await supabase
-          .from('patent_ideas')
-          .insert([{
-            user_id: user.id,
-            title: ideaTitle,
-            description: ideaDescription,
-            patent_type: patentType,
-            data_source: {
-              github_url: githubUrl,
-              files: uploadedFiles.map(f => f.name)
-            }
-          }])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        ideaData = data;
-      }
+      // Create temporary session data without storing in database yet
+      const tempSessionData: SessionData = {
+        sessionId: crypto.randomUUID(),
+        patentType,
+        ideaTitle,
+        ideaDescription,
+        githubUrl,
+        uploadedFiles
+      };
+      
+      setSessionData(tempSessionData);
+      setCurrentStep(4); // Move to AI Q&A step
+      
+    } catch (error: any) {
+      toast({
+        title: "Error starting analysis",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Create patent session
-      const { data: sessionData, error: sessionError } = await supabase
+  const handleAIQuestionsComplete = (questions: Array<{question: string; answer: string}>) => {
+    if (sessionData) {
+      setSessionData({
+        ...sessionData,
+        aiQuestions: questions
+      });
+    }
+    setCurrentStep(5); // Move to prior art analysis
+  };
+
+  const handlePriorArtComplete = (priorArtResults: any[]) => {
+    if (sessionData) {
+      setSessionData({
+        ...sessionData,
+        priorArtResults
+      });
+    }
+    setCurrentStep(6); // Move to patentability assessment
+  };
+
+  const handlePatentabilityComplete = (score: number, analysis: string) => {
+    if (sessionData) {
+      setSessionData({
+        ...sessionData,
+        patentabilityScore: score,
+        technicalAnalysis: analysis
+      });
+    }
+    setCurrentStep(7); // Move to decision point
+  };
+
+  const handleProceedToDrafting = async () => {
+    if (!user || !sessionData) return;
+    
+    setLoading(true);
+    try {
+      // Now create the actual patent session in the database
+      const { data: patentSessionData, error: sessionError } = await supabase
         .from('patent_sessions')
         .insert([{
           user_id: user.id,
-          idea_prompt: `${ideaTitle}: ${ideaDescription}`,
-          patent_type: patentType,
+          idea_prompt: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`,
+          patent_type: sessionData.patentType,
+          technical_analysis: sessionData.technicalAnalysis,
+          patentability_score: sessionData.patentabilityScore,
           data_source: {
-            idea_id: ideaData.id,
-            github_url: githubUrl,
-            files: uploadedFiles.map(f => f.name)
+            github_url: sessionData.githubUrl,
+            files: sessionData.uploadedFiles.map(f => f.name),
+            ai_questions: sessionData.aiQuestions,
+            prior_art_results: sessionData.priorArtResults
           }
         }])
         .select()
@@ -172,16 +223,61 @@ const NewApplication = () => {
 
       if (sessionError) throw sessionError;
 
+      // Update session data with real session ID
+      setSessionData({
+        ...sessionData,
+        sessionId: patentSessionData.id
+      });
+
+      setCurrentStep(8); // Move to patent drafter
+      
+    } catch (error: any) {
       toast({
-        title: "Application Created!",
-        description: "Your patent application has been started successfully.",
+        title: "Error creating session",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAsIdea = async () => {
+    if (!user || !sessionData) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('patent_ideas')
+        .insert([{
+          user_id: user.id,
+          title: sessionData.ideaTitle,
+          description: sessionData.ideaDescription,
+          patent_type: sessionData.patentType,
+          status: 'monitoring',
+          data_source: {
+            github_url: sessionData.githubUrl,
+            files: sessionData.uploadedFiles.map(f => f.name),
+            ai_questions: sessionData.aiQuestions,
+            prior_art_results: sessionData.priorArtResults,
+            patentability_score: sessionData.patentabilityScore
+          }
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Idea Saved!",
+        description: "Your idea has been saved and is now being monitored.",
         variant: "default",
       });
 
-      navigate('/pending');
+      navigate('/ideas');
     } catch (error: any) {
       toast({
-        title: "Error creating application",
+        title: "Error saving idea",
         description: error.message,
         variant: "destructive",
       });
@@ -406,9 +502,126 @@ const NewApplication = () => {
     </motion.div>
   );
 
+  const renderDecisionPoint = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-8"
+    >
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold mb-2">Ready to proceed?</h2>
+        <p className="text-muted-foreground">
+          Based on our analysis, here are your options for moving forward
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Gavel className="w-5 h-5 text-primary" />
+              Draft Full Patent Application
+            </CardTitle>
+            <CardDescription>
+              Continue to our visual patent drafter to create a complete patent application
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-primary" />
+                <span>Professional patent drafting</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-primary" />
+                <span>AI-generated claims and descriptions</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" />
+                <span>Figure generation and annotation</span>
+              </div>
+            </div>
+            <Button 
+              onClick={handleProceedToDrafting} 
+              className="w-full" 
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating Session...
+                </>
+              ) : (
+                'Proceed to Drafting ($1,000)'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50/90 to-indigo-100/90 border-blue-300/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-blue-600" />
+              Save as Monitored Idea
+            </CardTitle>
+            <CardDescription>
+              Save your idea and monitor the patent landscape for changes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-blue-600" />
+                <span>Daily prior art monitoring</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-blue-600" />
+                <span>Patent landscape tracking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-blue-600" />
+                <span>Infringement alerts</span>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleSaveAsIdea} 
+              className="w-full border-blue-600 text-blue-600 hover:bg-blue-50"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Idea (Free with Subscription)'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </motion.div>
+  );
+
+  const getCurrentStepTitle = () => {
+    switch (currentStep) {
+      case 1: return 'Choose Patent Type';
+      case 2: return 'Describe Your Invention';
+      case 3: return 'Provide Supporting Materials';
+      case 4: return 'AI Assistant Q&A';
+      case 5: return 'Prior Art Analysis';
+      case 6: return 'Patentability Assessment';
+      case 7: return 'Decision Point';
+      case 8: return 'Patent Drafter';
+      default: return '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto p-6 max-w-4xl">
+      <div className="container mx-auto p-6 max-w-6xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button
@@ -425,27 +638,24 @@ const NewApplication = () => {
               {existingIdea ? 'Draft Patent Application' : 'New Patent Application'}
             </h1>
             <p className="text-muted-foreground mt-2">
-              Step {currentStep} of 3: 
-              {currentStep === 1 && ' Choose Patent Type'}
-              {currentStep === 2 && ' Describe Your Invention'}
-              {currentStep === 3 && ' Provide Supporting Materials'}
+              Step {currentStep} of 8: {getCurrentStepTitle()}
             </p>
           </div>
         </div>
 
         {/* Progress Indicator */}
-        <div className="flex items-center gap-4 mb-8">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+        <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((step) => (
+            <div key={step} className="flex items-center gap-2 flex-shrink-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all
                 ${step <= currentStep 
                   ? 'bg-primary text-primary-foreground shadow-glow' 
                   : 'bg-muted text-muted-foreground'
                 }`}>
                 {step}
               </div>
-              {step < 3 && (
-                <div className={`w-16 h-1 rounded
+              {step < 8 && (
+                <div className={`w-8 h-1 rounded transition-all
                   ${step < currentStep ? 'bg-primary shadow-glow' : 'bg-muted'}
                 `} />
               )}
@@ -461,36 +671,72 @@ const NewApplication = () => {
                 {currentStep === 1 && !existingIdea && renderStep1()}
                 {currentStep === 2 && renderStep2()}
                 {currentStep === 3 && renderStep3()}
+                {currentStep === 4 && sessionData && (
+                  <AIQuestionInterface 
+                    sessionData={sessionData}
+                    onComplete={handleAIQuestionsComplete}
+                  />
+                )}
+                {currentStep === 5 && sessionData && (
+                  <PriorArtAnalysis 
+                    sessionData={sessionData}
+                    onComplete={handlePriorArtComplete}
+                  />
+                )}
+                {currentStep === 6 && sessionData && (
+                  <PatentabilityAssessment 
+                    sessionData={sessionData}
+                    onComplete={handlePatentabilityComplete}
+                  />
+                )}
+                {currentStep === 7 && renderDecisionPoint()}
+                {currentStep === 8 && sessionData && (
+                  <PatentDrafter 
+                    sessionId={sessionData.sessionId}
+                    onComplete={() => navigate('/pending')}
+                  />
+                )}
               </AnimatePresence>
 
               {/* Navigation */}
-              <div className="flex justify-between mt-8 pt-6 border-t border-white/10">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep(prev => prev - 1)}
-                  disabled={currentStep === 1 || (existingIdea && currentStep === 2)}
-                  className="gap-2 bg-background/50 backdrop-blur-sm border-white/20 hover:bg-background/70 hover:border-white/30 transition-all duration-300"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Previous
-                </Button>
-
-                {currentStep < 3 ? (
-                  <Button onClick={handleNext} className="gap-2 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105">
-                    Next
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleSubmit} 
-                    disabled={loading}
-                    className="gap-2 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+              {currentStep <= 3 && (
+                <div className="flex justify-between items-center mt-12 pt-6 border-t border-white/10">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
+                    disabled={currentStep === 1 || (currentStep === 2 && !!existingIdea)}
+                    className="gap-2"
                   >
-                    {loading ? 'Creating...' : 'Create Application'}
-                    <Sparkles className="w-4 h-4" />
+                    <ArrowLeft className="w-4 h-4" />
+                    Previous
                   </Button>
-                )}
-              </div>
+
+                  {currentStep === 3 ? (
+                    <Button 
+                      onClick={handleStartAIAnalysis} 
+                      className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Starting Analysis...
+                        </>
+                      ) : (
+                        <>
+                          Start AI Analysis
+                          <Brain className="w-4 h-4" />
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button onClick={handleNext} className="gap-2">
+                      Next
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
