@@ -92,6 +92,135 @@ export type Database = {
         }
         Relationships: []
       }
+      infringement_alerts: {
+        Row: {
+          alert_type: string
+          confidence_score: number | null
+          created_at: string
+          description: string | null
+          id: string
+          is_read: boolean | null
+          metadata: Json | null
+          patent_idea_id: string | null
+          patent_session_id: string | null
+          severity: string | null
+          source_url: string | null
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          metadata?: Json | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+          severity?: string | null
+          source_url?: string | null
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          metadata?: Json | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+          severity?: string | null
+          source_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      patent_documents: {
+        Row: {
+          ai_analysis: string | null
+          created_at: string
+          document_type: string
+          extraction_data: Json | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          patent_idea_id: string | null
+          patent_session_id: string | null
+        }
+        Insert: {
+          ai_analysis?: string | null
+          created_at?: string
+          document_type: string
+          extraction_data?: Json | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+        }
+        Update: {
+          ai_analysis?: string | null
+          created_at?: string
+          document_type?: string
+          extraction_data?: Json | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+        }
+        Relationships: []
+      }
+      patent_ideas: {
+        Row: {
+          created_at: string
+          data_source: Json | null
+          description: string | null
+          id: string
+          last_monitored_at: string | null
+          patent_type: string
+          prior_art_monitoring: boolean | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_source?: Json | null
+          description?: string | null
+          id?: string
+          last_monitored_at?: string | null
+          patent_type: string
+          prior_art_monitoring?: boolean | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_source?: Json | null
+          description?: string | null
+          id?: string
+          last_monitored_at?: string | null
+          patent_type?: string
+          prior_art_monitoring?: boolean | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       patent_sections: {
         Row: {
           content: string | null
@@ -136,31 +265,46 @@ export type Database = {
       }
       patent_sessions: {
         Row: {
+          ai_analysis_complete: boolean | null
           created_at: string | null
+          data_source: Json | null
           download_url: string | null
           id: string
           idea_prompt: string | null
+          patent_type: string | null
+          patentability_score: number | null
           status: string | null
           technical_analysis: string | null
           user_id: string
+          visual_analysis: Json | null
         }
         Insert: {
+          ai_analysis_complete?: boolean | null
           created_at?: string | null
+          data_source?: Json | null
           download_url?: string | null
           id?: string
           idea_prompt?: string | null
+          patent_type?: string | null
+          patentability_score?: number | null
           status?: string | null
           technical_analysis?: string | null
           user_id: string
+          visual_analysis?: Json | null
         }
         Update: {
+          ai_analysis_complete?: boolean | null
           created_at?: string | null
+          data_source?: Json | null
           download_url?: string | null
           id?: string
           idea_prompt?: string | null
+          patent_type?: string | null
+          patentability_score?: number | null
           status?: string | null
           technical_analysis?: string | null
           user_id?: string
+          visual_analysis?: Json | null
         }
         Relationships: [
           {
@@ -217,6 +361,51 @@ export type Database = {
           stripe_session_id?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      prior_art_monitoring: {
+        Row: {
+          created_at: string
+          highest_similarity_score: number | null
+          id: string
+          is_active: boolean | null
+          last_search_at: string
+          monitoring_data: Json | null
+          new_results_count: number | null
+          next_search_at: string | null
+          patent_idea_id: string | null
+          patent_session_id: string | null
+          results_found: number | null
+          search_query: string
+        }
+        Insert: {
+          created_at?: string
+          highest_similarity_score?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_search_at?: string
+          monitoring_data?: Json | null
+          new_results_count?: number | null
+          next_search_at?: string | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+          results_found?: number | null
+          search_query: string
+        }
+        Update: {
+          created_at?: string
+          highest_similarity_score?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_search_at?: string
+          monitoring_data?: Json | null
+          new_results_count?: number | null
+          next_search_at?: string | null
+          patent_idea_id?: string | null
+          patent_session_id?: string | null
+          results_found?: number | null
+          search_query?: string
         }
         Relationships: []
       }
