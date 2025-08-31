@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCircle, Clock, Users, Star, Brain, Atom } from 'lucide-react';
+import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCircle, Clock, Users, Star, Brain, Atom, Lightbulb, Target, Award, TrendingUp } from 'lucide-react';
 import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 
@@ -18,10 +18,11 @@ const Demo = () => {
   const outroText = "Join 10,000+ inventors who've protected their innovations with AI";
 
   const demoSteps = [
-    { title: "Login & Dashboard", duration: 2000 },
-    { title: "AI Interview Process", duration: 3000 },
+    { title: "Login & Dashboard", duration: 2500 },
+    { title: "AI Interview Process", duration: 4000 },
     { title: "Enhanced Prior Art Search", duration: 4000 },
     { title: "Live Patent Generation", duration: 5000 },
+    { title: "Patentability Assessment", duration: 3500 },
     { title: "Review & Export", duration: 3000 }
   ];
 
@@ -226,7 +227,7 @@ const Demo = () => {
                   </div>
                   <div className="flex items-center gap-3 ml-4">
                     <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-md">
-                      patentbot.ai/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : 'export'}
+                      patentbot.ai/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : demoStep === 4 ? 'assessment' : 'export'}
                     </div>
                     {/* Mini logo in browser header during demo */}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -272,18 +273,47 @@ const Demo = () => {
                         </div>
                       </div>
                       
-                      <div className="bg-card p-4 rounded-lg border text-card-foreground">
-                        <h4 className="font-semibold mb-3">Recent Applications</h4>
-                        <div className="space-y-2">
-                          {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <div className="flex-1">
-                                <div className="h-3 bg-muted rounded w-2/3"></div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-card p-4 rounded-lg border text-card-foreground">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            Recent Applications
+                          </h4>
+                          <div className="space-y-2">
+                            {[
+                              { name: 'Smart Energy Manager', status: 'Filed', color: 'bg-green-500' },
+                              { name: 'AI Code Analyzer', status: 'Draft', color: 'bg-yellow-500' },
+                              { name: 'Voice Recognition API', status: 'Filed', color: 'bg-green-500' }
+                            ].map((app, i) => (
+                              <div key={i} className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded cursor-pointer">
+                                <div className={`w-2 h-2 ${app.color} rounded-full`}></div>
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium">{app.name}</div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">{app.status}</div>
                               </div>
-                              <div className="text-xs text-muted-foreground">Filed</div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="bg-card p-4 rounded-lg border text-card-foreground">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Draft Applications
+                          </h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3 p-2 hover:bg-primary/10 rounded cursor-pointer border border-primary/20">
+                              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium">Mobile Patent Bot</div>
+                                <div className="text-xs text-muted-foreground">Step 3 of 6</div>
+                              </div>
+                              <div className="text-xs text-primary font-medium">Resume</div>
                             </div>
-                          ))}
+                            <div className="text-center py-2">
+                              <div className="text-xs text-muted-foreground">+ 2 more drafts</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -338,11 +368,19 @@ const Demo = () => {
                               AI
                             </div>
                             <div className="flex-1">
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 <p>Fascinating! An AI-powered patent generator for software...</p>
+                                <div className="bg-background/50 p-3 rounded border">
+                                  <div className="text-sm text-muted-foreground mb-2">Quick answer:</div>
+                                  <div className="text-sm">It analyzes code repositories and generates patent applications automatically...</div>
+                                  <Button size="sm" variant="outline" className="mt-2 gap-1" disabled>
+                                    <Sparkles className="h-3 w-3" />
+                                    AI Enhanced Answer
+                                  </Button>
+                                </div>
                                 <div className="flex items-center gap-2 text-sm">
                                   <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                                  <span className="animate-pulse">Analyzing GitHub integration capabilities...</span>
+                                  <span className="animate-pulse">Generating follow-up questions...</span>
                                 </div>
                               </div>
                             </div>
@@ -372,10 +410,23 @@ const Demo = () => {
                           </div>
                         </div>
                         
-                        <PriorArtDisplay 
-                          priorArt={mockPriorArt}
-                          isSearching={false}
-                        />
+                        <div className="space-y-4">
+                          {mockPriorArt.slice(0, 2).map((patent, index) => (
+                            <div key={patent.id} className="bg-background p-4 rounded border animate-slide-in-right" style={{ animationDelay: `${index * 0.3}s` }}>
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-medium text-sm">{patent.title}</h4>
+                                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                  {(patent.similarity_score * 100).toFixed(0)}% similar
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-2">{patent.publication_number}</p>
+                              <p className="text-xs text-muted-foreground">{patent.summary}</p>
+                            </div>
+                          ))}
+                          <div className="text-center text-xs text-muted-foreground">
+                            + 1 more patent analyzed
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -417,8 +468,70 @@ const Demo = () => {
                     </div>
                   )}
                   
-                  {/* Step 4: Review & Export */}
+                  {/* Step 4: Patentability Assessment */}
                   {demoStep === 4 && (
+                    <div className="space-y-6 animate-fade-in">
+                      <div className="text-center">
+                        <h2 className="text-2xl font-bold mb-2 text-foreground">Patentability Assessment</h2>
+                        <p className="text-muted-foreground">AI-powered analysis of your invention's patent potential</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-primary/5 to-primary/15 border border-primary/20 p-8 rounded-lg text-center">
+                        <div className="space-y-4">
+                          <div className="text-6xl font-bold">
+                            <span className="text-green-600">82</span>
+                            <span className="text-2xl text-muted-foreground">/100</span>
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-semibold">Good Patent Potential</h3>
+                            <div className="w-full bg-muted/50 rounded-full h-3 overflow-hidden">
+                              <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: '82%' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { name: 'Novelty', score: 85, icon: Lightbulb, color: 'text-green-600' },
+                          { name: 'Non-obviousness', score: 78, icon: Target, color: 'text-blue-600' },
+                          { name: 'Utility', score: 95, icon: Zap, color: 'text-green-600' },
+                          { name: 'Technical Merit', score: 88, icon: Award, color: 'text-green-600' }
+                        ].map((criterion, index) => {
+                          const IconComponent = criterion.icon;
+                          return (
+                            <div key={criterion.name} className="bg-card p-4 rounded-lg border animate-slide-in-right" style={{ animationDelay: `${index * 0.2}s` }}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <IconComponent className="w-5 h-5 text-primary" />
+                                  <span className="font-medium">{criterion.name}</span>
+                                </div>
+                                <span className={`font-bold ${criterion.color}`}>{criterion.score}/100</span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: `${criterion.score}%` }}></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="bg-card p-6 rounded-lg border">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5" />
+                          AI Analysis Summary
+                        </h4>
+                        <div className="text-sm space-y-2 text-muted-foreground">
+                          <p>Your invention scores 82/100 for patentability, indicating <strong>good patent potential</strong> with reasonable likelihood of approval.</p>
+                          <p><strong>Key Strengths:</strong> Strong novelty and utility scores demonstrate clear innovation and practical value.</p>
+                          <p><strong>Recommendation:</strong> Proceed with patent drafting while emphasizing your unique technical advantages.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Step 5: Review & Export */}
+                  {demoStep === 5 && (
                     <div className="space-y-6 animate-fade-in">
                       <div className="text-center">
                         <h2 className="text-2xl font-bold mb-2 text-foreground">Patent Application Complete</h2>
@@ -445,13 +558,18 @@ const Demo = () => {
                           </div>
                         </div>
                         
-                        <div className="flex gap-3">
-                          <Button className="bg-white text-primary hover:bg-white/90">
-                            <FileText className="h-4 w-4 mr-2" />
-                            Download DOCX
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <Button className="bg-white text-primary hover:bg-white/90 gap-2">
+                            <Shield className="h-4 w-4" />
+                            File with USPTO ($1,000)
                           </Button>
-                          <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                            File with USPTO
+                          <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 gap-2">
+                            <FileText className="h-4 w-4" />
+                            Download PDF
+                          </Button>
+                          <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 gap-2">
+                            <FileText className="h-4 w-4" />
+                            Download DOCX
                           </Button>
                         </div>
                       </div>
@@ -469,7 +587,7 @@ const Demo = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4 text-green-500" />
-                            <span>Prior art analysis</span>
+                            <span>Patentability assessment</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4 text-green-500" />
