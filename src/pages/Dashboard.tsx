@@ -331,82 +331,116 @@ const Dashboard = () => {
             </Card>
           </div>
 
-          {/* Navigation Cards */}
+          {/* Portfolio Overview */}
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-4">Manage Your Patent Portfolio</h2>
-            <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Access all patent management tools from your centralized dashboard.
+            <h2 className="text-3xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
+              Your Patent Portfolio
+            </h2>
+            <p className="text-muted-foreground mb-6 max-w-2xl mx-auto text-lg">
+              AI-powered patent management with real-time competitive intelligence and infringement monitoring.
             </p>
           </div>
 
-          {/* Navigation Menu */}
-          <div className="grid gap-6 md:grid-cols-3 mb-8">
+          {/* Enhanced Navigation Menu */}
+          <div className="grid gap-8 md:grid-cols-3 mb-12">
             <Card 
-              className="p-6 bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20 hover:shadow-glow/30 transition-all duration-500 cursor-pointer group"
+              className="glass group relative overflow-hidden border-accent/30 hover:border-accent/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
               onClick={() => navigate('/ideas')}
             >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-accent/10 rounded-lg group-hover:scale-110 transition-transform">
-                  <Sparkles className="h-6 w-6 text-accent" />
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/10 opacity-60 group-hover:opacity-80 transition-opacity" />
+              <CardContent className="relative p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-accent/10 rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Sparkles className="h-8 w-8 text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Ideas Lab</h3>
+                    <p className="text-muted-foreground">Capture & monitor innovations</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold">Ideas Lab</h3>
-                  <p className="text-muted-foreground">Capture and refine patent ideas</p>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                  Track your inventions with daily competitive landscape monitoring and prior art alerts.
+                </p>
+                <div className="flex items-center gap-2 text-accent font-medium group-hover:gap-3 transition-all">
+                  <span>Explore Ideas</span>
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Document and develop your inventions before filing
-              </p>
+              </CardContent>
             </Card>
 
             <Card 
-              className="p-6 bg-gradient-to-br from-blue-500/5 to-blue-500/10 border-blue-500/20 hover:shadow-glow/30 transition-all duration-500 cursor-pointer group"
+              className="glass group relative overflow-hidden border-blue-500/30 hover:border-blue-500/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
               onClick={() => navigate('/pending')}
             >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-blue-500/10 rounded-lg group-hover:scale-110 transition-transform">
-                  <Clock className="h-6 w-6 text-blue-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-blue-500/10 opacity-60 group-hover:opacity-80 transition-opacity" />
+              <CardContent className="relative p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-blue-500/10 rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Clock className="h-8 w-8 text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Pending Patents</h3>
+                    <p className="text-muted-foreground">Track application progress</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold">Pending Applications</h3>
-                  <p className="text-muted-foreground">Track filed applications</p>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                  Real-time updates on filing status, examiner actions, and competitive intelligence.
+                </p>
+                <div className="flex items-center gap-2 text-blue-500 font-medium group-hover:gap-3 transition-all">
+                  <span>View Applications</span>
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Monitor progress and prior art analysis
-              </p>
+              </CardContent>
             </Card>
 
             <Card 
-              className="p-6 bg-gradient-to-br from-green-500/5 to-green-500/10 border-green-500/20 hover:shadow-glow/30 transition-all duration-500 cursor-pointer group"
+              className="glass group relative overflow-hidden border-green-500/30 hover:border-green-500/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
               onClick={() => navigate('/active')}
             >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-green-500/10 rounded-lg group-hover:scale-110 transition-transform">
-                  <CheckCircle className="h-6 w-6 text-green-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-green-500/10 opacity-60 group-hover:opacity-80 transition-opacity" />
+              <CardContent className="relative p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-green-500/10 rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Shield className="h-8 w-8 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">Active Patents</h3>
+                    <p className="text-muted-foreground">Protect your IP assets</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold">Active Patents</h3>
-                  <p className="text-muted-foreground">Manage granted patents</p>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                  Automated infringement detection, maintenance tracking, and portfolio valuation.
+                </p>
+                <div className="flex items-center gap-2 text-green-500 font-medium group-hover:gap-3 transition-all">
+                  <span>Manage Portfolio</span>
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                View portfolio and renewal dates
-              </p>
+              </CardContent>
             </Card>
           </div>
 
-          {/* Start New Session Button */}
-          <div className="text-center">
-            <Button 
-              onClick={createNewSession} 
-              size="lg" 
-              className="px-8 py-6 text-lg font-semibold bg-gradient-primary hover:scale-105 transform transition-all duration-200 shadow-glow"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Start New Patent Application
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
+          {/* Call-to-Action Section */}
+          <div className="text-center bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 rounded-3xl p-12 border border-primary/10">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-3xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
+                Ready to Protect Your Innovation?
+              </h3>
+              <p className="text-lg text-muted-foreground mb-8">
+                Experience the most advanced AI-powered patent drafting system. From idea to USPTO filing in minutes.
+              </p>
+              <Button 
+                onClick={createNewSession} 
+                size="lg" 
+                className="px-12 py-6 text-xl font-bold bg-gradient-primary hover:scale-105 transform transition-all duration-300 shadow-glow hover:shadow-2xl group"
+              >
+                <Plus className="h-6 w-6 mr-3 group-hover:rotate-90 transition-transform" />
+                Start Patent Application
+                <ArrowRight className="h-6 w-6 ml-3 group-hover:translate-x-2 transition-transform" />
+              </Button>
+              <p className="text-sm text-muted-foreground mt-4">
+                * Professional USPTO-ready documents • 24/7 AI assistance • Competitive intelligence
+              </p>
+            </div>
           </div>
         </div>
       </main>

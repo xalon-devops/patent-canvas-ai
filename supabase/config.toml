@@ -46,3 +46,9 @@ verify_jwt = false
 
 [functions.customer-portal]
 verify_jwt = true
+
+[functions.analyze-patentability]
+verify_jwt = false
+
+[functions.draft-patent-section]
+verify_jwt = false

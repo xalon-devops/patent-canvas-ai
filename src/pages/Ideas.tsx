@@ -143,47 +143,51 @@ const Ideas = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto p-6 max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/dashboard')}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Patent Ideas
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Track your innovative ideas and monitor the patent landscape
-            </p>
+    <div className="min-h-screen bg-gradient-subtle">
+      <div className="safe-area py-8">
+        <div className="content-width">
+          {/* Header */}
+          <div className="flex items-center gap-6 mb-12">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="gap-2 hover:scale-105 transition-transform"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Dashboard
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-3">
+                Ideas Laboratory
+              </h1>
+              <p className="text-xl text-muted-foreground">
+                Nurture innovations with AI-powered competitive intelligence and daily patent landscape monitoring
+              </p>
+            </div>
+            <Button 
+              onClick={() => navigate('/new-application')} 
+              className="gap-2 px-6 py-3 bg-gradient-primary hover:scale-105 transition-transform shadow-glow"
+            >
+              <Lightbulb className="w-5 h-5" />
+              Capture New Idea
+            </Button>
           </div>
-          <Button onClick={() => navigate('/new-application')} className="gap-2">
-            <Lightbulb className="w-4 h-4" />
-            New Idea
-          </Button>
-        </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Lightbulb className="w-6 h-6 text-primary" />
+          {/* Enhanced Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+            <Card className="glass group hover:shadow-glow transition-all duration-500 transform hover:scale-[1.02]">
+              <CardContent className="p-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                    <Lightbulb className="w-8 h-8 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">{ideas.length}</p>
+                    <p className="text-sm text-muted-foreground font-medium">Active Ideas</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{ideas.length}</p>
-                  <p className="text-sm text-muted-foreground">Total Ideas</p>
-                </div>
-              </div>
-            </CardContent>
+              </CardContent>
           </Card>
 
           <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
@@ -349,9 +353,11 @@ const Ideas = () => {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
+
 };
 
 export default Ideas;

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   BarChart3, 
   CheckCircle, 
@@ -61,10 +62,32 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
   const performAssessment = async () => {
     setLoading(true);
     try {
-      // Simulate AI analysis delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the enhanced analyze-patentability function
+      const { data, error } = await supabase.functions.invoke('analyze-patentability', {
+        body: { 
+          session_id: sessionData.sessionId
+        }
+      });
 
-      // Mock assessment criteria based on USPTO standards
+      if (error) {
+        console.error('Patentability analysis error:', error);
+        throw new Error('Failed to analyze patentability');
+      }
+
+      if (data?.success && data.analysis) {
+        const analysis = data.analysis;
+        
+        setCriteria(analysis.criteria);
+        setOverallScore(analysis.overall_score);
+        setAnalysis(analysis.summary);
+        
+        // Animate through criteria
+        animateCriteria(analysis.criteria);
+        
+        return;
+      }
+
+      // Fallback to mock assessment if API fails
       const assessmentCriteria: AssessmentCriterion[] = [
         {
           name: 'Novelty',
