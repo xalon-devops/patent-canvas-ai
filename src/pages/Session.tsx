@@ -20,11 +20,14 @@ import {
   CheckCircle,
   TreeDeciduous,
   Sparkles,
-  Clock
+  Clock,
+  Wand2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import SystemMessage from '@/components/SystemMessage';
+import PatentCanvas from '@/components/PatentCanvas';
+import PriorArtDisplay from '@/components/PriorArtDisplay';
 
 interface PatentSession {
   id: string;
@@ -83,6 +86,7 @@ const Session = () => {
   const [generatingDraft, setGeneratingDraft] = useState(false);
   const [filingPatent, setFilingPatent] = useState(false);
   const [exportingPatent, setExportingPatent] = useState(false);
+  const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   
   const sectionTypes = [
     'abstract',
@@ -585,6 +589,53 @@ const Session = () => {
     }
   };
 
+  const handleRegenerateSection = async (sectionType: string) => {
+    if (!id || regeneratingSection) return;
+    
+    setRegeneratingSection(sectionType);
+    
+    try {
+      console.log('Regenerating section:', sectionType);
+      
+      const { data, error } = await supabase.functions.invoke('enhance-patent-section', {
+        body: { 
+          session_id: id,
+          section_type: sectionType
+        }
+      });
+
+      if (error) {
+        console.error('Section regeneration error:', error);
+        throw new Error(error.message || 'Failed to regenerate section');
+      }
+
+      if (!data?.success) {
+        console.error('Section regeneration failed:', data);
+        throw new Error('Section regeneration failed');
+      }
+
+      console.log('Section regenerated successfully:', data);
+      
+      await fetchSessionData();
+      
+      toast({
+        title: `✨ ${getSectionTitle(sectionType)} Enhanced`,
+        description: `Generated using ${data.model_used} with ${data.content_length} chars`,
+        variant: "default",
+      });
+      
+    } catch (error: any) {
+      console.error('Error regenerating section:', error);
+      toast({
+        title: "Regeneration Error",
+        description: createSafeErrorMessage(error),
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingSection(null);
+    }
+  };
+
   const handleFilePatent = async () => {
     if (!id || filingPatent) return;
     
@@ -1040,132 +1091,35 @@ const Session = () => {
               />
             )}
 
-            {chatPhase === 'search' && priorArt.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                    <p className="text-sm">
-                      I found {priorArt.length} related patents. Here are the most similar ones:
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pl-11">
-                  {priorArt.map((art) => {
-                    const overlapCount = art.overlap_claims?.length || 0;
-                    const differenceCount = art.difference_claims?.length || 0;
-                    
-                    // Determine overlap badge color based on similarity
-                    const getOverlapBadge = () => {
-                      if (overlapCount === 0) return { color: '🟢', text: 'Low Overlap' };
-                      if (overlapCount <= 2) return { color: '🟡', text: 'Medium Overlap' };
-                      return { color: '🔴', text: 'High Overlap' };
-                    };
-                    
-                    const overlapBadge = getOverlapBadge();
-                    
-                    return (
-                      <Card key={art.id} className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-sm flex items-center gap-2">
-                                {art.title}
-                                <span className="text-xs flex items-center gap-1 bg-secondary px-2 py-1 rounded">
-                                  {overlapBadge.color} {overlapBadge.text}
-                                </span>
-                              </CardTitle>
-                              <CardDescription className="text-xs">
-                                {art.publication_number} • {formatSimilarityScore(art.similarity_score)}
-                              </CardDescription>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="pt-0 space-y-3">
-                          <p className="text-xs text-muted-foreground">
-                            {art.summary}
-                          </p>
-                          
-                          {/* Overlap Analysis */}
-                          {art.overlap_claims && art.overlap_claims.length > 0 && (
-                            <div className="space-y-2">
-                              <h5 className="text-xs font-semibold text-destructive flex items-center gap-1">
-                                🔴 Overlapping Claims ({art.overlap_claims.length})
-                              </h5>
-                              <ul className="text-xs space-y-1">
-                                {art.overlap_claims.map((claim, idx) => (
-                                  <li key={idx} className="text-muted-foreground bg-destructive/5 p-2 rounded">
-                                    • {claim}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          
-                          {/* Difference Analysis */}
-                          {art.difference_claims && art.difference_claims.length > 0 && (
-                            <div className="space-y-2">
-                              <h5 className="text-xs font-semibold text-green-600 flex items-center gap-1">
-                                🟢 Key Differences ({art.difference_claims.length})
-                              </h5>
-                              <ul className="text-xs space-y-1">
-                                {art.difference_claims.map((claim, idx) => (
-                                  <li key={idx} className="text-muted-foreground bg-green-50 dark:bg-green-950/20 p-2 rounded">
-                                    • {claim}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => window.open(art.url, '_blank')}
-                            className="text-xs h-7"
-                          >
-                            <Eye className="h-3 w-3" />
-                            View Patent
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                    <p className="text-sm mb-3">
-                      Based on this analysis, your invention appears to have novel aspects. 
-                      Would you like me to proceed with generating your patent draft?
-                    </p>
+            {chatPhase === 'search' && (
+              <div className="space-y-4">
+                <PriorArtDisplay 
+                  priorArt={priorArt}
+                  isSearching={searchingPriorArt}
+                  onRetrySearch={performPriorArtSearch}
+                />
+                
+                {!searchingPriorArt && (
+                  <div className="flex justify-center">
                     <Button 
-                      variant="gradient" 
-                      size="sm"
                       onClick={proceedToCanvas}
                       disabled={generatingDraft}
-                      className="min-w-[160px]"
+                      className="w-full max-w-md"
                     >
                       {generatingDraft ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                          Generating...
+                          <Sparkles className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Patent Draft...
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="h-4 w-4" />
-                          Yes, Proceed to Draft
+                          <FileText className="mr-2 h-4 w-4" />
+                          Proceed to Patent Canvas
                         </>
                       )}
                     </Button>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -1217,31 +1171,14 @@ const Session = () => {
             </h2>
           </div>
 
-          {chatPhase === 'canvas' ? (
-            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-4">
-              {sectionTypes.map((sectionType) => {
-                const section = sections.find(s => s.section_type === sectionType);
-                return (
-                  <PatentSectionCard
-                    key={sectionType}
-                    title={getSectionTitle(sectionType)}
-                    content={section?.content || ''}
-                    isUserEdited={section?.is_user_edited || false}
-                    sectionType={sectionType}
-                    timestamp={section?.created_at}
-                    onUpdate={(newContent) => {
-                      if (section) {
-                        updateSection(section.id, newContent);
-                      }
-                    }}
-                    onRegenerate={() => {
-                      // TODO: Implement regeneration for specific section
-                      console.log('Regenerate section:', sectionType);
-                    }}
-                    isGenerated={!!section}
-                  />
-                );
-              })}
+           {chatPhase === 'canvas' ? (
+            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4">
+              <PatentCanvas
+                sections={sections}
+                onUpdateSection={updateSection}
+                onRegenerateSection={handleRegenerateSection}
+                isGenerating={regeneratingSection !== null}
+              />
             </div>
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">

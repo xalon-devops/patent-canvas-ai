@@ -102,21 +102,41 @@ serve(async (req) => {
     const searchQuery = searchTerms.join(' ').substring(0, 200); // Limit query length
     console.log('Generated search query:', searchQuery);
 
-    // Search Lens.org via REST API (correct format)
+    // Enhanced search request with broader matching
     const searchRequest = {
       query: {
         bool: {
-          must: [
+          should: [
+            {
+              multi_match: {
+                query: searchQuery,
+                fields: ["title^3", "abstract^2", "description", "claims"],
+                type: "best_fields",
+                minimum_should_match: "75%"
+              }
+            },
             {
               match: {
-                title: searchQuery
+                title: {
+                  query: searchQuery,
+                  boost: 2
+                }
+              }
+            },
+            {
+              match: {
+                abstract: searchQuery
               }
             }
-          ]
+          ],
+          minimum_should_match: 1
         }
       },
-      size: 5,
-      include: ["biblio", "doc_key"]
+      size: 8,
+      include: ["biblio", "abstract", "claims"],
+      sort: [
+        { "_score": { "order": "desc" } }
+      ]
     };
 
     console.log('Calling Lens.org API for prior art search');
@@ -162,14 +182,30 @@ serve(async (req) => {
       );
     }
 
-    // Process and store top 5 results (REST API format)
-    const results = lensData.data.slice(0, 5);
+    // Process and store top results with better data extraction
+    const results = lensData.data.slice(0, 6);
     
-    // Use Ollama to analyze overlaps and differences for each result
+    // Enhanced analysis with better data extraction
     const priorArtResults = [];
     for (const result of results) {
-      const title = result.title || result.biblio?.title || 'Untitled Patent';
-      const summary = result.abstract || result.biblio?.abstract || 'No abstract available';
+      const title = result.title || result.biblio?.title || result.biblio?.invention_title?.en || 'Untitled Patent';
+      const summary = result.abstract || result.biblio?.abstract?.en || result.biblio?.abstract || 'No abstract available';
+      const publicationNumber = result.publication_number || 
+                               result.biblio?.publication_number || 
+                               result.lens_id || 
+                               'Unknown';
+      
+      // Calculate better similarity score
+      const calculateSimilarity = (text1: string, text2: string) => {
+        const words1 = text1.toLowerCase().split(/\s+/);
+        const words2 = text2.toLowerCase().split(/\s+/);
+        const intersection = words1.filter(word => words2.includes(word));
+        return intersection.length / Math.max(words1.length, words2.length);
+      };
+      
+      const titleSimilarity = calculateSimilarity(searchQuery, title);
+      const abstractSimilarity = calculateSimilarity(searchQuery, summary);
+      const calculatedScore = (titleSimilarity * 0.7 + abstractSimilarity * 0.3);
       
       // Generate overlap and difference analysis using Ollama
       const analysisPrompt = `Analyze this prior art patent against the invention idea "${session.idea_prompt}".
