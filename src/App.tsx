@@ -19,6 +19,7 @@ import Ideas from "./pages/Ideas";
 import Pending from "./pages/Pending";
 import Active from "./pages/Active";
 import NewApplication from "./pages/NewApplication";
+import Drafts from "./pages/Drafts";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <NewApplication />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/drafts" 
+              element={
+                <ProtectedRoute>
+                  <Drafts />
                 </ProtectedRoute>
               } 
             />

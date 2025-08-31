@@ -80,10 +80,14 @@ const NewApplication = () => {
       }
       setUser(session.user);
 
-      // Check if coming from an existing idea
+      // Check if coming from an existing idea or resuming a session
       const ideaId = searchParams.get('ideaId');
+      const sessionId = searchParams.get('sessionId');
+      
       if (ideaId) {
         await loadExistingIdea(ideaId);
+      } else if (sessionId) {
+        await loadExistingSession(sessionId);
       }
     };
 
@@ -108,6 +112,79 @@ const NewApplication = () => {
     } catch (error: any) {
       toast({
         title: "Error loading idea",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadExistingSession = async (sessionId: string) => {
+    try {
+      // Load session data
+      const { data: session, error: sessionError } = await supabase
+        .from('patent_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      // Load AI questions if they exist
+      const { data: questions } = await supabase
+        .from('ai_questions')
+        .select('*')
+        .eq('session_id', sessionId);
+
+      // Load prior art results if they exist
+      const { data: priorArt } = await supabase
+        .from('prior_art_results')
+        .select('*')
+        .eq('session_id', sessionId);
+
+      // Parse data_source safely
+      const dataSource = session.data_source as any;
+      const githubUrl = dataSource?.github_url || '';
+
+      // Set form data from session
+      setIdeaTitle(session.idea_prompt?.split(':')[0] || '');
+      setIdeaDescription(session.idea_prompt?.split(':').slice(1).join(':').trim() || '');
+      setPatentType(session.patent_type as PatentType);
+      setGithubUrl(githubUrl);
+
+      // Create session data object
+      const resumedSessionData: SessionData = {
+        sessionId: session.id,
+        patentType: session.patent_type as PatentType,
+        ideaTitle: session.idea_prompt?.split(':')[0] || '',
+        ideaDescription: session.idea_prompt?.split(':').slice(1).join(':').trim() || '',
+        githubUrl: githubUrl,
+        uploadedFiles: [], // Files can't be restored
+        aiQuestions: questions?.map(q => ({ question: q.question || '', answer: q.answer || '' })),
+        priorArtResults: priorArt,
+        patentabilityScore: session.patentability_score || undefined,
+        technicalAnalysis: session.technical_analysis || undefined,
+      };
+
+      setSessionData(resumedSessionData);
+
+      // Determine which step to resume from
+      let resumeStep = 1;
+      if (session.idea_prompt) resumeStep = 2;
+      if (session.data_source && Object.keys(session.data_source).length > 0) resumeStep = 3;
+      if (questions && questions.length > 0) resumeStep = 5; // Skip to prior art
+      if (priorArt && priorArt.length > 0) resumeStep = 6; // Skip to assessment
+      if (session.ai_analysis_complete) resumeStep = 7; // Skip to drafting
+
+      setCurrentStep(resumeStep);
+
+      toast({
+        title: "Session resumed",
+        description: "Continuing from where you left off.",
+      });
+    } catch (error: any) {
+      console.error('Error loading session:', error);
+      toast({
+        title: "Error loading session",
         description: error.message,
         variant: "destructive",
       });

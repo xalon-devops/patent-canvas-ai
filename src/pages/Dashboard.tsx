@@ -288,12 +288,21 @@ const Dashboard = () => {
                 <div className="text-2xl font-bold text-primary mb-2">$1,000</div>
                 <div className="text-sm text-muted-foreground mb-4">One-time payment per application</div>
               </div>
-              <Button 
-                onClick={createNewSession} 
-                className="w-full bg-primary hover:bg-primary/90"
-              >
-                Start New Patent ($1,000)
-              </Button>
+              <div className="space-y-3">
+                <Button 
+                  onClick={createNewSession} 
+                  className="w-full bg-primary hover:bg-primary/90"
+                >
+                  Start New Patent ($1,000)
+                </Button>
+                <Button 
+                  onClick={() => navigate('/drafts')} 
+                  variant="outline"
+                  className="w-full"
+                >
+                  Resume Draft Applications
+                </Button>
+              </div>
             </Card>
 
             <Card className="p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-glow/30 transition-all duration-500">
