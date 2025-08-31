@@ -21,7 +21,7 @@ const Demo = () => {
     { title: "Login & Dashboard", duration: 2500 },
     { title: "AI Interview Process", duration: 4000 },
     { title: "Enhanced Prior Art Search", duration: 4000 },
-    { title: "Live Patent Generation", duration: 5000 },
+    { title: "Live Patent Generation", duration: 6000 },
     { title: "Patentability Assessment", duration: 3500 },
     { title: "Review & Export", duration: 3000 }
   ];
@@ -190,18 +190,13 @@ const Demo = () => {
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-40 space-y-8">
           {/* Logo positioned above text */}
           <div className="flex items-center justify-center animate-fade-in">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center shadow-lg">
-                <Brain className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-white">
-                PatentBot AI™
-              </h1>
+            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center shadow-lg">
+              <Brain className="h-6 w-6 text-white" />
             </div>
           </div>
           
           {/* Typewriter text positioned below logo */}
-          <div className="max-w-2xl px-8">
+          <div className="max-w-2xl px-8 mt-6">
             <p className="text-2xl text-white/90 leading-relaxed">
               {typewriterText}
               {(currentPhase === 'intro' || currentPhase === 'outro') && typewriterText.length > 0 && (
