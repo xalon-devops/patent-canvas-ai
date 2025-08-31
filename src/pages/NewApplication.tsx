@@ -206,58 +206,58 @@ const NewApplication = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+          className="cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 bg-gradient-to-br from-blue-50/90 to-indigo-100/90 border-blue-300/50 backdrop-blur-sm hover:border-blue-400/70"
           onClick={() => handlePatentTypeSelect('software')}
         >
           <CardContent className="p-8 text-center">
             <div className="mb-4">
-              <Code className="w-16 h-16 mx-auto text-blue-600" />
+              <Code className="w-16 h-16 mx-auto text-blue-700 drop-shadow-sm" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Software Patent</h3>
-            <p className="text-muted-foreground mb-4">
+            <h3 className="text-xl font-bold mb-2 text-gray-900">Software Patent</h3>
+            <p className="text-gray-700 mb-4 font-medium">
               Applications, algorithms, mobile apps, web platforms, AI/ML systems
             </p>
             <div className="space-y-2 text-sm text-left">
               <div className="flex items-center gap-2">
-                <Github className="w-4 h-4" />
-                <span>GitHub integration</span>
+                <Github className="w-4 h-4 text-blue-600" />
+                <span className="text-gray-800 font-medium">GitHub integration</span>
               </div>
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                <span>Code analysis</span>
+                <Zap className="w-4 h-4 text-blue-600" />
+                <span className="text-gray-800 font-medium">Code analysis</span>
               </div>
               <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4" />
-                <span>AI-powered documentation</span>
+                <Brain className="w-4 h-4 text-blue-600" />
+                <span className="text-gray-800 font-medium">AI-powered documentation</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200"
+          className="cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-105 bg-gradient-to-br from-green-50/90 to-emerald-100/90 border-green-300/50 backdrop-blur-sm hover:border-green-400/70"
           onClick={() => handlePatentTypeSelect('non-software')}
         >
           <CardContent className="p-8 text-center">
             <div className="mb-4">
-              <Lightbulb className="w-16 h-16 mx-auto text-green-600" />
+              <Lightbulb className="w-16 h-16 mx-auto text-green-700 drop-shadow-sm" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Physical Patent</h3>
-            <p className="text-muted-foreground mb-4">
+            <h3 className="text-xl font-bold mb-2 text-gray-900">Physical Patent</h3>
+            <p className="text-gray-700 mb-4 font-medium">
               Mechanical devices, chemical processes, medical devices, manufacturing
             </p>
             <div className="space-y-2 text-sm text-left">
               <div className="flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                <span>Image analysis</span>
+                <ImageIcon className="w-4 h-4 text-green-600" />
+                <span className="text-gray-800 font-medium">Image analysis</span>
               </div>
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                <span>Technical drawings</span>
+                <FileText className="w-4 h-4 text-green-600" />
+                <span className="text-gray-800 font-medium">Technical drawings</span>
               </div>
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                <span>Visual recognition</span>
+                <Sparkles className="w-4 h-4 text-green-600" />
+                <span className="text-gray-800 font-medium">Visual recognition</span>
               </div>
             </div>
           </CardContent>
