@@ -6,7 +6,9 @@
     <title>PatentBot AI™</title>
     <meta name="description" content="AI-Powered Patent Application Generator" />
     <meta name="author" content="PatentBot AI" />
-    <link rel="icon" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png" type="image/png">
+    <link rel="icon" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2" type="image/png">
+    <link rel="shortcut icon" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2" type="image/png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2">
 
     <meta property="og:title" content="PatentBot AI™" />
     <meta property="og:description" content="AI-Powered Patent Application Generator" />
@@ -16,6 +18,26 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@patentbot_ai" />
     <meta name="twitter:image" content="https://i.ibb.co/20QsmLh3/Patent-Bot-AI-Meta.png" />
+
+    <!-- Canonical + Structured Data -->
+    <link rel="canonical" href="/" />
+    <script>
+      (function() {
+        // Ensure canonical is absolute
+        var link = document.querySelector('link[rel="canonical"]');
+        if (link) link.setAttribute('href', window.location.origin + window.location.pathname);
+        // Inject basic Organization JSON-LD
+        var jsonLd = document.createElement('script');
+        jsonLd.type = 'application/ld+json';
+        jsonLd.text = JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "PatentBot AI",
+          "logo": "https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png"
+        });
+        document.head.appendChild(jsonLd);
+      })();
+    </script>
 
     <!-- ✅ NEXUS Universal Tracking Script -->
     <script>
