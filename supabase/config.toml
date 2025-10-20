@@ -55,3 +55,6 @@ verify_jwt = false
 
 [functions.enhance-answer]
 verify_jwt = false
+
+[functions.verify-payment]
+verify_jwt = false

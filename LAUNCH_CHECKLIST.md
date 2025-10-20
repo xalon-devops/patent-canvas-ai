@@ -8,21 +8,17 @@
   - [ ] Check & See Subscription ($9.99/month)
 - [ ] Update price IDs in codebase:
   - [ ] `src/lib/stripeConfig.ts` (lines 6-13)
-  - [ ] `src/pages/Check.tsx` (line 269)
-- [ ] Configure webhook endpoint in Stripe
-  - URL: `https://jdkogqskjsmwlhigaecb.supabase.co/functions/v1/stripe-webhook`
-  - Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
-- [ ] Add webhook secret to Supabase
-  - [ ] Add `STRIPE_WEBHOOK_SECRET` in Supabase Edge Functions Secrets
+- [ ] Ensure STRIPE_SECRET_KEY is set in Supabase Edge Functions Secrets
+- [ ] No webhook configuration needed - using direct API verification
 
 ### 2. Payment Flow Testing ⚠️ REQUIRED
 - [ ] Test $1,000 patent payment with test card (4242 4242 4242 4242)
-- [ ] Verify payment records in `application_payments` table
+- [ ] Verify payment records in `application_payments` table via verify-payment function
 - [ ] Confirm export unlocks after payment
 - [ ] Test $9.99 subscription with test card
-- [ ] Verify subscription records in `subscriptions` table
+- [ ] Verify subscription records in `subscriptions` table via verify-payment function
 - [ ] Confirm searches unlock after subscription
-- [ ] Test webhook processing (check logs)
+- [ ] Test payment return page shows correct status
 - [ ] Test payment failure scenarios
 
 ### 3. User Journey Testing ⚠️ REQUIRED
@@ -71,17 +67,16 @@
 
 ### Morning of Launch
 - [ ] Switch Stripe to live mode
-  - [ ] Update publishable key in `src/components/EmbeddedStripeCheckout.tsx` if needed
-  - [ ] Update secret key in Supabase Secrets
-  - [ ] Update webhook endpoint to use live keys
+  - [ ] Update secret key in Supabase Secrets (STRIPE_SECRET_KEY)
+  - [ ] Stripe publishable key is already in EmbeddedStripeCheckout.tsx
 - [ ] Clear test data from database (if any)
 - [ ] Verify all edge functions are deployed
 - [ ] Test one complete payment flow with real card (refund immediately)
-- [ ] Check Stripe dashboard is receiving events
-- [ ] Verify webhook is processing correctly
+- [ ] Check Stripe dashboard is receiving payments
+- [ ] Verify verify-payment function is updating database correctly
 
 ### During Launch
-- [ ] Monitor Supabase edge function logs
+- [ ] Monitor Supabase edge function logs (especially verify-payment)
 - [ ] Monitor Stripe dashboard for payments
 - [ ] Watch for error notifications
 - [ ] Be ready for support emails
@@ -90,7 +85,7 @@
 
 ### End of Day 1
 - [ ] Review all completed payments
-- [ ] Check for any failed webhooks
+- [ ] Review verify-payment function logs
 - [ ] Review error logs
 - [ ] Note any user feedback
 - [ ] Plan day 2 monitoring
@@ -184,7 +179,7 @@
 1. **Payment Processing Down**
    - Check Stripe status: https://status.stripe.com
    - Check Supabase status: https://status.supabase.com
-   - Review webhook logs: https://dashboard.stripe.com/webhooks
+   - Review verify-payment function logs in Supabase
 
 2. **Database Issues**
    - Check Supabase dashboard
@@ -192,8 +187,8 @@
    - Check RLS policy errors
 
 3. **Edge Function Failures**
-   - Check logs in Supabase dashboard
-   - Verify secrets are configured
+   - Check logs in Supabase dashboard (especially verify-payment)
+   - Verify STRIPE_SECRET_KEY is configured in secrets
    - Check for API rate limits
 
 ### Support Resources
@@ -272,10 +267,10 @@ Try it today: https://patentbot-ai.lovable.app
 ## ✅ Final Pre-Launch Checklist Summary
 
 **CRITICAL (Must Complete):**
-- [ ] Stripe production price IDs configured
-- [ ] Webhook endpoint configured and tested
+- [ ] Stripe production price IDs configured in src/lib/stripeConfig.ts
+- [ ] STRIPE_SECRET_KEY set in Supabase secrets
 - [ ] Test payment with real card
-- [ ] Verify webhook updates database
+- [ ] Verify verify-payment function updates database correctly
 - [ ] Support email ready
 
 **IMPORTANT (Should Complete):**
