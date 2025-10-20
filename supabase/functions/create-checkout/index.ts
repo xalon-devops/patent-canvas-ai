@@ -76,7 +76,7 @@ serve(async (req) => {
       ],
       mode: "subscription",
       ui_mode: "embedded",
-      return_url: `${appDomain}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
         plan_type: planType

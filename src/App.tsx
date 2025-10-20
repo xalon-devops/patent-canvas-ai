@@ -22,6 +22,7 @@ import NewApplication from "./pages/NewApplication";
 import Drafts from "./pages/Drafts";
 import Check from "./pages/Check";
 import IdeaDetail from "./pages/IdeaDetail";
+import PaymentReturn from "./pages/PaymentReturn";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,14 @@ const App = () => (
             <Route path="/demo" element={<Demo />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route 
+              path="/payment/return" 
+              element={
+                <ProtectedRoute>
+                  <PaymentReturn />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/dashboard" 
               element={

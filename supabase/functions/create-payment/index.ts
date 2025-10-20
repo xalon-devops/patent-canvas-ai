@@ -82,7 +82,7 @@ serve(async (req) => {
       ],
       mode: "payment",
       ui_mode: "embedded",
-      return_url: `${appDomain}/session/${applicationId}?session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
         application_id: applicationId
