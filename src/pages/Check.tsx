@@ -266,7 +266,7 @@ const Check = () => {
             <DialogTitle>Subscribe to Check & See</DialogTitle>
           </DialogHeader>
           <EmbeddedStripeCheckout
-            priceId="price_CHECK_AND_SEE" // TODO: Replace with actual Stripe price ID from Dashboard
+            priceId={import.meta.env.PROD ? 'price_CHECK_SEE_PROD' : 'price_CHECK_SEE_TEST'}
             planType="check_and_see"
             mode="subscription"
             onSuccess={() => {
