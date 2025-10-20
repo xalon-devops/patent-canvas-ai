@@ -163,109 +163,117 @@ const Pricing = () => {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Free Plan */}
-          <Card className="relative shadow-card border-0 bg-card/80 backdrop-blur-sm">
-            <CardHeader className="text-center pb-8">
-              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-2xl">Free Trial</CardTitle>
-              <CardDescription>
-                Get started with basic patent tools
-              </CardDescription>
-              <div className="text-3xl font-bold mt-4">
-                $0
-                <span className="text-base font-normal text-muted-foreground">/forever</span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">1 patent application</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Basic AI assistance</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Standard templates</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Email support</span>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full mt-6"
-                disabled={!user}
-                onClick={() => navigate('/dashboard')}
-              >
-                Current Plan
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Premium Plan */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          {/* Patent Application - $1,000 One-Time */}
           <Card className="relative shadow-elegant border-0 bg-gradient-primary text-primary-foreground overflow-hidden">
             <div className="absolute inset-0 bg-gradient-glow opacity-10"></div>
             <div className="absolute top-4 right-4">
               <Badge className="bg-white/20 text-white border-white/30">
                 <Crown className="h-3 w-3 mr-1" />
-                Recommended
+                Most Popular
               </Badge>
             </div>
             <CardHeader className="text-center pb-8 relative">
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="h-6 w-6 text-white" />
+                <FileText className="h-6 w-6 text-white" />
               </div>
-              <CardTitle className="text-2xl text-white">Premium</CardTitle>
+              <CardTitle className="text-2xl text-white">Patent Application</CardTitle>
               <CardDescription className="text-primary-foreground/80">
-                Professional patent applications with AI
+                Complete AI-guided patent filing
               </CardDescription>
-              <div className="text-3xl font-bold mt-4 text-white">
-                $49
-                <span className="text-base font-normal text-primary-foreground/80">/month</span>
+              <div className="text-4xl font-bold mt-4 text-white">
+                $1,000
+                <span className="text-base font-normal text-primary-foreground/80 block mt-1">One-time payment</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 relative">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">Unlimited patent applications</span>
+                  <span className="text-sm text-white">AI-guided patent interview</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">Advanced AI (GPT-4o)</span>
+                  <span className="text-sm text-white">Prior art search & analysis</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">USPTO-compliant formatting</span>
+                  <span className="text-sm text-white">Patentability assessment</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">Prior art search (Lens.org API)</span>
+                  <span className="text-sm text-white">Full patent draft (all sections)</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">DOCX & PDF exports</span>
+                  <span className="text-sm text-white">USPTO-ready formatting</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">Legal-grade claims drafting</span>
+                  <span className="text-sm text-white">Export to DOCX & PDF</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-white" />
-                  <span className="text-sm text-white">Priority support</span>
+                  <span className="text-sm text-white">Claims drafting assistance</span>
+                </div>
+              </div>
+              <Button 
+                variant="secondary" 
+                className="w-full mt-6 bg-white/20 text-white border-white/30 hover:bg-white/30 hover:shadow-glow transition-smooth"
+                onClick={() => user ? navigate('/new-application') : navigate('/auth')}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {user ? 'Start New Application' : 'Get Started'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Check & See Subscription - $9.99/month */}
+          <Card className="relative shadow-card border-0 bg-card/80 backdrop-blur-sm">
+            <CardHeader className="text-center pb-8">
+              <div className="w-12 h-12 bg-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="h-6 w-6 text-secondary" />
+              </div>
+              <CardTitle className="text-2xl">Check & See</CardTitle>
+              <CardDescription>
+                Unlimited prior patent searches
+              </CardDescription>
+              <div className="text-4xl font-bold mt-4 text-secondary">
+                $9.99
+                <span className="text-base font-normal text-muted-foreground block mt-1">per month</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">Unlimited patent searches</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">AI-powered similarity analysis</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">USPTO & Google Patents search</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">Detailed overlap analysis</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">Search before you file</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-secondary" />
+                  <span className="text-sm">Cancel anytime</span>
                 </div>
               </div>
               {isPremium ? (
                 <Button 
-                  variant="secondary" 
-                  className="w-full mt-6 bg-white/20 text-white border-white/30 hover:bg-white/30"
+                  variant="outline" 
+                  className="w-full mt-6"
                   disabled
                 >
                   <Crown className="h-4 w-4 mr-2" />
@@ -273,17 +281,12 @@ const Pricing = () => {
                 </Button>
               ) : (
                 <Button 
-                  variant="secondary" 
-                  className="w-full mt-6 bg-white/20 text-white border-white/30 hover:bg-white/30 hover:shadow-glow transition-smooth"
-                  onClick={handleUpgrade}
-                  disabled={loading}
+                  variant="outline" 
+                  className="w-full mt-6 border-secondary/50 hover:bg-secondary/10"
+                  onClick={() => user ? navigate('/check') : navigate('/auth')}
                 >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <Zap className="h-4 w-4 mr-2" />
-                  )}
-                  Upgrade to Premium
+                  <Zap className="h-4 w-4 mr-2" />
+                  {user ? 'Start Searching' : 'Get Started'}
                 </Button>
               )}
             </CardContent>

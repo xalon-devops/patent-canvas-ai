@@ -20,6 +20,8 @@ import Pending from "./pages/Pending";
 import Active from "./pages/Active";
 import NewApplication from "./pages/NewApplication";
 import Drafts from "./pages/Drafts";
+import Check from "./pages/Check";
+import IdeaDetail from "./pages/IdeaDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -96,9 +98,25 @@ const App = () => (
               } 
             />
             <Route 
+              path="/check" 
+              element={
+                <ProtectedRoute>
+                  <Check />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/idea/:id" 
+              element={
+                <ProtectedRoute>
+                  <IdeaDetail />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/session/:id" 
               element={
-                <ProtectedRoute requiresPremium>
+                <ProtectedRoute>
                   <Session />
                 </ProtectedRoute>
               } 

@@ -28,6 +28,7 @@ import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, 
 import SystemMessage from '@/components/SystemMessage';
 import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
+import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 
 interface PatentSession {
   id: string;
@@ -87,6 +88,8 @@ const Session = () => {
   const [filingPatent, setFilingPatent] = useState(false);
   const [exportingPatent, setExportingPatent] = useState(false);
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
+  const [showPaymentGate, setShowPaymentGate] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false);
   
   const sectionTypes = [
     'abstract',
@@ -124,6 +127,26 @@ const Session = () => {
     return () => subscription.unsubscribe();
   }, [navigate, id]);
 
+  const checkPaymentStatus = async () => {
+    if (!id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .eq('application_id', id)
+        .eq('status', 'completed')
+        .eq('payment_type', 'one_time')
+        .maybeSingle();
+
+      if (!error && data) {
+        setHasPaid(true);
+      }
+    } catch (error) {
+      console.error('Error checking payment:', error);
+    }
+  };
+
   const fetchSessionData = async () => {
     if (!id) return;
     
@@ -137,6 +160,9 @@ const Session = () => {
 
       if (sessionError) throw sessionError;
       setPatentSession(sessionData);
+
+      // Check payment status
+      await checkPaymentStatus();
 
       // Fetch questions
       const { data: questionsData, error: questionsError } = await supabase
@@ -543,8 +569,14 @@ const Session = () => {
   };
 
   const handleExportPatent = async () => {
-    if (!id || exportingPatent) return;
-    
+    if (!id) return;
+
+    // Check if payment is required
+    if (!hasPaid) {
+      setShowPaymentGate(true);
+      return;
+    }
+
     setExportingPatent(true);
     
     try {
@@ -1191,6 +1223,23 @@ const Session = () => {
         </div>
         
       </div>
+
+      {/* Payment Gate Dialog */}
+      {id && (
+        <PaymentGateDialog
+          open={showPaymentGate}
+          onOpenChange={setShowPaymentGate}
+          applicationId={id}
+          onPaymentSuccess={async () => {
+            setHasPaid(true);
+            await checkPaymentStatus();
+            toast({
+              title: "Payment successful!",
+              description: "You can now export your patent application.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

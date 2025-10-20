@@ -335,6 +335,7 @@ const Dashboard = () => {
                 onClick={() => navigate('/check')} 
                 className="w-full bg-secondary hover:bg-secondary/90"
               >
+                <Search className="h-6 w-6" />
                 Start Searching ($9.99/month)
               </Button>
             </Card>
