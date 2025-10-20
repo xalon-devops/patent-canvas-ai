@@ -126,7 +126,7 @@ const Auth = () => {
               <div className="absolute inset-0 bg-gradient-primary rounded-xl blur-lg opacity-20"></div>
               <div className="relative bg-white/10 rounded-xl p-3 backdrop-blur-sm">
                 <img 
-                  src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                  src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
                   alt="PatentBot AI Logo"
                   className="h-12 w-auto"
                 />

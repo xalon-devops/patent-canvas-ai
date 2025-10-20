@@ -61,7 +61,7 @@ const Index = () => {
                 <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-xl opacity-30"></div>
                 <div className="relative bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
                   <img 
-                    src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                    src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
                     alt="PatentBot AI Logo"
                     className="h-16 w-auto"
                   />
@@ -163,7 +163,7 @@ const Index = () => {
                       <div className="relative bg-muted/20 rounded-lg p-8 border">
                         <div className="flex items-center justify-center gap-3 mb-4">
                           <img 
-                            src="https://i.ibb.co/Q32kGjnt/Patent-Bot-AI-Logo-Transparent.png" 
+                            src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
                             alt="PatentBot AI Logo"
                             className="h-8 w-auto"
                           />
