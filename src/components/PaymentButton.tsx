@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CreditCard } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
+import { CreditCard, Loader2 } from 'lucide-react';
 
 interface PaymentButtonProps {
   applicationId: string;
@@ -23,67 +23,36 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
   className,
   children
 }) => {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  const handlePayment = async () => {
-    setLoading(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('create-payment', {
-        body: { applicationId }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to create payment session');
-      }
-
-      if (!data?.url) {
-        throw new Error('No payment URL received');
-      }
-
-      // Open Stripe checkout in a new tab (embedded style)
-      window.open(data.url, '_blank');
-      
-      toast({
-        title: "Payment Started",
-        description: "Redirecting to secure payment...",
-        variant: "default",
-      });
-
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      toast({
-        title: "Payment Error",
-        description: error.message || 'Failed to start payment process',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [showCheckout, setShowCheckout] = useState(false);
 
   return (
-    <Button
-      variant={variant}
-      size={size}
-      className={className}
-      onClick={handlePayment}
-      disabled={loading}
-    >
-      {loading ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        children || (
+    <>
+      <Button
+        variant={variant}
+        size={size}
+        className={className}
+        onClick={() => setShowCheckout(true)}
+      >
+        {children || (
           <>
             <CreditCard className="h-4 w-4 mr-2" />
             Pay ${amount / 100}
           </>
-        )
-      )}
-    </Button>
+        )}
+      </Button>
+
+      <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{description}</DialogTitle>
+          </DialogHeader>
+          <EmbeddedStripeCheckout
+            applicationId={applicationId}
+            mode="payment"
+            onSuccess={() => setShowCheckout(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

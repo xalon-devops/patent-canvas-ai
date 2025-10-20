@@ -62,9 +62,9 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
-    const origin = req.headers.get("origin") || "https://jdkogqskjsmwlhigaecb.supabase.co";
+    const appDomain = "https://patentbot-ai.lovable.app";
     
-    // Create one-time payment session
+    // Create embedded one-time payment session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -81,8 +81,8 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${origin}/session/${applicationId}?payment=success`,
-      cancel_url: `${origin}/session/${applicationId}?payment=canceled`,
+      ui_mode: "embedded",
+      return_url: `${appDomain}/session/${applicationId}?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
         application_id: applicationId
@@ -112,7 +112,7 @@ serve(async (req) => {
       logStep("Transaction recorded successfully");
     }
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

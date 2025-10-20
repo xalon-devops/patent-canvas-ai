@@ -63,9 +63,9 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
-    const origin = req.headers.get("origin") || "https://jdkogqskjsmwlhigaecb.supabase.co";
+    const appDomain = "https://patentbot-ai.lovable.app";
     
-    // Create checkout session
+    // Create embedded checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -75,8 +75,8 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${origin}/pricing?success=true`,
-      cancel_url: `${origin}/pricing?canceled=true`,
+      ui_mode: "embedded",
+      return_url: `${appDomain}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
         plan_type: planType
@@ -105,7 +105,7 @@ serve(async (req) => {
       logStep("Transaction recorded successfully");
     }
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
