@@ -61,7 +61,7 @@ const Index = () => {
                 <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-xl opacity-30"></div>
                 <div className="relative bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
                   <img 
-                    src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
+                    src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png?v=2" 
                     alt="PatentBot AI Logo"
                     className="h-16 w-auto"
                   />
