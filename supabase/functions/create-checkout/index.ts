@@ -42,7 +42,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { priceId, planType = "premium" } = await req.json();
+    const { priceId, planType = "check_and_see" } = await req.json();
     if (!priceId) throw new Error("Price ID is required");
     logStep("Request parsed", { priceId, planType });
 
@@ -91,12 +91,12 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         stripe_session_id: session.id,
-        amount: 999, // $9.99 for premium
+        amount: 999, // $9.99 for Check & See
         currency: "usd",
         status: "pending",
         payment_type: "subscription",
-        description: `${planType} subscription`,
-        metadata: { price_id: priceId }
+        description: "Check & See Subscription",
+        metadata: { price_id: priceId, plan_type: planType }
       });
 
     if (insertError) {

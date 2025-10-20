@@ -91,8 +91,8 @@ serve(async (req) => {
 
     logStep("Payment session created", { sessionId: session.id, url: session.url });
 
-    // Record transaction in database
-    const { error: insertError } = await supabaseClient
+    // Record transaction in both tables
+    const { error: txError } = await supabaseClient
       .from("payment_transactions")
       .insert({
         user_id: user.id,
@@ -106,10 +106,25 @@ serve(async (req) => {
         metadata: { stripe_customer_id: customerId }
       });
 
-    if (insertError) {
-      logStep("Error recording transaction", { error: insertError });
-    } else {
-      logStep("Transaction recorded successfully");
+    const { error: appPaymentError } = await supabaseClient
+      .from("application_payments")
+      .insert({
+        user_id: user.id,
+        application_id: applicationId,
+        stripe_session_id: session.id,
+        amount: 100000,
+        currency: "usd",
+        status: "pending"
+      });
+
+    if (txError) {
+      logStep("Error recording payment transaction", { error: txError });
+    }
+    if (appPaymentError) {
+      logStep("Error recording application payment", { error: appPaymentError });
+    }
+    if (!txError && !appPaymentError) {
+      logStep("Payment records created successfully");
     }
 
     return new Response(JSON.stringify({ clientSecret: session.client_secret }), {

@@ -81,7 +81,7 @@ serve(async (req) => {
       stripeSubscriptionId = subscription.id;
       currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
       currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      plan = "premium"; // For now, we only have premium plan
+      plan = "check_and_see"; // Check & See subscription plan
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: currentPeriodEnd });
     } else {
       logStep("No active subscription found");
@@ -99,6 +99,7 @@ serve(async (req) => {
     logStep("Updated database with subscription info", { subscribed: hasActiveSub, plan });
     
     return new Response(JSON.stringify({
+      hasSubscription: hasActiveSub,
       subscribed: hasActiveSub,
       plan,
       current_period_end: currentPeriodEnd

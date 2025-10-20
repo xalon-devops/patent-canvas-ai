@@ -16,23 +16,54 @@ serve(async (req) => {
   try {
     console.log('File patent function started');
     
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData.user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const { session_id } = await req.json();
     
     if (!session_id) {
       console.error('Missing session_id in request');
       return new Response(
         JSON.stringify({ error: 'session_id is required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Check payment status before allowing filing
+    const { data: payment } = await supabase
+      .from('application_payments')
+      .select('status')
+      .eq('application_id', session_id)
+      .eq('user_id', userData.user.id)
+      .single();
+
+    if (!payment || payment.status !== 'completed') {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Payment required',
+          message: 'Please complete the $1,000 payment to file your patent application'
+        }), 
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch patent sections
     console.log('Fetching patent sections for session:', session_id);

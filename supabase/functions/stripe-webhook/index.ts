@@ -69,10 +69,10 @@ serve(async (req) => {
           logStep("Error updating payment transaction", { error: updateError });
         }
 
-        // Update or create subscription
-        if (session.metadata?.user_id) {
+        // Handle subscription payment (Check & See)
+        if (session.mode === "subscription" && session.metadata?.user_id) {
           const userId = session.metadata.user_id;
-          const planType = session.metadata.plan_type || "premium";
+          const planType = session.metadata.plan_type || "check_and_see";
 
           const { error: subError } = await supabaseClient
             .from("subscriptions")
@@ -91,15 +91,24 @@ serve(async (req) => {
           } else {
             logStep("Subscription updated successfully", { userId, planType });
           }
+        }
 
-          // Trigger welcome email
-          await supabaseClient.functions.invoke('send-email', {
-            body: {
-              type: 'subscription_welcome',
-              userId: userId,
-              planType: planType
-            }
-          });
+        // Handle one-time payment (Patent Application)
+        if (session.mode === "payment" && session.metadata?.application_id) {
+          const { error: appPaymentError } = await supabaseClient
+            .from("application_payments")
+            .update({
+              status: "completed",
+              stripe_payment_id: session.payment_intent,
+              updated_at: new Date().toISOString()
+            })
+            .eq("stripe_session_id", session.id);
+
+          if (appPaymentError) {
+            logStep("Error updating application payment", { error: appPaymentError });
+          } else {
+            logStep("Application payment completed", { applicationId: session.metadata.application_id });
+          }
         }
         break;
       }

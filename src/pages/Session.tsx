@@ -132,11 +132,10 @@ const Session = () => {
     
     try {
       const { data, error } = await supabase
-        .from('payment_transactions')
+        .from('application_payments')
         .select('*')
         .eq('application_id', id)
         .eq('status', 'completed')
-        .eq('payment_type', 'one_time')
         .maybeSingle();
 
       if (!error && data) {

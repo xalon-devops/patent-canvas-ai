@@ -53,6 +53,53 @@ export type Database = {
           },
         ]
       }
+      application_payments: {
+        Row: {
+          amount: number
+          application_id: string | null
+          created_at: string | null
+          currency: string
+          id: string
+          status: string
+          stripe_payment_id: string | null
+          stripe_session_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          application_id?: string | null
+          created_at?: string | null
+          currency?: string
+          id?: string
+          status?: string
+          stripe_payment_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          application_id?: string | null
+          created_at?: string | null
+          currency?: string
+          id?: string
+          status?: string
+          stripe_payment_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_payments_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_notifications: {
         Row: {
           content: string | null
@@ -480,7 +527,7 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
-          plan?: string
+          plan: string
           status?: string
           stripe_subscription_id?: string | null
           updated_at?: string | null

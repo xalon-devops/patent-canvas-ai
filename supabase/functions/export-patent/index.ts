@@ -16,16 +16,11 @@ serve(async (req) => {
   try {
     console.log('Export patent function started');
     
-    const requestBody = await req.json();
-    const { session_id } = requestBody;
-    
-    if (!session_id) {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'session_id is required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        JSON.stringify({ error: 'Authorization required' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -33,6 +28,43 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData.user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const requestBody = await req.json();
+    const { session_id } = requestBody;
+    
+    if (!session_id) {
+      return new Response(
+        JSON.stringify({ error: 'session_id is required' }), 
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check payment status
+    const { data: payment } = await supabase
+      .from('application_payments')
+      .select('status')
+      .eq('application_id', session_id)
+      .eq('user_id', userData.user.id)
+      .single();
+
+    if (!payment || payment.status !== 'completed') {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Payment required',
+          message: 'Please complete the $1,000 payment to export your patent application'
+        }), 
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch patent session and sections
     const { data: session, error: sessionError } = await supabase
