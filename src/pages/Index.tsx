@@ -69,10 +69,9 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Headline */}
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
               <span className="bg-gradient-primary bg-clip-text text-transparent">
-                PatentBot AI™
+                AI-Powered Patent Application Generator
               </span>
             </h1>
             
