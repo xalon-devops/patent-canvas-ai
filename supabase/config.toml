@@ -79,3 +79,9 @@ verify_jwt = false
 
 [functions.predict-examiner]
 verify_jwt = false
+
+[functions.supabase-oauth-init]
+verify_jwt = true
+
+[functions.supabase-oauth-callback]
+verify_jwt = false

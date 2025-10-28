@@ -84,6 +84,26 @@ const NewApplication = () => {
       }
       setUser(session.user);
 
+      // Check if OAuth callback succeeded
+      const supabaseConnected = searchParams.get('supabase_connected');
+      const error = searchParams.get('error');
+      
+      if (supabaseConnected === 'true') {
+        toast({
+          title: '✅ Supabase Connected!',
+          description: 'Your Supabase project has been connected successfully.',
+        });
+        // Clear the query param
+        navigate('/new-application', { replace: true });
+      } else if (error) {
+        toast({
+          title: 'Connection Error',
+          description: decodeURIComponent(error),
+          variant: 'destructive',
+        });
+        navigate('/new-application', { replace: true });
+      }
+
       // Check if coming from an existing idea or resuming a session
       const ideaId = searchParams.get('ideaId');
       const sessionId = searchParams.get('sessionId');
@@ -206,6 +226,34 @@ const NewApplication = () => {
     }
   };
 
+  const handleSupabaseOAuth = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('supabase-oauth-init', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.authUrl) {
+        // Redirect to Supabase OAuth consent screen
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('No auth URL returned');
+      }
+    } catch (error: any) {
+      console.error('OAuth init error:', error);
+      toast({
+        title: 'Connection Failed',
+        description: error.message || 'Failed to initialize Supabase OAuth',
+        variant: 'destructive',
+      });
+      setLoading(false);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep === 2 && (!ideaTitle || !ideaDescription)) {
       toast({
@@ -226,15 +274,34 @@ const NewApplication = () => {
       
       // If Supabase credentials provided, scan backend first
       let supabaseData = null;
-      if (supabaseUrl && supabaseKey) {
+      let useOAuth = false;
+      
+      // Check if user has OAuth connection
+      const { data: connection } = await supabase
+        .from('supabase_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (connection) {
+        useOAuth = true;
+        console.log('Using OAuth connection for Supabase scan');
+      }
+
+      if (useOAuth || (supabaseUrl && supabaseKey)) {
         console.log('Scanning Supabase backend...');
         setScanningSupabase(true);
         
         const { data: backendData, error: backendError } = await supabase.functions.invoke('analyze-supabase-backend', {
           body: {
-            user_supabase_url: supabaseUrl,
-            user_supabase_key: supabaseKey
-          }
+            user_supabase_url: supabaseUrl || undefined,
+            user_supabase_key: useOAuth ? undefined : supabaseKey,
+            use_oauth: useOAuth,
+          },
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
         });
 
         if (backendError) {
@@ -249,7 +316,7 @@ const NewApplication = () => {
           setSupabaseAnalysis(backendData);
           toast({
             title: "🎯 Supabase Backend Scanned!",
-            description: `Found ${backendData.statistics?.tables_found || 0} tables, ${backendData.statistics?.edge_functions_found || 0} functions`,
+            description: `Found ${backendData.statistics?.tables_found || 0} tables, ${backendData.statistics?.functions_found || 0} functions`,
           });
         }
         
@@ -585,6 +652,30 @@ const NewApplication = () => {
               <div>
                 <h3 className="font-semibold">Connect Supabase Backend</h3>
                 <p className="text-sm text-muted-foreground">Scan your database schema, edge functions, and RLS policies</p>
+              </div>
+            </div>
+            
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleSupabaseOAuth}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
+              Connect with OAuth (Recommended)
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or use service key</span>
               </div>
             </div>
             

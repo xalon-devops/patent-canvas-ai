@@ -12,12 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { user_supabase_url, user_supabase_key, session_id } = await req.json();
+    const { user_supabase_url, user_supabase_key, session_id, use_oauth } = await req.json();
 
     console.log('[SUPABASE SCANNER] Starting backend analysis...');
-
-    // Initialize user's Supabase client
-    const userSupabase = createClient(user_supabase_url, user_supabase_key);
+    console.log('[SUPABASE SCANNER] OAuth mode:', use_oauth);
 
     // Our Supabase client
     const ourSupabase = createClient(
@@ -25,21 +23,148 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Extract Database Schema using PostgreSQL introspection
-    console.log('[SUPABASE SCANNER] Extracting database schema...');
-    const schema = await extractDatabaseSchema(user_supabase_url, user_supabase_key);
+    // Get auth token from request
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing Authorization header');
+    }
 
-    // 2. Extract Storage Buckets
-    console.log('[SUPABASE SCANNER] Extracting storage configuration...');
-    const storageBuckets = await extractStorageBuckets(userSupabase);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await ourSupabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
 
-    // 3. Try to extract RLS policies (may require elevated permissions)
-    console.log('[SUPABASE SCANNER] Extracting RLS policies...');
-    const rlsPolicies = await extractRLSPolicies(user_supabase_url, user_supabase_key);
+    let managementApiToken = null;
+    let projectRef = null;
+    let targetUrl = user_supabase_url;
 
-    // 4. Extract Functions list
-    console.log('[SUPABASE SCANNER] Extracting functions...');
-    const functions = await extractFunctions(user_supabase_url, user_supabase_key);
+    // If OAuth mode, fetch connection from database
+    if (use_oauth) {
+      console.log('[SUPABASE SCANNER] Fetching OAuth connection...');
+      
+      const { data: connection, error: connError } = await ourSupabase
+        .from('supabase_connections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (connError || !connection) {
+        throw new Error('No active Supabase connection found. Please connect your Supabase project first.');
+      }
+
+      // Check if token is expired
+      const expiresAt = new Date(connection.token_expires_at);
+      if (expiresAt < new Date()) {
+        throw new Error('Supabase connection expired. Please reconnect your project.');
+      }
+
+      managementApiToken = connection.access_token;
+      console.log('[SUPABASE SCANNER] Using Management API with OAuth');
+
+      // Get project info from Management API
+      const projectsResponse = await fetch('https://api.supabase.com/v1/projects', {
+        headers: {
+          'Authorization': `Bearer ${managementApiToken}`,
+        },
+      });
+
+      if (!projectsResponse.ok) {
+        throw new Error('Failed to fetch projects from Management API');
+      }
+
+      const projects = await projectsResponse.json();
+      
+      // If URL provided, find matching project
+      if (user_supabase_url) {
+        const project = projects.find((p: any) => 
+          user_supabase_url.includes(p.id) || user_supabase_url.includes(p.ref)
+        );
+        
+        if (!project) {
+          throw new Error('Project not found in your Supabase organization');
+        }
+        
+        projectRef = project.ref;
+        targetUrl = `https://${project.ref}.supabase.co`;
+      } else {
+        // Use first project
+        projectRef = projects[0].ref;
+        targetUrl = `https://${projectRef}.supabase.co`;
+      }
+    } else if (!user_supabase_key) {
+      throw new Error('Either enable OAuth or provide a service role key');
+    } else {
+      // Extract project ref from URL
+      projectRef = user_supabase_url.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+    }
+
+    console.log('[SUPABASE SCANNER] Target project:', projectRef);
+
+    // Extract backend components
+    let schema, storageBuckets, rlsPolicies, functions;
+
+    if (managementApiToken) {
+      // Use Management API
+      console.log('[SUPABASE SCANNER] Using Management API...');
+      
+      // Fetch database schema
+      const schemaResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/database/tables`,
+        {
+          headers: {
+            'Authorization': `Bearer ${managementApiToken}`,
+          },
+        }
+      );
+
+      if (schemaResponse.ok) {
+        const tables = await schemaResponse.json();
+        schema = {
+          tables: tables.map((t: any) => ({
+            name: t.name,
+            schema: t.schema,
+            columns: t.columns || []
+          })),
+          total_columns: tables.reduce((acc: number, t: any) => acc + (t.columns?.length || 0), 0)
+        };
+      } else {
+        schema = { tables: [], error: 'Failed to fetch schema via Management API' };
+      }
+
+      // Fetch storage buckets
+      const storageResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/storage/buckets`,
+        {
+          headers: {
+            'Authorization': `Bearer ${managementApiToken}`,
+          },
+        }
+      );
+
+      if (storageResponse.ok) {
+        const buckets = await storageResponse.json();
+        storageBuckets = { buckets };
+      } else {
+        storageBuckets = { buckets: [] };
+      }
+
+      // RLS policies and functions may require additional API calls
+      rlsPolicies = { policies: [], note: 'Management API access for policies limited' };
+      functions = { functions: [], note: 'Edge functions list not available via Management API' };
+
+    } else {
+      // Use service role key method
+      console.log('[SUPABASE SCANNER] Using service role key method...');
+      const userSupabase = createClient(targetUrl, user_supabase_key);
+      
+      schema = await extractDatabaseSchema(targetUrl, user_supabase_key);
+      storageBuckets = await extractStorageBuckets(userSupabase);
+      rlsPolicies = await extractRLSPolicies(targetUrl, user_supabase_key);
+      functions = await extractFunctions(targetUrl, user_supabase_key);
+    }
 
     // Compile comprehensive analysis
     const backendAnalysis = {
@@ -50,7 +175,8 @@ serve(async (req) => {
       metadata: {
         analyzed_at: new Date().toISOString(),
         source: 'supabase_backend',
-        url: user_supabase_url
+        url: targetUrl,
+        auth_method: use_oauth ? 'oauth' : 'service_key'
       }
     };
 
@@ -61,7 +187,7 @@ serve(async (req) => {
         .update({
           data_source: {
             type: 'supabase_backend',
-            url: user_supabase_url,
+            url: targetUrl,
             analysis: backendAnalysis,
             scanned_at: new Date().toISOString()
           }
@@ -69,7 +195,7 @@ serve(async (req) => {
         .eq('id', session_id);
     }
 
-    // Generate AI summary of backend architecture using Lovable AI
+    // Generate AI summary using Lovable AI
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     let aiSummary = '';
 
@@ -126,7 +252,6 @@ Format as clear, technical prose suitable for patent application background sect
         }
       } catch (aiError) {
         console.error('[AI Summary] Error:', aiError);
-        // Continue without AI summary
       }
     }
 
@@ -162,14 +287,12 @@ Format as clear, technical prose suitable for patent application background sect
 
 async function extractDatabaseSchema(url: string, key: string): Promise<any> {
   try {
-    // Use PostgREST API to query information_schema
     const projectId = url.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
     
     if (!projectId) {
       return { tables: [], error: 'Invalid Supabase URL' };
     }
 
-    // Query tables
     const tablesResponse = await fetch(`${url}/rest/v1/rpc/get_tables_info`, {
       headers: {
         'apikey': key,
@@ -177,16 +300,7 @@ async function extractDatabaseSchema(url: string, key: string): Promise<any> {
       }
     });
 
-    let tables = [];
-    let totalColumns = 0;
-
-    // If custom RPC doesn't exist, try direct table listing
     if (!tablesResponse.ok) {
-      // Fallback: Try to list public schema tables via metadata
-      console.log('[Schema] Using fallback method');
-      
-      // We can infer tables by trying to query them
-      // This is a limitation - without RPC or direct SQL access, we're limited
       return {
         tables: [],
         note: 'Full schema extraction requires custom RPC function or Management API access',
@@ -195,12 +309,11 @@ async function extractDatabaseSchema(url: string, key: string): Promise<any> {
     }
 
     const data = await tablesResponse.json();
-    tables = data || [];
+    const tables = data || [];
     
-    // Count total columns
-    tables.forEach((table: any) => {
-      totalColumns += table.columns?.length || 0;
-    });
+    const totalColumns = tables.reduce((acc: number, table: any) => 
+      acc + (table.columns?.length || 0), 0
+    );
 
     return {
       tables,
@@ -240,7 +353,6 @@ async function extractStorageBuckets(supabase: any): Promise<any> {
 
 async function extractRLSPolicies(url: string, key: string): Promise<any> {
   try {
-    // Try to query pg_policies via RPC
     const response = await fetch(`${url}/rest/v1/rpc/get_rls_policies`, {
       headers: {
         'apikey': key,
@@ -271,7 +383,6 @@ async function extractRLSPolicies(url: string, key: string): Promise<any> {
 
 async function extractFunctions(url: string, key: string): Promise<any> {
   try {
-    // Try to list database functions via RPC
     const response = await fetch(`${url}/rest/v1/rpc/get_functions_info`, {
       headers: {
         'apikey': key,
