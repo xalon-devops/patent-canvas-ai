@@ -109,15 +109,33 @@ serve(async (req) => {
       throw new Error('Failed to store connection');
     }
 
-    // Redirect to project selection page
-    const redirectUrl = `${origin}/select-supabase-project`;
+    // Send success message to parent window and close popup
+    console.log('[OAUTH-CALLBACK] Sending success message to parent');
     
-    console.log('[OAUTH-CALLBACK] Redirecting to:', redirectUrl);
-    
-    return new Response(null, {
-      status: 302,
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Connection Successful</title>
+        </head>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'supabase-oauth-success'
+              }, '${origin}');
+              window.close();
+            } else {
+              window.location.href = '${origin}/select-supabase-project';
+            }
+          </script>
+          <p>Connection successful! This window will close automatically...</p>
+        </body>
+      </html>
+    `, {
+      status: 200,
       headers: {
-        'Location': redirectUrl,
+        'Content-Type': 'text/html',
       },
     });
 
@@ -142,13 +160,33 @@ serve(async (req) => {
       }
     }
     
-    const errorUrl = `${errorOrigin}/new-application?error=${encodeURIComponent(error.message)}`;
-    console.log('[OAUTH-CALLBACK] Error redirect to:', errorUrl);
+    console.log('[OAUTH-CALLBACK] Sending error message to parent');
     
-    return new Response(null, {
-      status: 302,
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Connection Failed</title>
+        </head>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'supabase-oauth-error',
+                error: '${error.message.replace(/'/g, "\\'")}'
+              }, '${errorOrigin}');
+              window.close();
+            } else {
+              window.location.href = '${errorOrigin}/new-application?error=${encodeURIComponent(error.message)}';
+            }
+          </script>
+          <p>Connection failed. This window will close automatically...</p>
+        </body>
+      </html>
+    `, {
+      status: 200,
       headers: {
-        'Location': errorUrl,
+        'Content-Type': 'text/html',
       },
     });
   }

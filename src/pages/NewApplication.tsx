@@ -238,8 +238,55 @@ const NewApplication = () => {
       if (error) throw error;
 
       if (data?.authUrl) {
-        // Redirect to Supabase OAuth consent screen
-        window.location.href = data.authUrl;
+        // Open OAuth in popup window
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        
+        const popup = window.open(
+          data.authUrl,
+          'supabase-oauth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
+        );
+
+        if (!popup) {
+          throw new Error('Popup blocked. Please allow popups for this site.');
+        }
+
+        // Listen for messages from the popup
+        const handleMessage = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'supabase-oauth-success') {
+            window.removeEventListener('message', handleMessage);
+            setLoading(false);
+            toast({
+              title: '✅ Supabase Connected!',
+              description: 'Redirecting to project selection...',
+            });
+            navigate('/select-supabase-project');
+          } else if (event.data.type === 'supabase-oauth-error') {
+            window.removeEventListener('message', handleMessage);
+            setLoading(false);
+            toast({
+              title: 'Connection Error',
+              description: event.data.error || 'OAuth failed',
+              variant: 'destructive',
+            });
+          }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        // Check if popup was closed without completing
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            setLoading(false);
+          }
+        }, 500);
       } else {
         throw new Error('No auth URL returned');
       }
