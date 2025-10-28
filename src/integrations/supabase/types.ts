@@ -100,6 +100,47 @@ export type Database = {
           },
         ]
       }
+      draft_iterations: {
+        Row: {
+          content: string | null
+          created_at: string
+          critique: string | null
+          id: string
+          iteration_number: number
+          quality_score: number | null
+          section_type: string
+          session_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          critique?: string | null
+          id?: string
+          iteration_number: number
+          quality_score?: number | null
+          section_type: string
+          session_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          critique?: string | null
+          id?: string
+          iteration_number?: number
+          quality_score?: number | null
+          section_type?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_iterations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_notifications: {
         Row: {
           content: string | null
@@ -458,37 +499,49 @@ export type Database = {
       }
       prior_art_results: {
         Row: {
+          assignee: string | null
           created_at: string | null
           difference_claims: string[] | null
+          embedding: string | null
           id: string
           overlap_claims: string[] | null
+          patent_date: string | null
           publication_number: string | null
           session_id: string
           similarity_score: number | null
+          source: string | null
           summary: string | null
           title: string | null
           url: string | null
         }
         Insert: {
+          assignee?: string | null
           created_at?: string | null
           difference_claims?: string[] | null
+          embedding?: string | null
           id?: string
           overlap_claims?: string[] | null
+          patent_date?: string | null
           publication_number?: string | null
           session_id: string
           similarity_score?: number | null
+          source?: string | null
           summary?: string | null
           title?: string | null
           url?: string | null
         }
         Update: {
+          assignee?: string | null
           created_at?: string | null
           difference_claims?: string[] | null
+          embedding?: string | null
           id?: string
           overlap_claims?: string[] | null
+          patent_date?: string | null
           publication_number?: string | null
           session_id?: string
           similarity_score?: number | null
+          source?: string | null
           summary?: string | null
           title?: string | null
           url?: string | null
@@ -567,20 +620,53 @@ export type Database = {
         }
         Relationships: []
       }
+      user_search_credits: {
+        Row: {
+          created_at: string
+          free_searches_remaining: number
+          id: string
+          last_search_at: string | null
+          searches_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          free_searches_remaining?: number
+          id?: string
+          last_search_at?: string | null
+          searches_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          free_searches_remaining?: number
+          id?: string
+          last_search_at?: string | null
+          searches_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string | null
           email: string | null
+          email_preferences: Json | null
           id: string
         }
         Insert: {
           created_at?: string | null
           email?: string | null
+          email_preferences?: Json | null
           id?: string
         }
         Update: {
           created_at?: string | null
           email?: string | null
+          email_preferences?: Json | null
           id?: string
         }
         Relationships: []
@@ -597,10 +683,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_paid_user: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_paid_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

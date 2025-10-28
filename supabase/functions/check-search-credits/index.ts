@@ -1,0 +1,84 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const authHeader = req.headers.get('Authorization')!;
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user } } = await supabaseClient.auth.getUser(token);
+
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+
+    // Check subscription status
+    const { data: subscription } = await supabaseClient
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    const hasActiveSubscription = !!subscription;
+
+    // Check/create search credits
+    let { data: credits } = await supabaseClient
+      .from('user_search_credits')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // Create credits record if it doesn't exist
+    if (!credits) {
+      const { data: newCredits, error } = await supabaseClient
+        .from('user_search_credits')
+        .insert({
+          user_id: user.id,
+          searches_used: 0,
+          free_searches_remaining: 3
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      credits = newCredits;
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      has_subscription: hasActiveSubscription,
+      free_searches_remaining: credits.free_searches_remaining,
+      searches_used: credits.searches_used,
+      can_search: hasActiveSubscription || credits.free_searches_remaining > 0,
+      subscription_status: subscription?.status || 'inactive',
+      plan: subscription?.plan || 'free_trial'
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('[CHECK CREDITS] Error:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
