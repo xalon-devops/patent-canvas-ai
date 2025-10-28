@@ -32,6 +32,9 @@ serve(async (req) => {
     // Decode state
     const stateData = JSON.parse(atob(state));
     const { userId, origin } = stateData;
+    
+    console.log('[OAUTH-CALLBACK] Decoded origin:', origin);
+    console.log('[OAUTH-CALLBACK] User ID:', userId);
 
     // Exchange code for tokens
     const clientId = Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID')!;
@@ -104,6 +107,8 @@ serve(async (req) => {
     // Redirect to project selection page
     const redirectUrl = `${origin}/select-supabase-project`;
     
+    console.log('[OAUTH-CALLBACK] Redirecting to:', redirectUrl);
+    
     return new Response(null, {
       status: 302,
       headers: {
@@ -114,9 +119,27 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in supabase-oauth-callback:', error);
     
-    // Redirect to error page with message
-    const origin = req.headers.get('origin') || 'https://yourapp.com';
-    const errorUrl = `${origin}/new-application?error=${encodeURIComponent(error.message)}`;
+    // Try to get origin from state first, fallback to referer
+    let errorOrigin = 'https://yourapp.com';
+    try {
+      const url = new URL(req.url);
+      const errorState = url.searchParams.get('state');
+      if (errorState) {
+        const stateData = JSON.parse(atob(errorState));
+        errorOrigin = stateData.origin;
+      }
+    } catch {
+      // Fallback to referer
+      const referer = req.headers.get('referer');
+      if (referer) {
+        const refUrl = new URL(referer);
+        errorOrigin = `${refUrl.protocol}//${refUrl.host}`;
+      }
+    }
+    
+    const errorUrl = `${errorOrigin}/new-application?error=${encodeURIComponent(error.message)}`;
+    console.log('[OAUTH-CALLBACK] Error redirect to:', errorUrl);
+    
     return new Response(null, {
       status: 302,
       headers: {

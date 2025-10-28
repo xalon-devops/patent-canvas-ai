@@ -29,17 +29,22 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Get callback URL from request origin
-    const origin = req.headers.get('origin') || 'http://localhost:8080';
+    // Get app origin from Referer header (more reliable than origin header)
+    const referer = req.headers.get('referer') || req.headers.get('origin') || 'http://localhost:8080';
+    const appUrl = new URL(referer);
+    const origin = `${appUrl.protocol}//${appUrl.host}`;
+    
     const callbackUrl = `${supabaseUrl}/functions/v1/supabase-oauth-callback`;
 
     // Build Supabase OAuth URL
-    // Note: These need to be configured in your Supabase Management API app
     const clientId = Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID');
     
     if (!clientId) {
       throw new Error('PATENTBOT_OAUTH_CLIENT_ID not configured. Please add this secret.');
     }
+
+    console.log('[OAUTH-INIT] Using origin:', origin);
+    console.log('[OAUTH-INIT] Callback URL:', callbackUrl);
 
     const state = btoa(JSON.stringify({
       userId: user.id,
