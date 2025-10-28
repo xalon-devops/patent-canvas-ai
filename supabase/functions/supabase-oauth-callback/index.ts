@@ -37,8 +37,8 @@ serve(async (req) => {
     console.log('[OAUTH-CALLBACK] User ID:', userId);
 
     // Exchange code for tokens
-    const clientId = Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID')!;
-    const clientSecret = Deno.env.get('PATENTBOT_OAUTH_CLIENT_SECRET')!;
+    const clientId = Deno.env.get('SUPABASE_OAUTH_CLIENT_ID')!;
+    const clientSecret = Deno.env.get('SUPABASE_OAUTH_CLIENT_SECRET')!;
     const callbackUrl = `${supabaseUrl}/functions/v1/supabase-oauth-callback`;
 
     const tokenResponse = await fetch('https://api.supabase.com/v1/oauth/token', {
