@@ -15,6 +15,7 @@ import PriorArtDisplay from '@/components/PriorArtDisplay';
 const Check = () => {
   const [user, setUser] = useState<User | null>(null);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [freeSearchesRemaining, setFreeSearchesRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDescription, setSearchDescription] = useState('');
@@ -39,11 +40,12 @@ const Check = () => {
 
       setUser(session.user);
 
-      // Check subscription status
-      const { data: subData } = await supabase.functions.invoke('check-subscription');
+      // Check search credits and subscription
+      const { data: creditsData } = await supabase.functions.invoke('check-search-credits');
       
-      if (subData?.hasSubscription) {
-        setHasSubscription(true);
+      if (creditsData?.success) {
+        setHasSubscription(creditsData.has_subscription);
+        setFreeSearchesRemaining(creditsData.free_searches_remaining);
       }
     } catch (error: any) {
       console.error('Error checking subscription:', error);
@@ -66,20 +68,37 @@ const Check = () => {
     setPriorArtResults([]);
 
     try {
-      const { data, error } = await supabase.functions.invoke('search-prior-art', {
+      const { data, error } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: {
           ideaTitle: searchQuery,
           ideaDescription: searchDescription || searchQuery,
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('subscription')) {
+          toast({
+            title: "Subscription Required",
+            description: "You've used all 3 free searches. Subscribe to continue!",
+            variant: "destructive",
+          });
+          setShowCheckout(true);
+          return;
+        }
+        throw error;
+      }
 
       if (data?.results) {
         setPriorArtResults(data.results);
+        
+        // Update remaining searches
+        if (data.search_credits_remaining !== 'unlimited') {
+          setFreeSearchesRemaining(data.search_credits_remaining);
+        }
+
         toast({
-          title: "Search complete",
-          description: `Found ${data.results.length} potentially related patents.`,
+          title: "🎯 Enhanced Search Complete",
+          description: `Found ${data.results.length} patents using AI semantic matching across ${data.sources_used?.length || 2} databases.`,
         });
       }
     } catch (error: any) {
@@ -137,7 +156,7 @@ const Check = () => {
       </header>
 
       <main className="container mx-auto px-4 py-12 max-w-5xl">
-        {!hasSubscription ? (
+        {!hasSubscription && freeSearchesRemaining === 0 ? (
           /* Subscription Required */
           <div className="text-center space-y-8">
             <div className="space-y-4">
@@ -190,8 +209,46 @@ const Check = () => {
             </Card>
           </div>
         ) : (
-          /* Search Interface */
+          /* Search Interface with Free Trial Banner */
           <div className="space-y-8">
+            {!hasSubscription && freeSearchesRemaining > 0 && (
+              <Card className="bg-gradient-to-r from-accent/10 to-secondary/10 border-accent/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-accent/20 rounded-lg">
+                        <Sparkles className="h-5 w-5 text-accent" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Free Trial Active 🎉</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {freeSearchesRemaining} of 3 free searches remaining
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowCheckout(true)}
+                    >
+                      Subscribe for Unlimited
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {hasSubscription && (
+              <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-5 w-5" />
+                    <span className="font-medium">✨ Unlimited Searches Active</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

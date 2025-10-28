@@ -420,8 +420,8 @@ const Session = () => {
     try {
       console.log('Starting patent draft generation...');
       
-      // Call the edge function to generate patent draft
-      const { data, error } = await supabase.functions.invoke('generate-patent-draft', {
+      // Call the edge function to generate patent draft (ENHANCED with iterative refinement)
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
         body: { session_id: id }
       });
 
@@ -441,8 +441,8 @@ const Session = () => {
       await fetchSessionData();
       
       toast({
-        title: "Patent Draft Generated",
-        description: `Successfully generated ${data.sections_generated} patent sections`,
+        title: "🎨 Enhanced Patent Draft Generated",
+        description: `${data.sections_generated} sections created with ${data.iterations_per_section}x AI refinement for maximum quality`,
         variant: "default",
       });
       
@@ -464,8 +464,8 @@ const Session = () => {
     try {
       console.log('Generating patent sections progressively...');
       
-      // Call the edge function to generate patent sections based on current answers
-      const { data, error } = await supabase.functions.invoke('generate-patent-draft', {
+      // Call the edge function to generate patent sections based on current answers (ENHANCED)
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
         body: { session_id: id }
       });
 

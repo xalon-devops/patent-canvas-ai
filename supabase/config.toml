@@ -58,3 +58,15 @@ verify_jwt = false
 
 [functions.verify-payment]
 verify_jwt = false
+
+[functions.search-prior-art-enhanced]
+verify_jwt = false
+
+[functions.generate-patent-draft-enhanced]
+verify_jwt = false
+
+[functions.check-search-credits]
+verify_jwt = true
+
+[functions.send-notification-email]
+verify_jwt = false
