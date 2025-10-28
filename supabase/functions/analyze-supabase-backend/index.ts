@@ -49,6 +49,7 @@ serve(async (req) => {
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
+        .eq('connection_status', 'active')
         .single();
 
       if (connError || !connection) {
@@ -61,39 +62,17 @@ serve(async (req) => {
         throw new Error('Supabase connection expired. Please reconnect your project.');
       }
 
+      // Check if project_ref is set (connection was finalized)
+      if (!connection.project_ref) {
+        throw new Error('Supabase connection not finalized. Please complete the project selection.');
+      }
+
       managementApiToken = connection.access_token;
-      console.log('[SUPABASE SCANNER] Using Management API with OAuth');
-
-      // Get project info from Management API
-      const projectsResponse = await fetch('https://api.supabase.com/v1/projects', {
-        headers: {
-          'Authorization': `Bearer ${managementApiToken}`,
-        },
-      });
-
-      if (!projectsResponse.ok) {
-        throw new Error('Failed to fetch projects from Management API');
-      }
-
-      const projects = await projectsResponse.json();
+      projectRef = connection.project_ref;
+      targetUrl = `https://${projectRef}.supabase.co`;
       
-      // If URL provided, find matching project
-      if (user_supabase_url) {
-        const project = projects.find((p: any) => 
-          user_supabase_url.includes(p.id) || user_supabase_url.includes(p.ref)
-        );
-        
-        if (!project) {
-          throw new Error('Project not found in your Supabase organization');
-        }
-        
-        projectRef = project.ref;
-        targetUrl = `https://${project.ref}.supabase.co`;
-      } else {
-        // Use first project
-        projectRef = projects[0].ref;
-        targetUrl = `https://${projectRef}.supabase.co`;
-      }
+      console.log('[SUPABASE SCANNER] Using project:', connection.project_name || projectRef);
+      console.log('[SUPABASE SCANNER] Using Management API with OAuth');
     } else if (!user_supabase_key) {
       throw new Error('Either enable OAuth or provide a service role key');
     } else {

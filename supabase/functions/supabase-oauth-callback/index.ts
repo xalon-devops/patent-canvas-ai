@@ -74,7 +74,7 @@ serve(async (req) => {
     const orgs = await orgResponse.json();
     const primaryOrg = orgs[0]; // Use first org
 
-    // Store connection in database
+    // Store connection in database as PENDING (user needs to select project)
     const expiresAt = new Date(Date.now() + (expires_in * 1000));
     
     const { error: dbError } = await supabase
@@ -88,9 +88,10 @@ serve(async (req) => {
         scopes: ['all'],
         connection_metadata: {
           organization_name: primaryOrg.name,
-          connected_at: new Date().toISOString(),
+          oauth_callback_at: new Date().toISOString(),
         },
-        is_active: true,
+        connection_status: 'pending',
+        is_active: false,
       }, {
         onConflict: 'user_id',
       });
@@ -100,8 +101,8 @@ serve(async (req) => {
       throw new Error('Failed to store connection');
     }
 
-    // Redirect back to app
-    const redirectUrl = `${origin}/new-application?supabase_connected=true`;
+    // Redirect to project selection page
+    const redirectUrl = `${origin}/select-supabase-project`;
     
     return new Response(null, {
       status: 302,
@@ -113,8 +114,9 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in supabase-oauth-callback:', error);
     
-    // Redirect to error page
-    const errorUrl = `/new-application?error=${encodeURIComponent(error.message)}`;
+    // Redirect to error page with message
+    const origin = req.headers.get('origin') || 'https://yourapp.com';
+    const errorUrl = `${origin}/new-application?error=${encodeURIComponent(error.message)}`;
     return new Response(null, {
       status: 302,
       headers: {

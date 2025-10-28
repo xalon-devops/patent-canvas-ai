@@ -23,6 +23,7 @@ import Drafts from "./pages/Drafts";
 import Check from "./pages/Check";
 import IdeaDetail from "./pages/IdeaDetail";
 import PaymentReturn from "./pages/PaymentReturn";
+import SelectSupabaseProject from "./pages/SelectSupabaseProject";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -95,6 +96,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <NewApplication />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/select-supabase-project" 
+              element={
+                <ProtectedRoute>
+                  <SelectSupabaseProject />
                 </ProtectedRoute>
               } 
             />

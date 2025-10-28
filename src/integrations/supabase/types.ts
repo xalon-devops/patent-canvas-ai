@@ -603,10 +603,14 @@ export type Database = {
         Row: {
           access_token: string
           connection_metadata: Json | null
+          connection_status: string | null
           created_at: string
           id: string
           is_active: boolean | null
           organization_id: string
+          project_name: string | null
+          project_ref: string | null
+          project_region: string | null
           refresh_token: string | null
           scopes: string[] | null
           token_expires_at: string | null
@@ -616,10 +620,14 @@ export type Database = {
         Insert: {
           access_token: string
           connection_metadata?: Json | null
+          connection_status?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
           organization_id: string
+          project_name?: string | null
+          project_ref?: string | null
+          project_region?: string | null
           refresh_token?: string | null
           scopes?: string[] | null
           token_expires_at?: string | null
@@ -629,10 +637,14 @@ export type Database = {
         Update: {
           access_token?: string
           connection_metadata?: Json | null
+          connection_status?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
           organization_id?: string
+          project_name?: string | null
+          project_ref?: string | null
+          project_region?: string | null
           refresh_token?: string | null
           scopes?: string[] | null
           token_expires_at?: string | null
