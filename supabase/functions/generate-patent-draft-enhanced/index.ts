@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,7 +21,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('[ENHANCED DRAFT] Starting iterative patent generation');
+    console.log('[ENHANCED DRAFT - LOVABLE AI] Starting iterative patent generation');
 
     // Fetch session data
     const { data: sessionData } = await supabaseClient
@@ -43,6 +43,12 @@ serve(async (req) => {
       }
     });
 
+    // Add Supabase backend analysis if available
+    if (sessionData.data_source?.supabase_backend) {
+      context += '\n\nSUPABASE BACKEND ARCHITECTURE:\n';
+      context += JSON.stringify(sessionData.data_source.supabase_backend, null, 2);
+    }
+
     const sectionTypes = ['abstract', 'field', 'background', 'summary', 'claims', 'description', 'drawings'];
     let sectionsGenerated = 0;
 
@@ -51,7 +57,7 @@ serve(async (req) => {
 
       // ITERATION 1: Generate initial draft
       const initialPrompt = getSectionPrompt(sectionType, context);
-      const initialDraft = await callClaude(initialPrompt, 'initial');
+      const initialDraft = await callLovableAI(initialPrompt, 'initial');
       
       // ITERATION 2: Self-critique
       const critiquePrompt = `You are a patent attorney reviewing this ${sectionType} section. Identify weaknesses, missing elements, and areas for improvement:
@@ -60,7 +66,7 @@ ${initialDraft}
 
 Provide specific, actionable critique focusing on USPTO compliance, clarity, and legal strength.`;
 
-      const critique = await callClaude(critiquePrompt, 'critique');
+      const critique = await callLovableAI(critiquePrompt, 'critique');
 
       // ITERATION 3: Refine based on critique
       const refinePrompt = `Based on this critique, rewrite the ${sectionType} section with improvements:
@@ -76,7 +82,7 @@ ${context}
 
 Produce a polished, USPTO-compliant section that addresses all critiques.`;
 
-      const finalDraft = await callClaude(refinePrompt, 'refine');
+      const finalDraft = await callLovableAI(refinePrompt, 'refine');
 
       // ITERATION 4: Format check (only for claims)
       let qualityCheckedDraft = finalDraft;
@@ -93,7 +99,7 @@ ${finalDraft}
 
 If corrections needed, provide corrected version. Otherwise return the claims as-is.`;
 
-        qualityCheckedDraft = await callClaude(formatPrompt, 'format-check');
+        qualityCheckedDraft = await callLovableAI(formatPrompt, 'format-check');
       }
 
       // Calculate quality score
@@ -173,13 +179,14 @@ If corrections needed, provide corrected version. Otherwise return the claims as
       }
     });
 
-    console.log(`[ENHANCED DRAFT] Complete: ${sectionsGenerated} sections generated with iterative refinement`);
+    console.log(`[ENHANCED DRAFT] Complete: ${sectionsGenerated} sections generated with 3x Lovable AI refinement`);
 
     return new Response(JSON.stringify({
       success: true,
       sections_generated: sectionsGenerated,
       iterations_per_section: 3,
-      quality_checked: true
+      quality_checked: true,
+      ai_model: 'google/gemini-2.5-pro'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -197,24 +204,28 @@ If corrections needed, provide corrected version. Otherwise return the claims as
   }
 });
 
-async function callClaude(prompt: string, stage: string): Promise<string> {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY not configured');
+async function callLovableAI(prompt: string, stage: string): Promise<string> {
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY not configured');
   }
 
-  console.log(`[Claude] ${stage} - calling API...`);
+  console.log(`[Lovable AI - ${stage}] Calling API...`);
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Use gemini-2.5-pro for maximum quality (equivalent to Claude Sonnet 4.5)
+  const model = stage === 'refine' ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
+  const maxTokens = stage === 'refine' ? 8000 : 4000;
+  const temperature = stage === 'critique' ? 0.3 : 0.1;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: stage === 'refine' ? 8000 : 4000,
-      temperature: stage === 'critique' ? 0.3 : 0.1,
+      model,
+      max_tokens: maxTokens,
+      temperature,
       messages: [
         {
           role: 'user',
@@ -226,11 +237,20 @@ async function callClaude(prompt: string, stage: string): Promise<string> {
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Claude API error: ${error}`);
+    
+    // Handle rate limits
+    if (response.status === 429) {
+      throw new Error('Lovable AI rate limit exceeded. Please try again in a few moments.');
+    }
+    if (response.status === 402) {
+      throw new Error('Lovable AI credits depleted. Please add credits to continue.');
+    }
+    
+    throw new Error(`Lovable AI error: ${error}`);
   }
 
   const data = await response.json();
-  return data.content[0].text;
+  return data.choices[0].message.content;
 }
 
 function getSectionPrompt(sectionType: string, context: string): string {
@@ -291,7 +311,8 @@ Requirements:
 - Single sentence per claim
 - Dependent claims: "2. The method of claim 1, wherein..."
 - Cover apparatus, method, and system claims
-- Use clear antecedent basis`,
+- Use clear antecedent basis
+- For software/backend inventions, include data structure claims`,
 
     description: `Write the "Detailed Description" section:
 
@@ -304,7 +325,8 @@ Requirements:
 - Provide examples and embodiments
 - Use clear, enabling language
 - 1000-2000 words
-- Satisfy enablement requirement`,
+- Satisfy enablement requirement
+- For backend systems, describe data flows and architecture`,
 
     drawings: `Describe patent drawings needed:
 
@@ -316,7 +338,8 @@ Requirements:
 - Fig. 2-N: [Detailed views, flowcharts, etc.]
 - Provide detailed descriptions
 - Explain what each figure shows
-- Reference key elements`
+- Reference key elements
+- For backend systems, include architecture diagrams and data flow charts`
   };
 
   return prompts[sectionType] || `Write the ${sectionType} section based on:\n\n${context}`;

@@ -73,3 +73,9 @@ verify_jwt = false
 
 [functions.analyze-supabase-backend]
 verify_jwt = false
+
+[functions.generate-claim-chart]
+verify_jwt = false
+
+[functions.predict-examiner]
+verify_jwt = false
