@@ -35,10 +35,10 @@ serve(async (req) => {
 
     // Build Supabase OAuth URL
     // Note: These need to be configured in your Supabase Management API app
-    const clientId = Deno.env.get('SUPABASE_OAUTH_CLIENT_ID');
+    const clientId = Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID');
     
     if (!clientId) {
-      throw new Error('SUPABASE_OAUTH_CLIENT_ID not configured. Please add this secret.');
+      throw new Error('PATENTBOT_OAUTH_CLIENT_ID not configured. Please add this secret.');
     }
 
     const state = btoa(JSON.stringify({
