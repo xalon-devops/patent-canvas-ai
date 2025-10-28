@@ -70,3 +70,6 @@ verify_jwt = true
 
 [functions.send-notification-email]
 verify_jwt = false
+
+[functions.analyze-supabase-backend]
+verify_jwt = false

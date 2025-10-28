@@ -62,8 +62,12 @@ const NewApplication = () => {
   const [ideaTitle, setIdeaTitle] = useState('');
   const [ideaDescription, setIdeaDescription] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseKey, setSupabaseKey] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [scanningSupabase, setScanningSupabase] = useState(false);
+  const [supabaseAnalysis, setSupabaseAnalysis] = useState<any>(null);
   const [existingIdea, setExistingIdea] = useState<PatentIdea | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   
@@ -219,6 +223,39 @@ const NewApplication = () => {
     setLoading(true);
     try {
       console.log('Creating patent session...');
+      
+      // If Supabase credentials provided, scan backend first
+      let supabaseData = null;
+      if (supabaseUrl && supabaseKey) {
+        console.log('Scanning Supabase backend...');
+        setScanningSupabase(true);
+        
+        const { data: backendData, error: backendError } = await supabase.functions.invoke('analyze-supabase-backend', {
+          body: {
+            user_supabase_url: supabaseUrl,
+            user_supabase_key: supabaseKey
+          }
+        });
+
+        if (backendError) {
+          console.error('Supabase scan error:', backendError);
+          toast({
+            title: "Supabase Scan Warning",
+            description: "Could not fully scan Supabase backend, but proceeding with available data.",
+            variant: "default",
+          });
+        } else if (backendData?.success) {
+          supabaseData = backendData;
+          setSupabaseAnalysis(backendData);
+          toast({
+            title: "🎯 Supabase Backend Scanned!",
+            description: `Found ${backendData.statistics?.tables_found || 0} tables, ${backendData.statistics?.edge_functions_found || 0} functions`,
+          });
+        }
+        
+        setScanningSupabase(false);
+      }
+      
       // Create a real patent session NOW to avoid FK errors in ask-followups
       const { data: sessionRow, error: createErr } = await supabase
         .from('patent_sessions')
@@ -229,6 +266,7 @@ const NewApplication = () => {
             patent_type: patentType,
             data_source: {
               github_url: githubUrl || null,
+              supabase_backend: supabaseData || null,
               files: uploadedFiles.map(f => f.name),
             },
           },
@@ -263,6 +301,7 @@ const NewApplication = () => {
       });
     } finally {
       setLoading(false);
+      setScanningSupabase(false);
     }
   };
 
@@ -532,6 +571,66 @@ const NewApplication = () => {
             <p className="text-sm text-muted-foreground mt-2">
               Our AI will analyze your code structure and generate technical documentation
             </p>
+          </div>
+
+          <div className="text-center text-muted-foreground">
+            <span>or</span>
+          </div>
+
+          <div className="space-y-4 p-6 border-2 border-dashed border-secondary/30 rounded-lg bg-secondary/5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-secondary/10 rounded-lg">
+                <Code className="h-5 w-5 text-secondary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Connect Supabase Backend</h3>
+                <p className="text-sm text-muted-foreground">Scan your database schema, edge functions, and RLS policies</p>
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="supabase-url">Supabase Project URL</Label>
+              <Input
+                id="supabase-url"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
+                placeholder="https://xxxxx.supabase.co"
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="supabase-key">Supabase Service Role Key</Label>
+              <Input
+                id="supabase-key"
+                type="password"
+                value={supabaseKey}
+                onChange={(e) => setSupabaseKey(e.target.value)}
+                placeholder="service_role key (eyJ...)"
+                className="mt-2"
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                🔒 Your key is encrypted and only used to scan your backend. Never stored permanently.
+              </p>
+            </div>
+
+            {supabaseAnalysis && (
+              <Card className="bg-green-500/10 border-green-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <FileCheck className="h-5 w-5" />
+                    <div>
+                      <p className="font-semibold">Backend Scanned Successfully!</p>
+                      <p className="text-sm">
+                        {supabaseAnalysis.statistics?.tables_found || 0} tables, 
+                        {supabaseAnalysis.statistics?.edge_functions_found || 0} functions, 
+                        {supabaseAnalysis.statistics?.rls_policies_found || 0} RLS policies analyzed
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="text-center text-muted-foreground">
@@ -809,9 +908,14 @@ const NewApplication = () => {
                     <Button 
                       onClick={handleStartAIAnalysis} 
                       className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                      disabled={loading}
+                      disabled={loading || scanningSupabase}
                     >
-                      {loading ? (
+                      {scanningSupabase ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Scanning Supabase...
+                        </>
+                      ) : loading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           Starting Analysis...
