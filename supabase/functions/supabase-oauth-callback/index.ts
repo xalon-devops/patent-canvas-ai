@@ -64,14 +64,19 @@ serve(async (req) => {
     const { access_token, refresh_token, expires_in } = tokenData;
 
     // Get organization info from Management API
+    console.log('[OAUTH-CALLBACK] Fetching organizations with access token');
     const orgResponse = await fetch('https://api.supabase.com/v1/organizations', {
       headers: {
         'Authorization': `Bearer ${access_token}`,
       },
     });
 
+    console.log('[OAUTH-CALLBACK] Org fetch response status:', orgResponse.status);
+    
     if (!orgResponse.ok) {
-      throw new Error('Failed to fetch organization info');
+      const errorText = await orgResponse.text();
+      console.error('[OAUTH-CALLBACK] Org fetch failed:', errorText);
+      throw new Error(`Failed to fetch organization info: ${orgResponse.status} - ${errorText}`);
     }
 
     const orgs = await orgResponse.json();
