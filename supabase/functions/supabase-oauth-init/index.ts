@@ -36,11 +36,11 @@ serve(async (req) => {
     
     const callbackUrl = `${supabaseUrl}/functions/v1/supabase-oauth-callback`;
 
-    // Build Supabase OAuth URL
-    const clientId = Deno.env.get('SUPABASE_OAUTH_CLIENT_ID');
+    // Build Supabase OAuth URL (with safe fallbacks)
+    const clientId = Deno.env.get('SUPABASE_OAUTH_CLIENT_ID') || Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID');
     
     if (!clientId) {
-      throw new Error('SUPABASE_OAUTH_CLIENT_ID not configured. Please add this secret in Supabase Function Secrets.');
+      throw new Error('Missing OAuth client ID. Set SUPABASE_OAUTH_CLIENT_ID (preferred) or PATENTBOT_OAUTH_CLIENT_ID in Edge Function Secrets.');
     }
 
     console.log('[OAUTH-INIT] Using origin:', origin);
