@@ -41,17 +41,21 @@ serve(async (req) => {
     let sections: any[] = [];
     let qaPairs: any[] = [];
     let docs: any[] = [];
+    let backendData: any = null;
 
     if (session_id) {
       const [s, q, sec, pa, d] = await Promise.all([
-        supabase.from('patent_sessions').select('*').eq('id', session_id).maybeSingle(),
+        supabase.from('patent_sessions').select('idea_prompt, patent_type, technical_analysis, data_source').eq('id', session_id).maybeSingle(),
         supabase.from('ai_questions').select('question, answer').eq('session_id', session_id),
         supabase.from('patent_sections').select('section_type, content').eq('session_id', session_id),
         supabase.from('prior_art_results').select('title, summary, similarity_score').eq('session_id', session_id).order('similarity_score', { ascending: false }),
         supabase.from('patent_documents').select('file_name, document_type, ai_analysis, extraction_data').eq('patent_session_id', session_id)
       ]);
 
-      if (!s.error) session = s.data;
+      if (!s.error) {
+        session = s.data;
+        backendData = session?.data_source?.supabase_backend;
+      }
       if (!q.error && q.data) qaPairs = q.data;
       if (!sec.error && sec.data) sections = sec.data;
       if (!pa.error && pa.data) priorArt = pa.data;
@@ -63,8 +67,41 @@ serve(async (req) => {
     if (session) {
       parts.push(`Invention: ${session.idea_prompt || ''}`);
       parts.push(`Patent Type: ${session.patent_type || ''}`);
+      if (session.technical_analysis) {
+        parts.push(`Technical Analysis: ${session.technical_analysis.slice(0, 1500)}`);
+      }
     }
     if (github_url) parts.push(`GitHub: ${github_url}`);
+    
+    // Add rich Supabase backend context
+    if (backendData) {
+      const backendParts: string[] = [];
+      if (backendData.ai_summary) {
+        backendParts.push(`Backend Summary: ${backendData.ai_summary.slice(0, 2000)}`);
+      }
+      if (backendData.database?.tables) {
+        const tables = backendData.database.tables.slice(0, 10).map((t: any) => 
+          `Table ${t.name}: ${t.columns?.slice(0, 8).map((c: any) => c.name).join(', ') || 'N/A'}`
+        ).join('\n');
+        backendParts.push(`Database Tables:\n${tables}`);
+      }
+      if (backendData.functions?.edge_functions) {
+        const funcs = backendData.functions.edge_functions.slice(0, 8).map((f: any) => 
+          `Function: ${f.name} - ${f.description || 'N/A'}`
+        ).join('\n');
+        backendParts.push(`Edge Functions:\n${funcs}`);
+      }
+      if (backendData.storage?.buckets) {
+        const buckets = backendData.storage.buckets.map((b: any) => 
+          `Bucket: ${b.name} (${b.public ? 'public' : 'private'})`
+        ).join(', ');
+        backendParts.push(`Storage: ${buckets}`);
+      }
+      if (backendParts.length) {
+        parts.push(`Supabase Backend:\n${backendParts.join('\n\n')}`);
+      }
+    }
+    
     if (sections?.length) {
       const joined = sections.slice(0, 6).map((s) => `# ${s.section_type}\n${(s.content || '').slice(0, 1000)}`).join('\n\n');
       parts.push(`Sections:\n${joined}`);
@@ -82,13 +119,14 @@ serve(async (req) => {
       parts.push(`Uploaded documents:\n${joined}`);
     }
 
-    const context = parts.join('\n\n').slice(0, 12000);
+    const context = parts.join('\n\n').slice(0, 16000);
 
     const systemPrompt = `You are a senior patent-drafting assistant. Enhance the user's short answer into a clearer, more specific, and technically accurate response.
-- Use ONLY the provided context. Do not invent capabilities or details.
+- Use ONLY the provided context, including Supabase backend architecture (database tables, edge functions, storage, RLS policies), technical analysis, prior art, Q&A, and documents.
+- Leverage technical implementation details from the backend to make answers more specific and patent-worthy.
 - Preserve the user's intent and voice. Prefer concise, structured paragraphs and bullet points.
-- Add concrete specifics (components, data flows, parameters) only if present in the context.
-- Make it suitable for a patent application intake form.
+- Add concrete specifics (components, data flows, API endpoints, database schemas, authentication mechanisms) from the context.
+- Make it suitable for a patent application intake form with technical depth.
 Return ONLY the enhanced answer text without any surrounding commentary.`;
 
     const userPrompt = `QUESTION:\n${question}\n\nUSER'S SHORT ANSWER:\n${answer}\n\nCONTEXT (for reference):\n${context}`;
