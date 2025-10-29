@@ -10,31 +10,43 @@
     <meta name="description" content="File patent applications in minutes with PatentBot AI™. AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee. Start protecting your innovation today." />
     <meta name="keywords" content="patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property, patent protection" />
     <meta name="author" content="PatentBot AI" />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://patentbot-ai.lovable.app/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="theme-color" content="#1a1f2e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="canonical" id="canonical-url" href="https://patentbot-ai.lovable.app/" />
     
-    <!-- Favicon -->
-    <link rel="icon" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2" type="image/png">
-    <link rel="shortcut icon" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2" type="image/png">
-    <link rel="apple-touch-icon" sizes="180x180" href="https://i.ibb.co/Y7ks5hjF/Patent-Bot-AI-Favicon.png?v=2">
+    <!-- Favicon - Local files for reliability -->
+    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/favicon.png" type="image/png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/favicon.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/favicon.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/favicon.png">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://patentbot-ai.lovable.app/" />
+    <meta property="og:url" id="og-url" content="https://patentbot-ai.lovable.app/" />
     <meta property="og:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
     <meta property="og:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta property="og:image" content="https://i.ibb.co/20QsmLh3/Patent-Bot-AI-Meta.png" />
+    <meta property="og:image" id="og-image" content="https://patentbot-ai.lovable.app/social-preview.png" />
+    <meta property="og:image:secure_url" id="og-image-secure" content="https://patentbot-ai.lovable.app/social-preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:site_name" content="PatentBot AI" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://patentbot-ai.lovable.app/" />
+    <meta name="twitter:url" id="twitter-url" content="https://patentbot-ai.lovable.app/" />
     <meta name="twitter:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
     <meta name="twitter:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta name="twitter:image" content="https://i.ibb.co/20QsmLh3/Patent-Bot-AI-Meta.png" />
+    <meta name="twitter:image" id="twitter-image" content="https://patentbot-ai.lovable.app/social-preview.png" />
     <meta name="twitter:site" content="@patentbot_ai" />
+    <meta name="twitter:creator" content="@patentbot_ai" />
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
@@ -65,14 +77,44 @@
       },
       "description": "AI-powered patent application generator. File patents in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting.",
       "url": "https://patentbot-ai.lovable.app/",
-      "logo": "https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png",
-      "image": "https://i.ibb.co/20QsmLh3/Patent-Bot-AI-Meta.png",
+      "logo": "/logo.png",
+      "image": "/social-preview.png",
       "provider": {
         "@type": "Organization",
         "name": "PatentBot AI",
         "url": "https://patentbot-ai.lovable.app/"
       }
     }
+    </script>
+
+    <!-- Dynamic URL Update Script -->
+    <script>
+      (function() {
+        const baseUrl = window.location.origin;
+        const currentPath = window.location.pathname;
+        const fullUrl = baseUrl + currentPath;
+        
+        // Update canonical URL
+        const canonical = document.getElementById('canonical-url');
+        if (canonical) canonical.href = fullUrl;
+        
+        // Update Open Graph URLs
+        const ogUrl = document.getElementById('og-url');
+        if (ogUrl) ogUrl.content = fullUrl;
+        
+        const ogImage = document.getElementById('og-image');
+        if (ogImage) ogImage.content = baseUrl + '/social-preview.png';
+        
+        const ogImageSecure = document.getElementById('og-image-secure');
+        if (ogImageSecure) ogImageSecure.content = baseUrl + '/social-preview.png';
+        
+        // Update Twitter URLs
+        const twitterUrl = document.getElementById('twitter-url');
+        if (twitterUrl) twitterUrl.content = fullUrl;
+        
+        const twitterImage = document.getElementById('twitter-image');
+        if (twitterImage) twitterImage.content = baseUrl + '/social-preview.png';
+      })();
     </script>
 
     <!-- ✅ NEXUS Universal Tracking Script -->
@@ -108,8 +150,6 @@
             console.log("✅ NEXUS click tracked");
           }
         }).catch(console.error);
-      } else {
-        console.log("⚠️ NEXUS: Missing `ref` or `offer_id` in URL.");
       }
     })();
     </script>
