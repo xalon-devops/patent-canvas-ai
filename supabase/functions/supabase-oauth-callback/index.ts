@@ -56,6 +56,7 @@ serve(async (req) => {
         redirect_uri: callbackUrl,
         client_id: clientId,
         client_secret: clientSecret,
+        scope: 'organizations:read projects:read',
       }),
     });
 
@@ -67,41 +68,46 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
     const { access_token, refresh_token, expires_in } = tokenData;
 
-    // Get organization info from Management API
-    console.log('[OAUTH-CALLBACK] Fetching organizations with access token');
-    const orgResponse = await fetch('https://api.supabase.com/v1/organizations', {
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-      },
-    });
+    // Get organization info from Management API (non-fatal)
+    let primaryOrg: any | null = null;
+    try {
+      console.log('[OAUTH-CALLBACK] Fetching organizations with access token');
+      const orgResponse = await fetch('https://api.supabase.com/v1/organizations', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+      });
 
-    console.log('[OAUTH-CALLBACK] Org fetch response status:', orgResponse.status);
-    
-    if (!orgResponse.ok) {
-      const errorText = await orgResponse.text();
-      console.error('[OAUTH-CALLBACK] Org fetch failed:', errorText);
-      throw new Error(`Failed to fetch organization info: ${orgResponse.status} - ${errorText}`);
+      console.log('[OAUTH-CALLBACK] Org fetch response status:', orgResponse.status);
+      
+      if (orgResponse.ok) {
+        const orgs = await orgResponse.json();
+        primaryOrg = (orgs && orgs.length > 0) ? orgs[0] : null;
+      } else {
+        const errorText = await orgResponse.text();
+        console.warn('[OAUTH-CALLBACK] Org fetch failed (non-fatal):', errorText);
+      }
+    } catch (e) {
+      console.warn('[OAUTH-CALLBACK] Org fetch threw (non-fatal):', e);
     }
-
-    const orgs = await orgResponse.json();
-    const primaryOrg = orgs[0]; // Use first org
 
     // Store connection in database as PENDING (user needs to select project)
     const expiresAt = new Date(Date.now() + (expires_in * 1000));
     
+    const connectionMetadata: Record<string, any> = {
+      oauth_callback_at: new Date().toISOString(),
+      ...(primaryOrg ? { organization_name: primaryOrg.name } : {}),
+    };
+
     const { error: dbError } = await supabase
       .from('supabase_connections')
       .upsert({
         user_id: userId,
-        organization_id: primaryOrg.id,
         access_token,
         refresh_token,
         token_expires_at: expiresAt.toISOString(),
-        scopes: ['all'],
-        connection_metadata: {
-          organization_name: primaryOrg.name,
-          oauth_callback_at: new Date().toISOString(),
-        },
+        scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
+        connection_metadata: connectionMetadata,
         connection_status: 'pending',
         is_active: false,
       }, {
