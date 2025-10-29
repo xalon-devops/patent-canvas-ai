@@ -132,23 +132,11 @@ const Dashboard = () => {
           <div className="content-width">
             <div className="flex items-center justify-between py-4">
               <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="relative rounded-2xl p-2 bg-white/60 backdrop-blur-md border border-white/50 shadow-lg">
-                    <img 
-                      src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
-                      alt="PatentBot AI Logo" 
-                      className="h-12 w-auto"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    PatentBot AI™
-                  </h1>
-                  <p className="text-sm text-muted-foreground hidden sm:block">
-                    Welcome back, {user?.email}
-                  </p>
-                </div>
+                <img 
+                  src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
+                  alt="PatentBot AI Logo" 
+                  className="h-12 w-auto"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Button 
