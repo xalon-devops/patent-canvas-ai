@@ -167,21 +167,21 @@ const Drafts = () => {
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
-        <div className="safe-area">
+        <div className="safe-area px-4 sm:px-6">
           <div className="content-width">
-            <div className="flex items-center gap-4 py-4">
+            <div className="flex items-center gap-2 sm:gap-4 py-3 sm:py-4">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => navigate('/dashboard')}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground flex-shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Dashboard
+                <span className="hidden xs:inline ml-2">Dashboard</span>
               </Button>
-              <div>
-                <h1 className="text-xl font-bold">Draft Applications</h1>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold truncate">Draft Applications</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Continue where you left off
                 </p>
               </div>
@@ -190,22 +190,22 @@ const Drafts = () => {
         </div>
       </header>
 
-      <main className="safe-area py-8">
+      <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">
           {drafts.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-12"
+              className="text-center py-8 sm:py-12 px-4"
             >
-              <div className="p-6 bg-muted/30 rounded-2xl inline-block mb-6">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+              <div className="p-4 sm:p-6 bg-muted/30 rounded-2xl inline-block mb-4 sm:mb-6">
+                <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">No draft applications</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">No draft applications</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 max-w-md mx-auto">
                 Start a new patent application to see your drafts here. You can save your progress and continue later.
               </p>
-              <Button onClick={() => navigate('/new-application')} variant="gradient">
+              <Button onClick={() => navigate('/new-application')} variant="gradient" className="w-full sm:w-auto">
                 Start New Application
               </Button>
             </motion.div>
@@ -226,20 +226,21 @@ const Drafts = () => {
                       transition={{ delay: index * 0.1 }}
                     >
                       <Card className="glass hover:shadow-glow/30 transition-all duration-300">
-                        <CardHeader className="pb-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <Badge variant="outline" className="flex items-center gap-1">
+                        <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <Badge variant="outline" className="flex items-center gap-1 text-xs">
                                   {draft.patent_type === 'software' ? <Code className="h-3 w-3" /> : <Package className="h-3 w-3" />}
                                   {draft.patent_type === 'software' ? 'Software' : 'Physical'}
                                 </Badge>
-                                <Badge variant="secondary" className="flex items-center gap-1">
+                                <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                                   {stepIcon}
-                                  Step {currentStep}: {stepName}
+                                  <span className="hidden xs:inline">Step {currentStep}: </span>
+                                  <span className="truncate max-w-[120px] sm:max-w-none">{stepName}</span>
                                 </Badge>
                               </div>
-                              <CardTitle className="text-lg leading-tight mb-2">
+                              <CardTitle className="text-base sm:text-lg leading-tight mb-2 line-clamp-2">
                                 {draft.idea_prompt ? 
                                   (draft.idea_prompt.length > 100 ? 
                                     `${draft.idea_prompt.substring(0, 100)}...` : 
@@ -248,35 +249,35 @@ const Drafts = () => {
                                   'Untitled Patent Application'
                                 }
                               </CardTitle>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(draft.created_at).toLocaleDateString()}
+                                  <Calendar className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{new Date(draft.created_at).toLocaleDateString()}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {new Date(draft.created_at).toLocaleTimeString([], { 
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
+                                  <span>{new Date(draft.created_at).toLocaleTimeString([], { 
                                     hour: '2-digit', 
                                     minute: '2-digit' 
-                                  })}
+                                  })}</span>
                                 </div>
                                 {draft.patentability_score && (
                                   <div className="flex items-center gap-1">
-                                    <BarChart3 className="h-3 w-3" />
-                                    {Math.round(draft.patentability_score * 100)}% patentable
+                                    <BarChart3 className="h-3 w-3 flex-shrink-0" />
+                                    <span>{Math.round(draft.patentability_score * 100)}%</span>
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => resumeDraft(draft.id)}
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-2 text-xs sm:text-sm"
                               >
                                 <Play className="h-3 w-3" />
-                                Resume
+                                <span className="hidden xs:inline">Resume</span>
                               </Button>
                               <Button
                                 variant="ghost"
@@ -289,12 +290,12 @@ const Drafts = () => {
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CardContent className="pt-0 p-4 sm:p-6">
+                          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                               <span>Progress: Step {currentStep} of 7</span>
                             </div>
-                            <div className="w-24 bg-muted rounded-full h-2">
+                            <div className="w-full xs:w-24 bg-muted rounded-full h-2">
                               <div 
                                 className="bg-primary rounded-full h-2 transition-all duration-300"
                                 style={{ width: `${(currentStep / 7) * 100}%` }}
