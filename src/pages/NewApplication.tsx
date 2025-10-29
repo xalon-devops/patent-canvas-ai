@@ -88,12 +88,13 @@ const NewApplication = () => {
       // Check if user has an active Supabase connection
       const { data: connection } = await supabase
         .from('supabase_connections')
-        .select('project_name, project_ref, is_active')
+        .select('project_name, project_ref, is_active, connection_status')
         .eq('user_id', session.user.id)
-        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       
-      if (connection && connection.project_name) {
+      if (connection && connection.project_name && connection.connection_status === 'active') {
         setConnectedProject({
           name: connection.project_name,
           ref: connection.project_ref || ''
@@ -424,14 +425,24 @@ const NewApplication = () => {
       // Check if user has OAuth connection
       const { data: connection } = await supabase
         .from('supabase_connections')
-        .select('*')
+        .select('project_name, project_ref, connection_status, is_active')
         .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (connection) {
+      if (connection && connection.connection_status === 'active' && connection.project_ref) {
         useOAuth = true;
-        console.log('Using OAuth connection for Supabase scan');
+        console.log('Using finalized OAuth connection for Supabase scan');
+      } else if (connection && connection.connection_status !== 'active') {
+        setScanningSupabase(false);
+        setLoading(false);
+        toast({
+          title: 'Finish connecting Supabase',
+          description: 'Please select your project to finalize the connection.',
+        });
+        navigate('/select-supabase-project');
+        return;
       }
 
       if (useOAuth || (supabaseUrl && supabaseKey)) {
