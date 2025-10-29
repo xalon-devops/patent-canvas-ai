@@ -319,7 +319,6 @@ const NewApplication = () => {
               .from('supabase_connections')
               .select('id, connection_status')
               .eq('user_id', user?.id || '')
-              .eq('connection_status', 'pending')
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -332,13 +331,15 @@ const NewApplication = () => {
               setLoading(false);
               toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
               navigate('/select-supabase-project');
-            } else if (Date.now() - pollStart > 60000) {
+            } else if (Date.now() - pollStart > 20000) {
               clearInterval(pollConn);
+              setLoading(false);
+              toast({ title: 'Taking longer than usual', description: 'You can safely close the popup and continue.' });
             }
           } catch (e) {
             // ignore transient errors
           }
-        }, 800);
+        }, 500);
 
         // Check if popup was closed without completing (fallback)
         const checkClosed = setInterval(async () => {
@@ -353,7 +354,6 @@ const NewApplication = () => {
                 .from('supabase_connections')
                 .select('id, connection_status')
                 .eq('user_id', user?.id || '')
-                .eq('connection_status', 'pending')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
