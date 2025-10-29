@@ -70,6 +70,7 @@ const NewApplication = () => {
   const [supabaseAnalysis, setSupabaseAnalysis] = useState<any>(null);
   const [existingIdea, setExistingIdea] = useState<PatentIdea | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [connectedProject, setConnectedProject] = useState<{name: string; ref: string} | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -83,6 +84,21 @@ const NewApplication = () => {
         return;
       }
       setUser(session.user);
+
+      // Check if user has an active Supabase connection
+      const { data: connection } = await supabase
+        .from('supabase_connections')
+        .select('project_name, project_ref, is_active')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (connection && connection.project_name) {
+        setConnectedProject({
+          name: connection.project_name,
+          ref: connection.project_ref || ''
+        });
+      }
 
       // Restore form state if returning from OAuth
       const savedState = sessionStorage.getItem('patent_flow_state');
@@ -784,20 +800,44 @@ const NewApplication = () => {
               </div>
             </div>
             
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleSupabaseOAuth}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4 mr-2" />
-              )}
-              Connect with OAuth (Recommended)
-            </Button>
+            {connectedProject ? (
+              <Card className="bg-green-500/10 border-green-500/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                      <FileCheck className="h-5 w-5" />
+                      <div>
+                        <p className="font-semibold">Connected to Supabase</p>
+                        <p className="text-sm">{connectedProject.name}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSupabaseOAuth}
+                      disabled={loading}
+                    >
+                      Change Project
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleSupabaseOAuth}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
+                Connect with OAuth (Recommended)
+              </Button>
+            )}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
