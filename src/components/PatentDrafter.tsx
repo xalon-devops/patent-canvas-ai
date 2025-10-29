@@ -72,8 +72,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         setProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      // Use existing generate-patent-draft function
-      const { data, error } = await supabase.functions.invoke('generate-patent-draft', {
+      // Call the enhanced patent draft generation function
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
         body: {
           session_id: sessionId
         }
@@ -84,65 +84,26 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
 
       if (error) throw error;
 
-      // Mock sections for better UX
-      const mockSections: PatentSection[] = [
-        {
-          id: '1',
-          section_type: 'title',
-          content: 'INTELLIGENT ENERGY MANAGEMENT SYSTEM WITH PREDICTIVE ANALYTICS',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          section_type: 'abstract',
-          content: 'An intelligent energy management system that utilizes machine learning algorithms and predictive analytics to optimize energy consumption in residential and commercial buildings. The system monitors real-time energy usage patterns, predicts future consumption needs, and automatically adjusts connected devices to minimize energy costs while maintaining user comfort preferences. The invention includes advanced algorithms for demand forecasting, integration with smart grid technologies, and a user-friendly mobile interface for monitoring and control.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          section_type: 'background',
-          content: 'Energy management in modern buildings has become increasingly complex due to the proliferation of smart devices and varying utility pricing structures. Traditional energy management systems rely on simple timers and basic automation, which fail to account for dynamic factors such as weather patterns, occupancy schedules, and real-time energy pricing. Existing solutions lack the sophistication to predict energy needs and optimize consumption patterns proactively. There remains a significant need for an intelligent system that can learn from usage patterns, predict future energy requirements, and automatically optimize energy consumption while maintaining user comfort and preferences.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          section_type: 'summary',
-          content: 'The present invention provides an intelligent energy management system that addresses the limitations of existing solutions by incorporating advanced machine learning algorithms and predictive analytics. The system comprises: (1) a central processing unit with machine learning capabilities, (2) multiple sensors for monitoring energy consumption and environmental conditions, (3) communication interfaces for connecting with smart devices and utility providers, (4) predictive algorithms for forecasting energy demand, and (5) a mobile application for user interaction and system control. The invention enables automatic optimization of energy consumption, reduction in utility costs, and improved energy efficiency while maintaining user comfort preferences.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '5',
-          section_type: 'brief_description',
-          content: 'Fig. 1 illustrates a block diagram of the intelligent energy management system showing the central processing unit and connected components.\n\nFig. 2 depicts the machine learning algorithm workflow for energy consumption prediction.\n\nFig. 3 shows the user interface of the mobile application for system monitoring and control.\n\nFig. 4 illustrates the integration with smart grid infrastructure and utility pricing systems.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '6',
-          section_type: 'detailed_description',
-          content: 'Referring to the drawings, the intelligent energy management system 100 comprises a central processing unit 110, a plurality of energy monitoring sensors 120, smart device communication interfaces 130, and a mobile application interface 140. The central processing unit 110 includes a machine learning module 112 configured to analyze historical energy consumption data and predict future energy requirements based on various factors including weather forecasts, occupancy patterns, and utility pricing schedules.\n\nThe energy monitoring sensors 120 are strategically positioned throughout the building to collect real-time data on energy consumption, temperature, humidity, and occupancy. This data is transmitted to the central processing unit 110 via wireless communication protocols such as Wi-Fi, Zigbee, or Z-Wave.\n\nThe machine learning module 112 employs advanced algorithms including neural networks and regression analysis to identify patterns in energy usage and develop predictive models. These models enable the system to anticipate energy demand and proactively adjust connected devices to optimize consumption while maintaining user-defined comfort preferences.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '7',
-          section_type: 'claims',
-          content: '1. An intelligent energy management system comprising:\n   a. a central processing unit with machine learning capabilities;\n   b. a plurality of energy monitoring sensors configured to collect real-time energy consumption data;\n   c. communication interfaces for connecting with smart devices and utility providers;\n   d. predictive algorithms for forecasting energy demand based on historical data and external factors;\n   e. automatic control mechanisms for optimizing energy consumption while maintaining user preferences.\n\n2. The system of claim 1, wherein the machine learning capabilities include neural network algorithms for pattern recognition in energy consumption data.\n\n3. The system of claim 1, further comprising a mobile application interface for user monitoring and system control.\n\n4. The system of claim 1, wherein the predictive algorithms incorporate weather forecast data and utility pricing information.\n\n5. The system of claim 1, wherein the automatic control mechanisms include load balancing and demand response capabilities.',
-          is_user_edited: false,
-          created_at: new Date().toISOString()
-        }
-      ];
+      // Fetch the actual generated sections from the database
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('patent_sections')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
 
-      setSections(mockSections);
+      if (sectionsError) throw sectionsError;
+
+      if (!sectionsData || sectionsData.length === 0) {
+        throw new Error('No patent sections were generated. Please try again.');
+      }
+
+      setSections(sectionsData);
       
     } catch (error: any) {
+      console.error('Error generating draft:', error);
       toast({
         title: "Error generating draft",
-        description: error.message,
+        description: error.message || 'Failed to generate patent draft',
         variant: "destructive",
       });
     } finally {
@@ -204,12 +165,25 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
 
       if (error) throw error;
 
-      // Mock regenerated content
-      const regeneratedContent = `[REGENERATED] ${sections.find(s => s.section_type === sectionType)?.content}`;
+      // Fetch the updated section from the database
+      const { data: updatedSection, error: fetchError } = await supabase
+        .from('patent_sections')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('section_type', sectionType)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (!updatedSection) {
+        throw new Error('Failed to retrieve regenerated section');
+      }
       
       setSections(prev => prev.map(section => 
         section.section_type === sectionType 
-          ? { ...section, content: regeneratedContent, is_user_edited: false }
+          ? { ...updatedSection, is_user_edited: false }
           : section
       ));
 
@@ -219,9 +193,10 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         variant: "default",
       });
     } catch (error: any) {
+      console.error('Error regenerating section:', error);
       toast({
         title: "Error regenerating section",
-        description: error.message,
+        description: error.message || 'Failed to regenerate section',
         variant: "destructive",
       });
     } finally {
