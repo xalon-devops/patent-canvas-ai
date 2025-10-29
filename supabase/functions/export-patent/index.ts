@@ -294,7 +294,17 @@ async function generatePatentDOCX(session: any, sections: any[]): Promise<Uint8A
     }]
   });
 
-  return await Packer.toBuffer(doc);
+  // Generate using toBuffer; validate magic header; fallback to toBlob if needed
+  let bufAny = await Packer.toBuffer(doc);
+  let uint8 = bufAny instanceof Uint8Array ? new Uint8Array(bufAny) : new Uint8Array(bufAny);
+  // Validate PK (zip) header
+  if (uint8.length < 2 || uint8[0] !== 0x50 || uint8[1] !== 0x4B) {
+    console.warn('DOCX buffer missing PK header, falling back to toBlob');
+    const blob = await Packer.toBlob(doc);
+    const ab = await blob.arrayBuffer();
+    uint8 = new Uint8Array(ab);
+  }
+  return uint8;
 }
 
 function stripHtml(html: string): string {
