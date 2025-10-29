@@ -1058,10 +1058,10 @@ const NewApplication = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50/90 to-indigo-100/90 border-blue-300/50">
+        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/30 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-blue-600" />
+            <CardTitle className="flex items-center gap-2 text-foreground">
+              <Lightbulb className="w-5 h-5 text-accent" />
               Save as Monitored Idea
             </CardTitle>
             <CardDescription>
@@ -1069,24 +1069,24 @@ const NewApplication = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-sm text-foreground">
               <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-blue-600" />
+                <Search className="w-4 h-4 text-accent" />
                 <span>Daily prior art monitoring</span>
               </div>
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-600" />
+                <BarChart3 className="w-4 h-4 text-accent" />
                 <span>Patent landscape tracking</span>
               </div>
               <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-blue-600" />
+                <MessageCircle className="w-4 h-4 text-accent" />
                 <span>Infringement alerts</span>
               </div>
             </div>
             <Button 
               variant="outline" 
               onClick={handleSaveAsIdea} 
-              className="w-full border-blue-600 text-blue-600 hover:bg-blue-50"
+              className="w-full border-accent text-accent hover:bg-accent/10 hover:text-accent"
               disabled={loading}
             >
               {loading ? (
