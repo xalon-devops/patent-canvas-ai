@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="canonical" id="canonical-url" href="https://patentbot-ai.lovable.app/" />
+    <link rel="canonical" id="canonical-url" href="/" />
     
     <!-- Favicon - Local files for reliability -->
     <link rel="icon" href="/favicon.png" type="image/png">
@@ -28,11 +28,11 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" id="og-url" content="https://patentbot-ai.lovable.app/" />
+    <meta property="og:url" id="og-url" content="/" />
     <meta property="og:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
     <meta property="og:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta property="og:image" id="og-image" content="https://patentbot-ai.lovable.app/social-preview.png" />
-    <meta property="og:image:secure_url" id="og-image-secure" content="https://patentbot-ai.lovable.app/social-preview.png" />
+    <meta property="og:image" id="og-image" content="/social-preview.png" />
+    <meta property="og:image:secure_url" id="og-image-secure" content="/social-preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
@@ -41,10 +41,10 @@
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" id="twitter-url" content="https://patentbot-ai.lovable.app/" />
+    <meta name="twitter:url" id="twitter-url" content="/" />
     <meta name="twitter:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
     <meta name="twitter:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta name="twitter:image" id="twitter-image" content="https://patentbot-ai.lovable.app/social-preview.png" />
+    <meta name="twitter:image" id="twitter-image" content="/social-preview.png" />
     <meta name="twitter:site" content="@patentbot_ai" />
     <meta name="twitter:creator" content="@patentbot_ai" />
 
@@ -114,6 +114,28 @@
         
         const twitterImage = document.getElementById('twitter-image');
         if (twitterImage) twitterImage.content = baseUrl + '/social-preview.png';
+      })();
+    </script>
+
+    <!-- JSON-LD Dynamic Host Update -->
+    <script>
+      (function() {
+        try {
+          const baseUrl = window.location.origin;
+          const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+          scripts.forEach((s) => {
+            try {
+              const data = JSON.parse(s.textContent || '{}');
+              if (data) {
+                if (data.url) data.url = baseUrl + '/';
+                if (data.logo && typeof data.logo === 'string') data.logo = baseUrl + '/logo.png';
+                if (data.image && typeof data.image === 'string') data.image = baseUrl + '/social-preview.png';
+                if (data.provider && data.provider.url) data.provider.url = baseUrl + '/';
+                s.textContent = JSON.stringify(data);
+              }
+            } catch (e) { /* ignore */ }
+          });
+        } catch (e) { /* ignore */ }
       })();
     </script>
 

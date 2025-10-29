@@ -8,7 +8,7 @@ Disallow: /select-supabase-project
 Crawl-delay: 1
 
 # Sitemap
-Sitemap: https://patentbot-ai.lovable.app/sitemap.xml
+Sitemap: /sitemap.xml
 
 # Block AI crawlers for content training
 User-agent: GPTBot
