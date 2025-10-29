@@ -356,31 +356,8 @@ Requirements:
 - Include at least 3-5 detailed embodiments
 - Professional legal language with extreme technical precision
 
-Return ONLY the HTML content with comprehensive semantic structure.`,
 
-    drawings: `Write detailed patent drawing descriptions in professional HTML format:
-
-${context}
-
-Requirements:
-- List 8-12 figures minimum
-- Use <div> for each figure description
-- Use <h4> for figure titles (e.g., "Figure 1 - System Architecture Overview")
-- Use <p> for detailed descriptions
-- Use <strong> for reference numerals and key elements
-- Each figure description should be 150-250 words
-- Include:
-  * System architecture diagrams
-  * Component interaction diagrams
-  * Process flowcharts
-  * Data flow diagrams
-  * User interface mockups
-  * Detailed component views
-  * Alternative embodiment diagrams
-- Reference all key elements with numbers (e.g., "element 10", "component 20")
-- Professional technical drawing descriptions
-
-Return ONLY the HTML content with detailed figure descriptions.`
+Return ONLY the HTML content with comprehensive semantic structure.`
   };
 
   return prompts[sectionType] || `Write the ${sectionType} section based on:\n\n${context}`;
