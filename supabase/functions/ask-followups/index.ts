@@ -192,7 +192,9 @@ QUESTION QUALITY STANDARDS:
 
 IMPORTANT: Return your response as a valid JSON array of strings, where each string is a targeted follow-up question. The response should be ONLY the JSON array, no additional text or formatting.
 
-Example format: ["What specific materials or components are required for the core mechanism?", "How does component A interface with component B to achieve the technical result?", "What measurable improvements does this provide over existing solutions?"]`;
+Example format: ["What specific materials or components are required for the core mechanism?", "How does component A interface with component B to achieve the technical result?", "What measurable improvements does this provide over existing solutions?"]
+
+CRITICAL: Your response must be ONLY a JSON array starting with [ and ending with ]. No markdown code blocks, no extra text, JUST the JSON array.`;
 
     // Add technical analysis if available (from GitHub/code analysis)
     if (technicalAnalysis?.technical_analysis) {
@@ -211,8 +213,22 @@ Example format: ["What specific materials or components are required for the cor
     }
 
     let userPrompt = technicalAnalysis?.technical_analysis 
-      ? `Based on the technical analysis above, the user's invention relates to: ${idea_prompt}`
-      : `Initial invention idea: ${idea_prompt}`;
+      ? `Based on the technical analysis above, the user's invention relates to: ${idea_prompt}
+
+Generate ${hasRichBackendData ? '2-4' : '4-8'} targeted follow-up questions.
+
+Return as JSON object with this structure:
+{
+  "questions": ["Question 1?", "Question 2?", "Question 3?"]
+}`
+      : `Initial invention idea: ${idea_prompt}
+
+Generate ${hasRichBackendData ? '2-4' : '4-8'} targeted follow-up questions to gather missing information.
+
+Return as JSON object with this structure:
+{
+  "questions": ["Question 1?", "Question 2?", "Question 3?"]
+}`;
 
     // Call Lovable AI to generate follow-up questions
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -234,7 +250,8 @@ Example format: ["What specific materials or components are required for the cor
           }
         ],
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1000,
+        response_format: { type: "json_object" }
       })
     });
 
@@ -265,23 +282,72 @@ Example format: ["What specific materials or components are required for the cor
     const generatedContent = aiData.choices[0].message.content;
 
     console.log('Lovable AI response received, parsing questions');
+    console.log('Raw AI response:', generatedContent);
 
     let questions;
     try {
-      questions = JSON.parse(generatedContent);
-      if (!Array.isArray(questions)) {
-        throw new Error('Response is not an array');
+      // Parse JSON object with questions property
+      const parsed = JSON.parse(generatedContent);
+      
+      // Handle both array format and object format
+      if (Array.isArray(parsed)) {
+        questions = parsed;
+      } else if (parsed.questions && Array.isArray(parsed.questions)) {
+        questions = parsed.questions;
+      } else {
+        throw new Error('Response does not contain questions array');
       }
+      
+      if (!Array.isArray(questions) || questions.length === 0) {
+        throw new Error('Questions array is empty or invalid');
+      }
+      
+      console.log('Successfully parsed', questions.length, 'questions');
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON array:', parseError);
+      console.error('Failed to parse AI response:', parseError);
       console.error('AI response:', generatedContent);
-      return new Response(
-        JSON.stringify({ error: 'Failed to parse generated questions' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      
+      // Try to extract JSON from markdown code blocks
+      const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/);
+      if (jsonMatch) {
+        try {
+          const extracted = JSON.parse(jsonMatch[1]);
+          if (Array.isArray(extracted)) {
+            questions = extracted;
+          } else if (extracted.questions && Array.isArray(extracted.questions)) {
+            questions = extracted.questions;
+          } else {
+            throw new Error('Extracted content does not contain questions');
+          }
+          console.log('Successfully extracted', questions.length, 'questions from markdown');
+        } catch (e) {
+          console.error('Failed to parse extracted JSON:', e);
+          return new Response(
+            JSON.stringify({ error: 'Failed to parse generated questions - invalid format' }), 
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
-      );
+      } else {
+        // Last resort: try to extract question-like strings
+        const lines = generatedContent.split('\n').filter(l => l.trim());
+        const questionLines = lines.filter(l => 
+          l.includes('?') || 
+          l.match(/^\d+\./) || 
+          l.toLowerCase().includes('what') ||
+          l.toLowerCase().includes('how') ||
+          l.toLowerCase().includes('why')
+        );
+        
+        if (questionLines.length > 0) {
+          questions = questionLines.slice(0, 8).map(q => q.replace(/^\d+\.\s*/, '').replace(/^[-*]\s*/, '').trim());
+          console.log('Extracted', questions.length, 'questions from text');
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'Failed to parse generated questions - no valid format found' }), 
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
     // Check that the session exists to avoid FK violations

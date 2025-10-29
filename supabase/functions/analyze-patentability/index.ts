@@ -48,7 +48,7 @@ serve(async (req) => {
 
     console.log('Analyzing patentability for session:', session_id);
 
-    // Get session data, questions/answers, and prior art
+    // Get session data, questions/answers, prior art, and backend analysis
     const [sessionResult, questionsResult, priorArtResult] = await Promise.all([
       supabaseClient
         .from('patent_sessions')
@@ -72,29 +72,66 @@ serve(async (req) => {
     const questions = questionsResult.data || [];
     const priorArt = priorArtResult.data || [];
 
+    // Extract backend data from session
+    const backendAnalysis = session.data_source?.supabase_backend || null;
+    const backendSummary = backendAnalysis?.ai_summary || '';
+    const backendStats = backendAnalysis?.statistics || {};
+    
+    // Count high-risk prior art
+    const highRiskPriorArt = priorArt.filter(p => p.similarity_score >= 0.8);
+    const mediumRiskPriorArt = priorArt.filter(p => p.similarity_score >= 0.6 && p.similarity_score < 0.8);
+
     // Compile all information for analysis
     const inventionContext = `
     Invention: ${session.idea_prompt}
     Patent Type: ${session.patent_type}
     Technical Analysis: ${session.technical_analysis || 'None provided'}
     
+    ${backendAnalysis ? `
+    SUPABASE BACKEND ANALYSIS:
+    - Tables: ${backendStats.tables_found || 0}
+    - Functions: ${backendStats.functions_found || 0}
+    - Storage Buckets: ${backendStats.storage_buckets_found || 0}
+    - RLS Policies: ${backendStats.rls_policies_found || 0}
+    
+    Backend Summary:
+    ${backendSummary}
+    ` : ''}
+    
     AI Questions and Answers:
     ${questions.map(q => `Q: ${q.question}\nA: ${q.answer || 'Not answered'}`).join('\n\n')}
     
-    Prior Art Found: ${priorArt.length} patents
-    ${priorArt.slice(0, 5).map(p => `- ${p.title} (Similarity: ${(p.similarity_score * 100).toFixed(1)}%)`).join('\n')}
+    PRIOR ART ANALYSIS:
+    Total Patents Found: ${priorArt.length}
+    High Risk (>80% similar): ${highRiskPriorArt.length}
+    Medium Risk (60-80% similar): ${mediumRiskPriorArt.length}
+    
+    Top 5 Most Similar Patents:
+    ${priorArt.slice(0, 5).map(p => `
+    - ${p.title}
+      Publication: ${p.publication_number}
+      Similarity: ${(p.similarity_score * 100).toFixed(1)}%
+      Overlaps: ${p.overlap_claims?.slice(0, 2).join(', ') || 'None'}
+      Differences: ${p.difference_claims?.slice(0, 2).join(', ') || 'None'}
+    `).join('\n')}
     `;
 
     const systemPrompt = `You are an expert patent attorney AI that performs comprehensive patentability assessments based on USPTO criteria.
 
-Analyze the invention against these four key criteria:
+Analyze the invention against these four key criteria, considering ALL provided context including backend analysis, prior art, and Q&A:
 
-1. NOVELTY (35 U.S.C. § 102): Is this invention new? Does prior art disclose all elements?
-2. NON-OBVIOUSNESS (35 U.S.C. § 103): Would this be obvious to a person of ordinary skill?
-3. UTILITY (35 U.S.C. § 101): Does this have a useful purpose and practical application?
-4. PATENT ELIGIBILITY (35 U.S.C. § 101): Is this statutory subject matter (not abstract idea, law of nature, etc.)?
+1. NOVELTY (35 U.S.C. § 102): Is this invention new? Consider prior art similarity scores - high scores (>80%) significantly reduce novelty.
+2. NON-OBVIOUSNESS (35 U.S.C. § 103): Would this be obvious to a person of ordinary skill? Consider combinations of prior art elements.
+3. UTILITY (35 U.S.C. § 101): Does this have a useful purpose? Consider the technical implementation details from backend analysis.
+4. PATENT ELIGIBILITY (35 U.S.C. § 101): Is this statutory subject matter? Software must show technical improvements, not just abstract ideas.
 
-Return a JSON object with this exact structure:
+CRITICAL SCORING GUIDELINES:
+- If high-risk prior art exists (>80% similarity), Novelty score MUST be below 70
+- If backend analysis shows basic CRUD operations only, scores should reflect limited innovation
+- Software patents need demonstrated technical improvements over existing systems
+- Consider overlapping claims from prior art in your analysis
+
+Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
   "overall_score": 85,
   "criteria": [
@@ -103,7 +140,7 @@ Return a JSON object with this exact structure:
       "score": 85,
       "maxScore": 100,
       "description": "How new and original is your invention?",
-      "analysis": "Detailed analysis of novelty based on prior art...",
+      "analysis": "Detailed analysis referencing specific prior art if applicable...",
       "icon": "Lightbulb"
     },
     {
@@ -111,7 +148,7 @@ Return a JSON object with this exact structure:
       "score": 78,
       "maxScore": 100,
       "description": "Would the invention be obvious to someone skilled in the field?",
-      "analysis": "Analysis of obviousness considering prior art combinations...",
+      "analysis": "Analysis considering prior art combinations and technical advancements...",
       "icon": "Target"
     },
     {
@@ -119,7 +156,7 @@ Return a JSON object with this exact structure:
       "score": 95,
       "maxScore": 100,
       "description": "Does your invention have a useful purpose?",
-      "analysis": "Analysis of practical utility and real-world applications...",
+      "analysis": "Analysis of practical utility based on backend implementation and use cases...",
       "icon": "Zap"
     },
     {
@@ -127,32 +164,32 @@ Return a JSON object with this exact structure:
       "score": 88,
       "maxScore": 100,
       "description": "Is this statutory subject matter?",
-      "analysis": "Analysis of subject matter eligibility under 35 U.S.C. § 101...",
+      "analysis": "Analysis under Alice/Mayo framework for software, technical improvements emphasized...",
       "icon": "Award"
     }
   ],
-  "summary": "Comprehensive summary with recommendations...",
-  "recommendation": "proceed" or "refine" or "reconsider",
-  "key_strengths": ["strength 1", "strength 2"],
-  "areas_for_improvement": ["improvement 1", "improvement 2"],
-  "risk_factors": ["risk 1", "risk 2"]
+  "summary": "Comprehensive summary with specific references to backend features and prior art risks...",
+  "recommendation": "proceed",
+  "key_strengths": ["Specific technical feature 1", "Backend capability 2"],
+  "areas_for_improvement": ["Differentiate from Patent X", "Emphasize technical improvement Y"],
+  "risk_factors": ["Prior art similarity with Patent A", "Abstract idea concerns if software"]
 }
 
-Provide realistic scores based on the actual invention details and prior art similarity scores.`;
+Be REALISTIC - don't give high scores without justification from the provided data.`;
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('Lovable AI API key not configured');
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: inventionContext }
@@ -163,11 +200,37 @@ Provide realistic scores based on the actual invention details and prior art sim
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Lovable AI error:', errorText);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (response.status === 402) {
+        throw new Error('AI credits depleted. Please add credits to continue.');
+      }
+      
+      throw new Error(`Lovable AI API error: ${response.statusText}`);
     }
 
     const aiResponse = await response.json();
-    const analysisResult = JSON.parse(aiResponse.choices[0].message.content);
+    const rawContent = aiResponse.choices[0].message.content;
+    
+    console.log('Raw AI response:', rawContent);
+    
+    // Parse JSON, handling potential markdown wrapping
+    let analysisResult;
+    try {
+      analysisResult = JSON.parse(rawContent);
+    } catch (e) {
+      // Try extracting JSON from markdown code block
+      const jsonMatch = rawContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      if (jsonMatch) {
+        analysisResult = JSON.parse(jsonMatch[1]);
+      } else {
+        throw new Error('Failed to parse AI response as JSON');
+      }
+    }
 
     // Update session with patentability score
     await supabaseClient
