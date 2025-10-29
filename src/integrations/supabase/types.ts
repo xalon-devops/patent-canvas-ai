@@ -504,9 +504,11 @@ export type Database = {
           difference_claims: string[] | null
           embedding: string | null
           id: string
+          keyword_score: number | null
           overlap_claims: string[] | null
           patent_date: string | null
           publication_number: string | null
+          semantic_score: number | null
           session_id: string
           similarity_score: number | null
           source: string | null
@@ -520,9 +522,11 @@ export type Database = {
           difference_claims?: string[] | null
           embedding?: string | null
           id?: string
+          keyword_score?: number | null
           overlap_claims?: string[] | null
           patent_date?: string | null
           publication_number?: string | null
+          semantic_score?: number | null
           session_id: string
           similarity_score?: number | null
           source?: string | null
@@ -536,9 +540,11 @@ export type Database = {
           difference_claims?: string[] | null
           embedding?: string | null
           id?: string
+          keyword_score?: number | null
           overlap_claims?: string[] | null
           patent_date?: string | null
           publication_number?: string | null
+          semantic_score?: number | null
           session_id?: string
           similarity_score?: number | null
           source?: string | null

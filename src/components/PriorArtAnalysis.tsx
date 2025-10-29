@@ -108,65 +108,12 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         return;
       }
 
-      // Fallback UX if no results yet
-      const mockResults: PriorArtResult[] = [
-        {
-          id: '1',
-          title: 'Smart Home Energy Management System with Machine Learning',
-          publication_number: 'US10,123,456',
-          summary: 'A system for managing home energy consumption using machine learning algorithms to predict and optimize energy usage patterns.',
-          similarity_score: 0.75,
-          url: 'https://patents.google.com/patent/US10123456',
-          overlap_claims: [
-            'Energy monitoring sensors throughout the home',
-            'Machine learning algorithms for pattern recognition',
-            'Automated device control based on predictions',
-          ],
-          difference_claims: [
-            'Your system includes real-time pricing optimization',
-            'Novel integration with renewable energy sources',
-            'Advanced user behavior modeling',
-          ],
-        },
-        {
-          id: '2',
-          title: 'Automated Energy Control System for Residential Buildings',
-          publication_number: 'US10,456,789',
-          summary: 'An automated system that controls energy consumption in residential buildings through smart scheduling and device management.',
-          similarity_score: 0.62,
-          url: 'https://patents.google.com/patent/US10456789',
-          overlap_claims: [
-            'Automated scheduling of energy-consuming devices',
-            'User preferences for energy management',
-            'Central control unit for home devices',
-          ],
-          difference_claims: [
-            'Your system uses AI for predictive analytics',
-            'Integration with smart grid technology',
-            'Mobile app with advanced analytics',
-          ],
-        },
-        {
-          id: '3',
-          title: 'Energy Monitoring and Control Device',
-          publication_number: 'US9,876,543',
-          summary: 'A device for monitoring and controlling energy usage in homes with basic automation features.',
-          similarity_score: 0.45,
-          url: 'https://patents.google.com/patent/US9876543',
-          overlap_claims: [
-            'Energy consumption monitoring',
-            'Basic device control capabilities',
-            'User interface for energy management',
-          ],
-          difference_claims: [
-            'Your system is significantly more advanced',
-            'Machine learning vs basic automation',
-            'Comprehensive ecosystem integration',
-          ],
-        },
-      ];
-
-      setResults(mockResults);
+      // If we got here, no results from database - show message instead of mock data
+      toast({
+        title: "Limited prior art found",
+        description: "The patent search found minimal existing patents. This could indicate strong novelty!",
+        variant: "default",
+      });
     } catch (error: any) {
       toast({
         title: 'Error searching prior art',
