@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
 import { Lock, FileText, DollarSign, CheckCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentGateDialogProps {
   open: boolean;
@@ -18,6 +19,18 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
   onPaymentSuccess
 }) => {
   const [showCheckout, setShowCheckout] = useState(false);
+
+  // Admin override: auto-close and signal success for admin email
+  useEffect(() => {
+    if (!open) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email?.toLowerCase() || '';
+      if (email === 'nash@kronoscapital.us') {
+        onPaymentSuccess();
+        onOpenChange(false);
+      }
+    });
+  }, [open, onOpenChange, onPaymentSuccess]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
