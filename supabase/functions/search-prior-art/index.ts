@@ -177,7 +177,38 @@ serve(async (req) => {
       apiResults = [];
     }
 
-    // Compute simple Jaccard similarity between context tokens and abstract tokens
+    // Generate semantic embedding using Lovable AI for smarter search
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    let queryEmbedding: number[] | null = null;
+
+    if (LOVABLE_API_KEY) {
+      try {
+        console.log('Generating semantic embedding with Lovable AI...');
+        const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'text-embedding-3-small',
+            input: contextText.substring(0, 8000),
+          }),
+        });
+
+        if (embeddingResponse.ok) {
+          const embeddingData = await embeddingResponse.json();
+          queryEmbedding = embeddingData.data?.[0]?.embedding;
+          console.log('✓ Query embedding generated');
+        } else {
+          console.error('Embedding API error:', embeddingResponse.status);
+        }
+      } catch (err) {
+        console.error('Error generating embedding:', err);
+      }
+    }
+
+    // Compute similarity scores: semantic (AI) + keyword (Jaccard)
     const contextTokens = new Set(tokenize(contextText));
     const jaccard = (a: Set<string>, b: Set<string>) => {
       const inter = new Set([...a].filter(x => b.has(x)));
@@ -185,33 +216,114 @@ serve(async (req) => {
       return uni.size === 0 ? 0 : inter.size / uni.size;
     };
 
-    let priorArtResults = apiResults.map((p: any) => {
+    const cosineSimilarity = (a: number[], b: number[]): number => {
+      let dotProduct = 0, normA = 0, normB = 0;
+      for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        dotProduct += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+      }
+      return normA > 0 && normB > 0 ? dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+    };
+
+    let priorArtResults = [];
+    
+    for (const p of apiResults) {
       const abstract: string = p.patent_abstract || '';
       const title: string = p.patent_title || '';
+      const assignee: string = p.assignee_organization?.[0] || 'Independent Inventor';
       const combinedText = `${title} ${abstract}`;
       const absTokens = new Set(tokenize(combinedText));
-      const score = jaccard(contextTokens, absTokens);
+      
+      // Keyword score (Jaccard)
+      const keywordScore = jaccard(contextTokens, absTokens);
+      
+      // Semantic score (AI embeddings)
+      let semanticScore = 0;
+      if (queryEmbedding && LOVABLE_API_KEY) {
+        try {
+          const patentEmbResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'text-embedding-3-small',
+              input: combinedText.substring(0, 8000),
+            }),
+          });
+
+          if (patentEmbResponse.ok) {
+            const patentEmbData = await patentEmbResponse.json();
+            const patentEmbedding = patentEmbData.data?.[0]?.embedding;
+            if (patentEmbedding) {
+              semanticScore = cosineSimilarity(queryEmbedding, patentEmbedding);
+            }
+          }
+        } catch (err) {
+          console.error('Error generating patent embedding:', err);
+        }
+      }
+      
+      // Combined score: semantic 70%, keyword 30% (if embeddings available, otherwise pure keyword)
+      const finalScore = queryEmbedding 
+        ? (semanticScore * 0.7 + keywordScore * 0.3)
+        : keywordScore;
       
       // Extract overlapping and unique concepts
       const overlap = [...absTokens].filter(t => contextTokens.has(t));
       const missing = [...contextTokens].filter(t => !absTokens.has(t));
       
-      // Create meaningful overlap and difference claims
-      const overlapClaims = overlap.slice(0, 4).map(w => `Similar concept: ${w}`);
-      const differenceClaims = missing.slice(0, 4).map(w => `Your unique aspect: ${w}`);
+      // Create smarter overlap and difference claims
+      const overlapClaims = overlap.slice(0, 5).map(w => {
+        const templates = [
+          `Uses "${w}" technology`,
+          `Implements ${w}-based approach`,
+          `Incorporates ${w} functionality`,
+          `Features ${w} capabilities`
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+      });
+      
+      const differenceClaims = missing.slice(0, 5).map(w => {
+        const templates = [
+          `Your novel ${w} implementation`,
+          `Unique ${w} integration`,
+          `Proprietary ${w} approach`,
+          `Advanced ${w} features`
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+      });
+      
+      // Add backend-specific differentiators
+      if (backendStats.tables_found > 0) {
+        differenceClaims.push(`Custom database with ${backendStats.tables_found} specialized tables`);
+      }
+      if (backendStats.functions_found > 0) {
+        differenceClaims.push(`${backendStats.functions_found} proprietary serverless functions`);
+      }
       
       const pubNum = p.patent_number ? `US${p.patent_number}` : '';
-      return {
+      priorArtResults.push({
         title: title || 'Untitled Patent',
         publication_number: pubNum,
         summary: abstract.slice(0, 500) || 'No abstract available',
-        similarity_score: Math.min(0.95, Number(score.toFixed(2))), // Cap at 95% to avoid false 100% matches
+        similarity_score: Math.min(0.95, Number(finalScore.toFixed(3))),
+        semantic_score: Number(semanticScore.toFixed(3)),
+        keyword_score: Number(keywordScore.toFixed(3)),
+        assignee: assignee,
         url: pubNum ? `https://patents.google.com/patent/${pubNum}` : 'https://patents.google.com',
-        overlap_claims: overlapClaims.length > 0 ? overlapClaims : ['General technological approach'],
-        difference_claims: differenceClaims.length > 0 ? differenceClaims : ['Specific implementation details'],
+        overlap_claims: overlapClaims.length > 0 ? overlapClaims.slice(0, 5) : ['General technological approach'],
+        difference_claims: differenceClaims.length > 0 ? differenceClaims.slice(0, 5) : ['Specific implementation details'],
         patent_date: p.patent_date || null
-      };
-    });
+      });
+    }
+    
+    // Sort by combined similarity score
+    priorArtResults.sort((a, b) => b.similarity_score - a.similarity_score);
+    
+    console.log(`Processed ${priorArtResults.length} results with ${queryEmbedding ? 'semantic + keyword' : 'keyword-only'} scoring`);
 
     // Fallback to smart mock if API returns nothing - use backend context
     if (priorArtResults.length === 0) {
@@ -244,19 +356,21 @@ serve(async (req) => {
 
     console.log('Prepared prior art results:', priorArtResults.length);
 
-    // Insert the prior art results into the database
+    // Insert the prior art results into the database with all scores
     const priorArtInserts = priorArtResults.map(result => ({
       session_id: session_id,
       title: result.title,
       publication_number: result.publication_number,
       summary: result.summary,
       similarity_score: result.similarity_score,
+      semantic_score: result.semantic_score || 0,
+      keyword_score: result.keyword_score || 0,
+      assignee: result.assignee || 'Unknown',
       url: result.url,
       overlap_claims: result.overlap_claims,
       difference_claims: result.difference_claims,
       patent_date: result.patent_date,
-      source: 'patentsview',
-      assignee: null
+      source: 'patentsview'
     }));
 
     const { data: insertedResults, error: insertError } = await supabase

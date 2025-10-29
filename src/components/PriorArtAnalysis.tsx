@@ -34,9 +34,14 @@ interface PriorArtResult {
   publication_number: string;
   summary: string;
   similarity_score: number;
+  semantic_score?: number;
+  keyword_score?: number;
+  assignee?: string;
+  patent_date?: string;
   url: string;
   overlap_claims: string[];
   difference_claims: string[];
+  source?: string;
 }
 
 interface PriorArtAnalysisProps {
@@ -79,9 +84,9 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
       // Then fetch stored results for this session
       const { data: rows, error: fetchErr } = await supabase
         .from('prior_art_results')
-        .select('id, title, publication_number, summary, similarity_score, url, overlap_claims, difference_claims, created_at')
+        .select('id, title, publication_number, summary, similarity_score, semantic_score, keyword_score, assignee, patent_date, url, overlap_claims, difference_claims, source, created_at')
         .eq('session_id', sessionData.sessionId)
-        .order('created_at', { ascending: true });
+        .order('similarity_score', { ascending: false });
 
       if (!fetchErr && rows && rows.length > 0) {
         const mapped: PriorArtResult[] = rows.map((r: any) => ({
@@ -90,9 +95,14 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           publication_number: r.publication_number || '',
           summary: r.summary || '',
           similarity_score: r.similarity_score ?? 0,
+          semantic_score: r.semantic_score ?? 0,
+          keyword_score: r.keyword_score ?? 0,
+          assignee: r.assignee || 'Unknown',
+          patent_date: r.patent_date,
           url: r.url || '#',
           overlap_claims: r.overlap_claims || [],
           difference_claims: r.difference_claims || [],
+          source: r.source || 'patentsview',
         }));
         setResults(mapped);
         return;
@@ -311,14 +321,30 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
                     <CardTitle className="text-lg line-clamp-2 mb-2">
                       {result.title}
                     </CardTitle>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <span className="font-mono">{result.publication_number}</span>
+                      {result.assignee && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">{result.assignee}</span>
+                      )}
+                      {result.patent_date && (
+                        <span className="text-xs">{format(new Date(result.patent_date), 'MMM yyyy')}</span>
+                      )}
                       <Badge className={getSimilarityColor(result.similarity_score)}>
                         {getRiskIcon(result.similarity_score)}
                         <span className="ml-1">{getSimilarityLabel(result.similarity_score)}</span>
                       </Badge>
-                      <span>{(result.similarity_score * 100).toFixed(0)}% similar</span>
+                      <span className="font-semibold">{(result.similarity_score * 100).toFixed(0)}% match</span>
                     </div>
+                    {(result.semantic_score || result.keyword_score) && (
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        {result.semantic_score > 0 && (
+                          <span>🧠 Semantic: {(result.semantic_score * 100).toFixed(0)}%</span>
+                        )}
+                        {result.keyword_score > 0 && (
+                          <span>🔑 Keyword: {(result.keyword_score * 100).toFixed(0)}%</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -389,27 +415,92 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Prior Art Analysis Summary
+            Intelligent Prior Art Analysis
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="text-sm space-y-2">
-            <p>
-              <strong>Overall Assessment:</strong> {highRiskCount > 0 
-                ? 'Some similar patents exist, but your invention has unique differentiators'
-                : mediumRiskCount > 0 
-                ? 'Good patentability potential with some existing related patents'
-                : 'Excellent patentability potential with minimal prior art conflicts'
-              }
-            </p>
-            <p>
-              <strong>Recommendation:</strong> {highRiskCount > 0
-                ? 'Consider focusing patent claims on your unique advantages and differentiators'
-                : mediumRiskCount > 0
-                ? 'Strong patent potential - emphasize novel technical features'
-                : 'Proceed with confidence - clear path for patent protection'
-              }
-            </p>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Search Quality
+              </h4>
+              {results.some(r => r.semantic_score && r.semantic_score > 0) ? (
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>AI Semantic Search:</span>
+                    <Badge variant="outline" className="bg-green-50">✓ Active</Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Using advanced AI embeddings for semantic similarity matching + keyword analysis
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>Keyword Search:</span>
+                    <Badge variant="outline">Active</Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Using traditional keyword matching (AI semantic search not available)
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Risk Assessment
+              </h4>
+              <div className="text-xs space-y-1">
+                {highRiskCount > 0 ? (
+                  <p className="text-red-600 font-medium">
+                    ⚠️ {highRiskCount} high-similarity patent{highRiskCount > 1 ? 's' : ''} found
+                  </p>
+                ) : mediumRiskCount > 0 ? (
+                  <p className="text-yellow-600 font-medium">
+                    ⚡ {mediumRiskCount} moderate-similarity patent{mediumRiskCount > 1 ? 's' : ''} found
+                  </p>
+                ) : (
+                  <p className="text-green-600 font-medium">
+                    ✓ No high-similarity conflicts detected
+                  </p>
+                )}
+                <p className="text-muted-foreground mt-1">
+                  {highRiskCount > 0
+                    ? 'Focus claims on your unique technical differentiators shown below'
+                    : mediumRiskCount > 0
+                    ? 'Strong patent potential - emphasize your novel features'
+                    : 'Excellent patentability outlook - clear technical differentiation'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t space-y-2">
+            <h4 className="font-semibold text-sm">Key Recommendations:</h4>
+            <ul className="text-xs space-y-1 text-muted-foreground">
+              {highRiskCount > 0 && (
+                <li className="flex items-start gap-2">
+                  <span className="text-red-500 mt-0.5">•</span>
+                  <span>Review high-risk patents carefully and highlight your technical innovations in the claims</span>
+                </li>
+              )}
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                <span>Your unique technical implementation details are critical for differentiation</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                <span>Backend architecture ({results[0]?.difference_claims.filter(c => c.includes('database') || c.includes('function')).length || 0} unique features detected) strengthens your claims</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                <span>{highRiskCount === 0 ? 'Strong position for broad claims' : 'Consider narrow, technically specific claims'}</span>
+              </li>
+            </ul>
           </div>
         </CardContent>
       </Card>
