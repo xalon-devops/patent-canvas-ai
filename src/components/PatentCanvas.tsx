@@ -220,7 +220,7 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
               {section?.content ? (
                 <div className="prose prose-sm max-w-none">
                   <div 
-                    className="p-3 bg-muted/50 rounded-lg text-sm leading-relaxed"
+                    className="p-3 bg-muted/50 rounded-lg text-sm leading-relaxed break-words break-all sm:break-words whitespace-pre-wrap"
                     dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
                   />
                 </div>

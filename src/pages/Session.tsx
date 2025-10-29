@@ -949,9 +949,9 @@ const Session = () => {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="lg:flex lg:h-[calc(100vh-80px)]">
         {/* Left Panel - Chat */}
-        <div className="w-full lg:w-1/2 border-r bg-card/50 backdrop-blur-sm flex flex-col">
+        <div className="w-full lg:w-1/2 lg:border-r border-b lg:border-b-0 bg-card/50 backdrop-blur-sm flex flex-col overflow-x-hidden">
           <div className="p-4 border-b">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold flex items-center gap-2">
@@ -1060,7 +1060,7 @@ const Session = () => {
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
                     <div className="bg-secondary/50 rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%]">
-                      <p className="text-xs sm:text-sm break-words">{question.question}</p>
+                      <p className="text-xs sm:text-sm break-words break-all sm:break-words">{question.question}</p>
                       {isCurrentQuestion && (
                         <p className="text-xs text-muted-foreground mt-2 italic">
                           💡 Tip: Be specific about technical details, materials, and measurable improvements
@@ -1072,7 +1072,7 @@ const Session = () => {
                   {question.answer && (
                     <div className="flex gap-3 justify-end">
                     <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%] text-primary-foreground">
-                      <p className="text-xs sm:text-sm break-words">{question.answer}</p>
+                      <p className="text-xs sm:text-sm break-words break-all sm:break-words">{question.answer}</p>
                     </div>
                       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                         <UserIcon className="h-4 w-4 text-primary-foreground" />
@@ -1210,7 +1210,7 @@ const Session = () => {
         </div>
 
         {/* Right Panel - Patent Canvas */}
-        <div className={`${chatPhase === 'canvas' ? 'w-full lg:w-1/2' : 'hidden lg:block lg:w-1/2'} bg-background/50 backdrop-blur-sm`}>
+        <div className={`${chatPhase === 'canvas' ? 'w-full lg:w-1/2' : 'hidden lg:block lg:w-1/2'} bg-background/50 backdrop-blur-sm overflow-x-hidden`}>
           <div className="p-4 border-b">
             <h2 className="font-semibold flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
@@ -1416,7 +1416,7 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
           </div>
         ) : (
           <div className="prose prose-sm max-w-none">
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words break-all sm:break-words">
               {content || 'Content will be generated...'}
             </p>
           </div>
