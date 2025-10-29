@@ -147,68 +147,99 @@ serve(async (req) => {
 
     console.log('Derived keywords for search:', keywords);
 
-    // Query Google Patents API via Lens
+    // Query patent databases via Perplexity AI
     let apiResults: any[] = [];
-    const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
+    const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     
-    if (!LENS_API_KEY) {
-      console.error('LENS_API_KEY not configured');
+    if (!PERPLEXITY_API_KEY) {
+      console.error('PERPLEXITY_API_KEY not configured');
       return new Response(
         JSON.stringify({ 
           error: 'Patent search API not configured. Please contact support.',
-          details: 'Missing LENS_API_KEY'
+          details: 'Missing PERPLEXITY_API_KEY'
         }), 
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     try {
-      console.log('Querying Google Patents via Lens API...');
-      const searchQuery = keywords.split(' ').slice(0, 15).join(' AND ');
+      console.log('Querying patent databases via Perplexity AI...');
       
-      const lensResponse = await fetch('https://api.lens.org/patent/search', {
+      const searchPrompt = `Find 10-15 existing patents related to: ${contextText.substring(0, 2000)}
+
+Search Google Patents, USPTO, and other patent databases. For each patent found, provide:
+- Patent number (e.g., US1234567)
+- Title
+- Abstract (100-200 words)
+- Filing/publication date
+- Assignee/inventor
+
+Focus on patents with similar technical features, methods, or systems. Return results in JSON array format:
+[{"patent_number": "US...", "title": "...", "abstract": "...", "date": "YYYY-MM-DD", "assignee": "..."}]`;
+      
+      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LENS_API_KEY}`,
+          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: {
-            bool: {
-              must: [
-                {
-                  query_string: {
-                    query: searchQuery,
-                    fields: ['title', 'abstract', 'claims']
-                  }
-                }
-              ]
+          model: 'llama-3.1-sonar-large-128k-online',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a patent search expert. Search patent databases and return structured JSON data only. Be precise and factual.'
+            },
+            {
+              role: 'user',
+              content: searchPrompt
             }
-          },
-          size: 20,
-          sort: [{ filing_date: 'desc' }]
-        })
+          ],
+          temperature: 0.2,
+          max_tokens: 4000,
+          return_images: false,
+          return_related_questions: false
+        }),
       });
 
-      if (!lensResponse.ok) {
-        const errorText = await lensResponse.text();
-        console.error(`Lens API HTTP ${lensResponse.status}:`, errorText);
+      if (!perplexityResponse.ok) {
+        const errorText = await perplexityResponse.text();
+        console.error(`Perplexity API HTTP ${perplexityResponse.status}:`, errorText);
       } else {
-        const lensData = await lensResponse.json();
-        const results = lensData?.data || [];
-        console.log('✓ Lens API results:', results.length);
+        const perplexityData = await perplexityResponse.json();
+        const responseText = perplexityData.choices?.[0]?.message?.content || '';
+        console.log('Perplexity response length:', responseText.length);
         
-        // Transform Lens results to our format
-        apiResults = results.map((patent: any) => ({
-          patent_number: patent.lens_id?.replace('LENS-', ''),
-          patent_title: patent.title || 'Untitled',
-          patent_abstract: patent.abstract || '',
-          patent_date: patent.filing_date || patent.publication_date,
-          assignee_organization: patent.applicants?.map((a: any) => a.name) || []
-        }));
+        // Parse JSON from response (handle markdown code blocks)
+        let jsonText = responseText;
+        const jsonMatch = responseText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[1];
+        } else if (responseText.includes('[') && responseText.includes(']')) {
+          const start = responseText.indexOf('[');
+          const end = responseText.lastIndexOf(']') + 1;
+          jsonText = responseText.substring(start, end);
+        }
+        
+        try {
+          const parsedResults = JSON.parse(jsonText);
+          if (Array.isArray(parsedResults)) {
+            apiResults = parsedResults.map((p: any) => ({
+              patent_number: p.patent_number || p.patentNumber || '',
+              patent_title: p.title || '',
+              patent_abstract: p.abstract || p.summary || '',
+              patent_date: p.date || p.filing_date || p.publication_date || null,
+              assignee_organization: [p.assignee || p.inventor || 'Unknown']
+            }));
+            console.log('✓ Perplexity found patents:', apiResults.length);
+          }
+        } catch (parseErr) {
+          console.error('Failed to parse Perplexity JSON:', parseErr);
+          console.log('Raw response:', responseText.substring(0, 500));
+        }
       }
     } catch (apiErr) {
-      console.error('Lens API error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
+      console.error('Perplexity API error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
       apiResults = [];
     }
 
