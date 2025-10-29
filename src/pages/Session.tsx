@@ -597,15 +597,26 @@ const Session = () => {
 
       console.log('Patent exported successfully:', data);
       
-      // Download the file reliably (avoids popup blockers)
+      // Download the file reliably (avoids popup blockers and enforces attachment)
       if (data.download_url) {
-        const link = document.createElement('a');
-        link.href = data.download_url;
-        link.download = 'patent-application.docx';
-        link.rel = 'noopener';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const downloadUrl = data.download_url.includes('?')
+          ? `${data.download_url}&download=1`
+          : `${data.download_url}?download=1`;
+        try {
+          const res = await fetch(downloadUrl);
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = 'Patent Application.docx';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(objectUrl);
+        } catch (e) {
+          // Fallback to navigation if fetch is blocked
+          window.location.assign(downloadUrl);
+        }
       }
       
       toast({
