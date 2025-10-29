@@ -256,14 +256,15 @@ const NewApplication = () => {
 
         // Listen for messages from the popup
         const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return;
+          // Check if message is from Supabase edge function
+          if (!event.origin.includes('supabase.co')) return;
           
           if (event.data.type === 'supabase-oauth-success') {
             window.removeEventListener('message', handleMessage);
             setLoading(false);
             toast({
               title: '✅ Supabase Connected!',
-              description: 'Redirecting to project selection...',
+              description: 'Now select your project...',
             });
             navigate('/select-supabase-project');
           } else if (event.data.type === 'supabase-oauth-error') {
