@@ -211,6 +211,7 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
 
   if (!response.ok) {
     const error = await response.text();
+    console.error(`[Lovable AI] HTTP ${response.status} error for ${sectionType}:`, error);
     
     // Handle rate limits
     if (response.status === 429) {
@@ -220,10 +221,31 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
       throw new Error('Lovable AI credits depleted. Please add credits to continue.');
     }
     
-    throw new Error(`Lovable AI error: ${error}`);
+    throw new Error(`Lovable AI error (${response.status}): ${error}`);
   }
 
-  const data = await response.json();
+  // Parse response with error handling
+  let data;
+  try {
+    const responseText = await response.text();
+    console.log(`[Lovable AI] Response length for ${sectionType}: ${responseText.length} chars`);
+    
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('Empty response from Lovable AI');
+    }
+    
+    data = JSON.parse(responseText);
+  } catch (parseError) {
+    console.error(`[Lovable AI] JSON parse error for ${sectionType}:`, parseError);
+    throw new Error(`Failed to parse Lovable AI response: ${parseError.message}`);
+  }
+
+  // Validate response structure
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    console.error(`[Lovable AI] Invalid response structure for ${sectionType}:`, JSON.stringify(data));
+    throw new Error('Invalid response structure from Lovable AI');
+  }
+
   return data.choices[0].message.content;
 }
 
