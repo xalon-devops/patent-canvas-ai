@@ -163,6 +163,7 @@ serve(async (req) => {
     }
     
     try {
+      // Using Perplexity sonar-pro for patent search (updated 2025-10-29)
       console.log('Querying patent databases via Perplexity AI...');
       
       const searchPrompt = `Find 10-15 existing patents related to: ${contextText.substring(0, 2000)}
