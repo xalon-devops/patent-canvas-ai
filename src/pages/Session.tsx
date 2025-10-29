@@ -597,13 +597,15 @@ const Session = () => {
 
       console.log('Patent exported successfully:', data);
       
-      // Download the file reliably (avoids popup blockers and enforces attachment)
+      // Download the file reliably (signed URLs must not be modified)
       if (data.download_url) {
-        const downloadUrl = data.download_url.includes('?')
-          ? `${data.download_url}&download=1`
-          : `${data.download_url}?download=1`;
+        const url = data.download_url as string;
+        const hasQuery = url.includes('?');
+        const isSigned = hasQuery && /(token|signature|expires|X-Amz|signed|credential)/i.test(url);
+        const downloadUrl = isSigned ? url : (hasQuery ? `${url}&download=1` : `${url}?download=1`);
         try {
           const res = await fetch(downloadUrl);
+          if (!res.ok) throw new Error(`Download failed with status ${res.status}`);
           const blob = await res.blob();
           const objectUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -614,7 +616,7 @@ const Session = () => {
           document.body.removeChild(link);
           URL.revokeObjectURL(objectUrl);
         } catch (e) {
-          // Fallback to navigation if fetch is blocked
+          // Fallback to navigation
           window.location.assign(downloadUrl);
         }
       }

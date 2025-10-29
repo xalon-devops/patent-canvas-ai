@@ -119,18 +119,14 @@ serve(async (req) => {
       );
     }
 
-    // Generate DOCX content as a Blob (safest across Deno environments)
-    const docxBlob = await generatePatentDOCX(session, sections);
-
-    // Convert to Uint8Array for storage upload
-    const arrayBuffer = await docxBlob.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
+    // Generate DOCX content as a Uint8Array
+    const docxContent = await generatePatentDOCX(session, sections);
     
     // Upload to Supabase Storage
     const fileName = `${session.user_id}/${session_id}/patent-application.docx`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('patent-docs')
-      .upload(fileName, uint8, {
+      .upload(fileName, docxContent, {
         contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         upsert: true
       });
@@ -146,19 +142,27 @@ serve(async (req) => {
       );
     }
 
-    // Get public URL with forced download filename
-    const { data: urlData } = supabase.storage
+    // Create a short-lived signed URL to ensure reliable binary download
+    const { data: signed } = await supabase.storage
       .from('patent-docs')
-      .getPublicUrl(fileName, {
+      .createSignedUrl(fileName, 60, {
         download: 'Patent Application.docx'
       });
 
-    console.log('Patent document generated and uploaded successfully', { size: uint8.length });
+    if (!signed?.signedUrl) {
+      console.error('Failed to create signed URL');
+      return new Response(
+        JSON.stringify({ error: 'Failed to prepare download link' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Patent document generated and uploaded successfully');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        download_url: urlData.publicUrl,
+        download_url: signed.signedUrl,
         file_path: fileName,
         sections_exported: sections.length
       }), 
@@ -179,7 +183,7 @@ serve(async (req) => {
   }
 });
 
-async function generatePatentDOCX(session: any, sections: any[]): Promise<Blob> {
+async function generatePatentDOCX(session: any, sections: any[]): Promise<Uint8Array> {
   const sectionOrder = ['field', 'background', 'summary', 'claims', 'drawings', 'description', 'abstract'];
   const sectionTitles: Record<string, string> = {
     'field': 'FIELD OF THE INVENTION',
@@ -290,7 +294,7 @@ async function generatePatentDOCX(session: any, sections: any[]): Promise<Blob> 
     }]
   });
 
-  return await Packer.toBlob(doc);
+  return await Packer.toBuffer(doc);
 }
 
 function stripHtml(html: string): string {
