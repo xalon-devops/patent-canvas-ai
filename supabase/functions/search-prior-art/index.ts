@@ -147,28 +147,68 @@ serve(async (req) => {
 
     console.log('Derived keywords for search:', keywords);
 
-    // Query PatentsView API v2 using title/abstract text search
+    // Query Google Patents API via Lens
     let apiResults: any[] = [];
+    const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
+    
+    if (!LENS_API_KEY) {
+      console.error('LENS_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Patent search API not configured. Please contact support.',
+          details: 'Missing LENS_API_KEY'
+        }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     try {
-      // PatentsView API v2 endpoint (v1 is deprecated with 410 Gone)
-      const searchTerms = keywords.split(' ').slice(0, 10).join(' ');
-      const url = `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(searchTerms)}&f=["patent_number","patent_title","patent_abstract","patent_date"]&per_page=10`;
+      console.log('Querying Google Patents via Lens API...');
+      const searchQuery = keywords.split(' ').slice(0, 15).join(' AND ');
       
-      console.log('Querying PatentsView API v2...');
-      const apiResp = await fetch(url, { 
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+      const lensResponse = await fetch('https://api.lens.org/patent/search', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LENS_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: {
+            bool: {
+              must: [
+                {
+                  query_string: {
+                    query: searchQuery,
+                    fields: ['title', 'abstract', 'claims']
+                  }
+                }
+              ]
+            }
+          },
+          size: 20,
+          sort: [{ filing_date: 'desc' }]
+        })
       });
-      
-      if (!apiResp.ok) {
-        console.error(`PatentsView HTTP ${apiResp.status}: ${await apiResp.text()}`);
+
+      if (!lensResponse.ok) {
+        const errorText = await lensResponse.text();
+        console.error(`Lens API HTTP ${lensResponse.status}:`, errorText);
       } else {
-        const apiJson = await apiResp.json();
-        apiResults = apiJson?.patents || apiJson?.results || [];
-        console.log('✓ PatentsView results:', apiResults.length);
+        const lensData = await lensResponse.json();
+        const results = lensData?.data || [];
+        console.log('✓ Lens API results:', results.length);
+        
+        // Transform Lens results to our format
+        apiResults = results.map((patent: any) => ({
+          patent_number: patent.lens_id?.replace('LENS-', ''),
+          patent_title: patent.title || 'Untitled',
+          patent_abstract: patent.abstract || '',
+          patent_date: patent.filing_date || patent.publication_date,
+          assignee_organization: patent.applicants?.map((a: any) => a.name) || []
+        }));
       }
     } catch (apiErr) {
-      console.error('PatentsView API error, will fallback to heuristic:', apiErr instanceof Error ? apiErr.message : String(apiErr));
+      console.error('Lens API error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
       apiResults = [];
     }
 
@@ -326,30 +366,20 @@ serve(async (req) => {
     
     console.log(`Processed ${priorArtResults.length} results with ${queryEmbedding ? 'semantic + keyword' : 'keyword-only'} scoring`);
 
-    // Fallback to smart mock if API returns nothing - use backend context
+    // If no results found, that's actually good news for patentability!
     if (priorArtResults.length === 0) {
-      console.log('No API results, creating contextual fallback based on invention data');
+      console.log('No prior art found - strong novelty indicator');
       
-      const topKeywords = keywords.split(' ').slice(0, 5);
-      const inventionDomain = backendStats.tables_found > 0 ? 'database-driven application' : 
-                             sessionData.patent_type === 'software' ? 'software system' : 'invention';
-      
-      priorArtResults = [
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          results_found: 0,
+          message: 'No similar patents found - this indicates strong novelty for your invention!'
+        }), 
         {
-          title: `${topKeywords.slice(0, 2).join(' ')} system for ${inventionDomain}`,
-          publication_number: 'N/A',
-          summary: `Related system addressing ${topKeywords.join(', ')}. ${backendSummary ? 'Note: Your implementation includes ' + backendSummary.slice(0, 200) : ''}`,
-          similarity_score: 0.35,
-          url: 'https://patents.google.com/',
-          overlap_claims: topKeywords.slice(0, 3).map(k => `Related concept: ${k}`),
-          difference_claims: [
-            backendStats.tables_found > 0 ? `Your specific database schema with ${backendStats.tables_found} tables` : 'Your specific implementation approach',
-            backendStats.functions_found > 0 ? `Custom logic in ${backendStats.functions_found} backend functions` : 'Your unique technical features',
-            'Novel combination of features in your approach'
-          ],
-          patent_date: null
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
-      ];
+      );
     }
 
     // Sort by similarity desc
