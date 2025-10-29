@@ -33,11 +33,15 @@ interface AIQuestion {
 interface AIQuestionInterfaceProps {
   sessionData: SessionData;
   onComplete: (questions: Array<{question: string; answer: string}>) => void;
+  onSkip?: () => void;
+  hasBackendData?: boolean;
 }
 
 const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({ 
   sessionData, 
-  onComplete 
+  onComplete,
+  onSkip,
+  hasBackendData = false
 }) => {
   const [questions, setQuestions] = useState<AIQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -274,6 +278,25 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const answeredQuestions = questions.filter(q => q.answer.trim()).length;
 
+  // Safety check for missing question
+  if (!currentQuestion || !currentQuestion.question) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-6"
+      >
+        <p className="text-muted-foreground">No questions generated. This might mean we have sufficient information!</p>
+        {onSkip && (
+          <Button onClick={onSkip} className="gap-2">
+            <ArrowRight className="w-4 h-4" />
+            Continue to Patent Generation
+          </Button>
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -289,8 +312,21 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
         </div>
         <h2 className="text-2xl font-bold mb-2">AI Assistant Q&A</h2>
         <p className="text-muted-foreground">
-          Our AI has identified some gaps in your invention description. Please answer these targeted questions to complete your patent application.
+          {hasBackendData 
+            ? "We've analyzed your backend. These optional questions can provide additional context for your patent application."
+            : "Our AI has identified some gaps in your invention description. Please answer these targeted questions to complete your patent application."
+          }
         </p>
+        {hasBackendData && onSkip && (
+          <Button
+            variant="outline"
+            onClick={onSkip}
+            className="mt-4 gap-2"
+          >
+            <ArrowRight className="w-4 h-4" />
+            Skip Q&A - Generate Patent Now
+          </Button>
+        )}
       </div>
 
       {/* Progress */}
@@ -326,7 +362,9 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-lg leading-relaxed">{currentQuestion?.question}</p>
+              <p className="text-lg leading-relaxed font-medium">
+                {currentQuestion.question || 'Question not available'}
+              </p>
             </CardContent>
           </Card>
 

@@ -514,6 +514,19 @@ const NewApplication = () => {
       };
 
       setSessionData(tempSessionData);
+      
+      // If we have rich Supabase backend analysis, allow skipping Q&A
+      const hasRichBackendData = supabaseData && 
+        (supabaseData.statistics?.tables_found > 0 || 
+         supabaseData.statistics?.functions_found > 0);
+      
+      if (hasRichBackendData) {
+        toast({
+          title: "✨ Rich Backend Data Found!",
+          description: "Q&A is optional - you can skip directly to patent generation.",
+        });
+      }
+      
       setCurrentStep(4); // Move to AI Q&A step
     } catch (error: any) {
       console.error('Error in handleStartAIAnalysis:', error);
@@ -535,6 +548,14 @@ const NewApplication = () => {
         aiQuestions: questions
       });
     }
+    setCurrentStep(5); // Move to prior art analysis
+  };
+
+  const handleSkipQA = () => {
+    toast({
+      title: "Q&A Skipped",
+      description: "Proceeding with backend analysis data...",
+    });
     setCurrentStep(5); // Move to prior art analysis
   };
 
@@ -1139,6 +1160,8 @@ const NewApplication = () => {
                   <AIQuestionInterface 
                     sessionData={sessionData}
                     onComplete={handleAIQuestionsComplete}
+                    onSkip={handleSkipQA}
+                    hasBackendData={!!supabaseAnalysis}
                   />
                 )}
                 {currentStep === 5 && sessionData && (

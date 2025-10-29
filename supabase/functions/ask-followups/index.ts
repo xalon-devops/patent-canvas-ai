@@ -150,12 +150,18 @@ serve(async (req) => {
     // Check if there's existing technical analysis from GitHub/code analysis
     const { data: technicalAnalysis } = await supabase
       .from('patent_sessions')
-      .select('technical_analysis')
+      .select('technical_analysis, data_source')
       .eq('id', session_id)
       .single();
     
+    // Check if we have rich backend data - if so, generate fewer questions
+    const hasRichBackendData = technicalAnalysis?.data_source?.supabase_backend?.statistics?.tables_found > 0 ||
+                                technicalAnalysis?.data_source?.supabase_backend?.statistics?.functions_found > 0;
+    
     // Create the system prompt with optional contextual information
-    let systemPrompt = `You are a USPTO-registered patent attorney specializing in invention disclosure interviews. Your task is to generate 4-8 targeted questions that will extract all necessary technical and legal information for a comprehensive patent application per 35 U.S.C. § 112.
+    let systemPrompt = `You are a USPTO-registered patent attorney specializing in invention disclosure interviews. Your task is to generate ${hasRichBackendData ? '2-4' : '4-8'} targeted questions that will extract all necessary technical and legal information for a comprehensive patent application per 35 U.S.C. § 112.
+
+${hasRichBackendData ? 'NOTE: We already have detailed backend analysis from the user\'s Supabase database. Focus ONLY on gaps in the information - ask about business logic, novel algorithms, or unique technical approaches that wouldn\'t be obvious from database structure alone. Keep questions minimal and high-value.\n\n' : ''}
 
 CRITICAL PATENT REQUIREMENTS TO ADDRESS:
 1. ENABLEMENT (35 U.S.C. § 112(a)): Enable person skilled in art to make and use invention
@@ -191,6 +197,12 @@ Example format: ["What specific materials or components are required for the cor
     // Add technical analysis if available (from GitHub/code analysis)
     if (technicalAnalysis?.technical_analysis) {
       systemPrompt += `\n\nEXISTING TECHNICAL ANALYSIS FROM CODE:\n${technicalAnalysis.technical_analysis}\n\nBased on this technical analysis, generate specific, contextual questions that dig deeper into the unique technical aspects, implementation details, and novel features identified in the code. Avoid generic questions - focus on the specific technical innovations mentioned in the analysis.`;
+    }
+    
+    // Add backend data summary if available
+    if (hasRichBackendData && technicalAnalysis?.data_source?.supabase_backend) {
+      const backend = technicalAnalysis.data_source.supabase_backend;
+      systemPrompt += `\n\nEXISTING BACKEND ANALYSIS:\nTables: ${backend.statistics?.tables_found || 0}\nFunctions: ${backend.statistics?.functions_found || 0}\nStorage: ${backend.statistics?.storage_buckets_found || 0}\n\nWe have detailed database schema and backend structure. Only ask questions about aspects NOT captured by database design (e.g., novel algorithms, business rules, user experience innovations, specific technical problems solved).`;
     }
     
     // Add contextual information if we crawled a URL
