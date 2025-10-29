@@ -334,29 +334,40 @@ const NewApplication = () => {
           try {
             const { data: conn } = await supabase
               .from('supabase_connections')
-              .select('id, connection_status')
+              .select('id, connection_status, created_at')
               .eq('user_id', user?.id || '')
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
 
-            if (conn) {
+            // Look for any recent connection (pending or active)
+            if (conn && (Date.now() - new Date(conn.created_at).getTime() < 10000)) {
+              console.log('Recent connection found:', conn);
               clearInterval(pollConn);
               clearInterval(checkClosed);
               window.removeEventListener('message', handleMessage);
               try { popup.close(); } catch {}
               setLoading(false);
+              
+              // Add a small delay before redirecting to ensure DB is fully synced
+              await new Promise(resolve => setTimeout(resolve, 800));
+              
               toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
               navigate('/select-supabase-project');
-            } else if (Date.now() - pollStart > 20000) {
+            } else if (Date.now() - pollStart > 30000) {
+              // Timeout after 30 seconds
               clearInterval(pollConn);
               setLoading(false);
-              toast({ title: 'Taking longer than usual', description: 'You can safely close the popup and continue.' });
+              toast({ 
+                title: 'Connection timeout', 
+                description: 'Please try connecting again.',
+                variant: 'destructive' 
+              });
             }
           } catch (e) {
-            // ignore transient errors
+            console.error('Poll error:', e);
           }
-        }, 500);
+        }, 800);
 
         // Check if popup was closed without completing (fallback)
         const checkClosed = setInterval(async () => {
@@ -369,17 +380,20 @@ const NewApplication = () => {
             try {
               const { data: conn } = await supabase
                 .from('supabase_connections')
-                .select('id, connection_status')
+                .select('id, connection_status, created_at')
                 .eq('user_id', user?.id || '')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
-              if (conn) {
+              // Check for recent connection (created in last 10 seconds)
+              if (conn && (Date.now() - new Date(conn.created_at).getTime() < 10000)) {
+                // Add delay to ensure DB sync
+                await new Promise(resolve => setTimeout(resolve, 800));
                 toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
                 navigate('/select-supabase-project');
               } else {
-                toast({ title: 'OAuth window closed', description: 'Connection not completed.' });
+                toast({ title: 'OAuth window closed', description: 'Connection not completed. Please try again.' });
               }
             } catch (e: any) {
               console.error('Post-close check error:', e);

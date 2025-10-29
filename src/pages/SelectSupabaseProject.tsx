@@ -69,14 +69,42 @@ const SelectSupabaseProject = () => {
   const loadOrganizations = async () => {
     setLoading(true);
     try {
+      console.log('[SELECT-PROJECT] Fetching organizations...');
+      
+      // First check if a pending connection exists
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data: connCheck } = await supabase
+        .from('supabase_connections')
+        .select('id, connection_status, created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      console.log('[SELECT-PROJECT] Connection check:', connCheck);
+      
+      if (!connCheck) {
+        throw new Error('No Supabase connection found. Please restart the OAuth flow.');
+      }
+      
+      if (connCheck.connection_status !== 'pending') {
+        throw new Error(`Connection status is ${connCheck.connection_status}, expected pending. Please restart the OAuth flow.`);
+      }
+
       const { data, error } = await supabase.functions.invoke('get-supabase-organizations', {
         headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
       if (error) throw error;
 
+      console.log('[SELECT-PROJECT] Organizations loaded:', data.organizations?.length);
+      
       setOrganizations(data.organizations || []);
       setConnectionId(data.connectionId);
       
@@ -92,7 +120,12 @@ const SelectSupabaseProject = () => {
         description: error.message,
         variant: 'destructive',
       });
-      navigate('/new-application');
+      // Give user option to retry instead of auto-redirecting
+      setTimeout(() => {
+        if (confirm('Would you like to restart the Supabase connection process?')) {
+          navigate('/new-application');
+        }
+      }, 1000);
     } finally {
       setLoading(false);
     }

@@ -152,6 +152,11 @@ serve(async (req) => {
       throw new Error('Failed to store connection');
     }
 
+    console.log('[OAUTH-CALLBACK] Connection stored successfully, status: pending');
+    
+    // Small delay to ensure DB commit propagates
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     // Send success message to parent window and close popup
     console.log('[OAUTH-CALLBACK] Sending success message to parent');
     
