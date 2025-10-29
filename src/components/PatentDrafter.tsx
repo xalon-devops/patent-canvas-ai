@@ -506,13 +506,16 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                                 alt={`Patent diagram ${diagram.figure_number}`}
                                 className="w-full border rounded-lg"
                               />
-                              <p className="text-sm text-muted-foreground">
-                                {diagram.description}
-                              </p>
+                              <div 
+                                className="text-sm text-muted-foreground"
+                                dangerouslySetInnerHTML={{ 
+                                  __html: DOMPurify.sanitize(diagram.description || '') 
+                                }}
+                              />
                             </div>
                           ));
                         } catch (e) {
-                          return <p className="text-sm text-muted-foreground">{section.content}</p>;
+                          return <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content || '') }} />;
                         }
                       })()}
                     </div>
