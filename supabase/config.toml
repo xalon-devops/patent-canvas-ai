@@ -65,6 +65,9 @@ verify_jwt = false
 [functions.generate-patent-draft-enhanced]
 verify_jwt = false
 
+[functions.generate-patent-diagrams]
+verify_jwt = false
+
 [functions.check-search-credits]
 verify_jwt = true
 

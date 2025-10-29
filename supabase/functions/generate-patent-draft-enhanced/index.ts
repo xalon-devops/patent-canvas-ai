@@ -62,11 +62,11 @@ serve(async (req) => {
       context += JSON.stringify(sessionData.data_source.supabase_backend, null, 2);
     }
 
-    const sectionTypes = ['abstract', 'field', 'background', 'summary', 'claims', 'description', 'drawings'];
+    const textSectionTypes = ['abstract', 'field', 'background', 'summary', 'claims', 'description'];
     let sectionsGenerated = 0;
 
-    // Generate all sections in parallel for speed
-    const sectionPromises = sectionTypes.map(async (sectionType) => {
+    // Generate text sections in parallel
+    const sectionPromises = textSectionTypes.map(async (sectionType) => {
       console.log(`[ENHANCED DRAFT] Generating ${sectionType}...`);
 
       // Single high-quality generation with detailed prompt
@@ -115,9 +115,19 @@ serve(async (req) => {
       return sectionType;
     });
 
-    // Wait for all sections to complete
+    // Wait for text sections to complete
     const completed = await Promise.all(sectionPromises);
     sectionsGenerated = completed.length;
+
+    // Generate diagrams separately using AI image generation
+    console.log('[ENHANCED DRAFT] Generating patent diagrams...');
+    await supabaseClient.functions.invoke('generate-patent-diagrams', {
+      body: {
+        session_id,
+        context: context.substring(0, 1000) // Limit context size for diagram generation
+      }
+    });
+    sectionsGenerated++;
 
     // Update session status
     await supabaseClient

@@ -491,6 +491,31 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                         </Button>
                       </div>
                     </div>
+                  ) : section.section_type === 'drawings' ? (
+                    <div className="space-y-6">
+                      {(() => {
+                        try {
+                          const diagrams = JSON.parse(section.content);
+                          return diagrams.map((diagram: any, idx: number) => (
+                            <div key={idx} className="space-y-2">
+                              <h4 className="font-semibold text-sm">
+                                Figure {diagram.figure_number}
+                              </h4>
+                              <img 
+                                src={diagram.image_data} 
+                                alt={`Patent diagram ${diagram.figure_number}`}
+                                className="w-full border rounded-lg"
+                              />
+                              <p className="text-sm text-muted-foreground">
+                                {diagram.description}
+                              </p>
+                            </div>
+                          ));
+                        } catch (e) {
+                          return <p className="text-sm text-muted-foreground">{section.content}</p>;
+                        }
+                      })()}
+                    </div>
                   ) : (
                     <div 
                       className="prose prose-sm max-w-none leading-relaxed"
