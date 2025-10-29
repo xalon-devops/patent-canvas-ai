@@ -311,10 +311,40 @@ const NewApplication = () => {
 
         window.addEventListener('message', handleMessage);
 
+        // Proactive polling for connection (works even if postMessage target origin mismatches)
+        const pollStart = Date.now();
+        const pollConn = setInterval(async () => {
+          try {
+            const { data: conn } = await supabase
+              .from('supabase_connections')
+              .select('id, connection_status')
+              .eq('user_id', user?.id || '')
+              .eq('connection_status', 'pending')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (conn) {
+              clearInterval(pollConn);
+              clearInterval(checkClosed);
+              window.removeEventListener('message', handleMessage);
+              try { popup.close(); } catch {}
+              setLoading(false);
+              toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
+              navigate('/select-supabase-project');
+            } else if (Date.now() - pollStart > 60000) {
+              clearInterval(pollConn);
+            }
+          } catch (e) {
+            // ignore transient errors
+          }
+        }, 800);
+
         // Check if popup was closed without completing (fallback)
         const checkClosed = setInterval(async () => {
           if (popup.closed) {
             clearInterval(checkClosed);
+            clearInterval(pollConn);
             window.removeEventListener('message', handleMessage);
             setLoading(false);
 
@@ -323,6 +353,9 @@ const NewApplication = () => {
                 .from('supabase_connections')
                 .select('id, connection_status')
                 .eq('user_id', user?.id || '')
+                .eq('connection_status', 'pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .maybeSingle();
 
               if (conn) {
