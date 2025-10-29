@@ -256,8 +256,8 @@ const NewApplication = () => {
 
         // Listen for messages from the popup
         const handleMessage = (event: MessageEvent) => {
-          // Check if message is from Supabase edge function
-          if (!event.origin.includes('supabase.co')) return;
+          const allowed = event.origin === window.location.origin || event.origin.includes('supabase.co');
+          if (!allowed) return;
           
           if (event.data.type === 'supabase-oauth-success') {
             window.removeEventListener('message', handleMessage);
@@ -280,14 +280,31 @@ const NewApplication = () => {
 
         window.addEventListener('message', handleMessage);
 
-        // Check if popup was closed without completing
-        const checkClosed = setInterval(() => {
+        // Check if popup was closed without completing (fallback)
+        const checkClosed = setInterval(async () => {
           if (popup.closed) {
             clearInterval(checkClosed);
             window.removeEventListener('message', handleMessage);
             setLoading(false);
+
+            try {
+              const { data: conn } = await supabase
+                .from('supabase_connections')
+                .select('id, connection_status')
+                .eq('user_id', user?.id || '')
+                .maybeSingle();
+
+              if (conn) {
+                toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
+                navigate('/select-supabase-project');
+              } else {
+                toast({ title: 'OAuth window closed', description: 'Connection not completed.' });
+              }
+            } catch (e: any) {
+              console.error('Post-close check error:', e);
+            }
           }
-        }, 500);
+        }, 700);
       } else {
         throw new Error('No auth URL returned');
       }
