@@ -16,6 +16,7 @@ import {
   Brain,
   Zap
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 interface PatentSection {
   id: string;
@@ -218,9 +219,10 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
             <div className="space-y-3">
               {section?.content ? (
                 <div className="prose prose-sm max-w-none">
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm whitespace-pre-wrap font-mono leading-relaxed">
-                    {section.content}
-                  </div>
+                  <div 
+                    className="p-3 bg-muted/50 rounded-lg text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
+                  />
                 </div>
               ) : (
                 <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">

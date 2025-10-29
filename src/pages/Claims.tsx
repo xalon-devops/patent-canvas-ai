@@ -126,67 +126,50 @@ const Claims = () => {
   };
 
   const parseClaimsFromContent = (content: string, isUserEdited: boolean, timestamp: string): Claim[] => {
-    const lines = content.split('\n').filter(line => line.trim());
+    // First, strip HTML tags to get plain text
+    const textContent = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+    
+    // Split by double newlines or paragraph breaks to get individual claims
+    const lines = textContent.split(/\n+/).filter(line => line.trim());
     const claims: Claim[] = [];
     
     lines.forEach((line) => {
       const trimmedLine = line.trim();
       
-      // Match independent claims (e.g., "1. A system for...")
-      const independentMatch = trimmedLine.match(/^(\d+)\.\s+(.+)/);
+      // Skip empty lines
+      if (!trimmedLine) return;
+      
+      // Match independent claims (e.g., "1. A system for..." or "Claim 1:")
+      const independentMatch = trimmedLine.match(/^(?:Claim\s+)?(\d+)[\.\:\s]+([A-Z].*)/i);
       if (independentMatch) {
         const number = parseInt(independentMatch[1]);
-        const content = independentMatch[2];
+        const claimContent = independentMatch[2].trim();
         
-        claims.push({
-          id: `claim-${number}`,
-          number,
-          content,
-          type: 'independent',
-          isUserEdited,
-          timestamp
-        });
+        // Check if this is a dependent claim by looking for reference to another claim
+        const dependentMatch = claimContent.match(/(?:of|to)\s+claim\s+(\d+)/i);
+        
+        if (dependentMatch) {
+          const dependsOn = parseInt(dependentMatch[1]);
+          claims.push({
+            id: `claim-${number}`,
+            number,
+            content: claimContent,
+            type: 'dependent',
+            dependsOn,
+            isUserEdited,
+            timestamp
+          });
+        } else {
+          claims.push({
+            id: `claim-${number}`,
+            number,
+            content: claimContent,
+            type: 'independent',
+            isUserEdited,
+            timestamp
+          });
+        }
         return;
-      }
-      
-      // Match dependent claims (e.g., "2. The system of claim 1, wherein...")
-      const dependentMatch = trimmedLine.match(/^(\d+)\.\s+The\s+.+?of\s+claim\s+(\d+),?\s+(.+)/i);
-      if (dependentMatch) {
-        const number = parseInt(dependentMatch[1]);
-        const dependsOn = parseInt(dependentMatch[2]);
-        const content = dependentMatch[3];
-        
-        claims.push({
-          id: `claim-${number}`,
-          number,
-          content: `The ${content}`,
-          type: 'dependent',
-          dependsOn,
-          isUserEdited,
-          timestamp
-        });
-        return;
-      }
-      
-      // Fallback for other claim formats
-      const numberMatch = trimmedLine.match(/^(\d+)\.\s+(.+)/);
-      if (numberMatch) {
-        const number = parseInt(numberMatch[1]);
-        const content = numberMatch[2];
-        
-        // Determine if dependent based on content
-        const isDependent = content.toLowerCase().includes('claim') || 
-                           content.toLowerCase().includes('wherein') ||
-                           content.toLowerCase().includes('further comprising');
-        
-        claims.push({
-          id: `claim-${number}`,
-          number,
-          content,
-          type: isDependent ? 'dependent' : 'independent',
-          isUserEdited,
-          timestamp
-        });
       }
     });
     
