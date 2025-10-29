@@ -47,6 +47,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
   const [editContent, setEditContent] = useState('');
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [redrafting, setRedrafting] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
@@ -204,6 +205,71 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
     }
   };
 
+  const handleRedraftAll = async () => {
+    setRedrafting(true);
+    setProgress(0);
+    try {
+      // Delete existing sections first
+      const { error: deleteError } = await supabase
+        .from('patent_sections')
+        .delete()
+        .eq('session_id', sessionId);
+
+      if (deleteError) throw deleteError;
+
+      // Clear local sections
+      setSections([]);
+
+      // Start progress simulation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 10, 90));
+      }, 500);
+
+      // Call the enhanced patent draft generation function
+      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
+        body: {
+          session_id: sessionId
+        }
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (error) throw error;
+
+      // Fetch the newly generated sections from the database
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('patent_sections')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (sectionsError) throw sectionsError;
+
+      if (!sectionsData || sectionsData.length === 0) {
+        throw new Error('No patent sections were generated. Please try again.');
+      }
+
+      setSections(sectionsData);
+
+      toast({
+        title: "Draft regenerated successfully!",
+        description: "Your patent application has been completely redrafted with fresh AI analysis.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error('Error redrafting:', error);
+      toast({
+        title: "Error redrafting application",
+        description: error.message || 'Failed to redraft patent application',
+        variant: "destructive",
+      });
+    } finally {
+      setRedrafting(false);
+      setProgress(0);
+    }
+  };
+
   const handleSaveDraft = async () => {
     setSavingDraft(true);
     try {
@@ -239,7 +305,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
     return (completedSections / totalSections) * 100;
   };
 
-  if (loading) {
+  if (loading || redrafting) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -251,9 +317,14 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
           <Sparkles className="w-6 h-6 text-primary/60 animate-bounce" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold">Drafting Your Patent Application...</h3>
+          <h3 className="text-xl font-semibold">
+            {redrafting ? 'Redrafting Your Patent Application...' : 'Drafting Your Patent Application...'}
+          </h3>
           <p className="text-muted-foreground">
-            AI is generating professional patent sections based on your invention
+            {redrafting 
+              ? 'AI is regenerating all patent sections with fresh analysis'
+              : 'AI is generating professional patent sections based on your invention'
+            }
           </p>
         </div>
         <div className="space-y-3">
@@ -299,14 +370,35 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         </p>
       </div>
 
-      {/* Progress Overview */}
+      {/* Progress Overview with Redraft Button */}
       <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">Draft Progress</h3>
-            <Badge className="bg-primary">
-              {sections.length}/{Object.keys(sectionConfig).length} sections
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-primary">
+                {sections.length}/{Object.keys(sectionConfig).length} sections
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRedraftAll}
+                disabled={redrafting}
+                className="border-primary/30 hover:bg-primary/10"
+              >
+                {redrafting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Redrafting...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Redraft All
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           <Progress value={getSectionProgress()} className="h-2" />
         </CardContent>
