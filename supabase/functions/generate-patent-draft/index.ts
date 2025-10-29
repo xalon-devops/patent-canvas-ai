@@ -33,10 +33,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // OpenAI API configuration
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    // Lovable AI API configuration
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('Lovable AI API key not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -96,16 +96,16 @@ serve(async (req) => {
 
     console.log('Starting multi-model AI drafting chain');
     
-    // Helper function to call OpenAI
-    async function callOpenAI(systemPrompt: string, userContent: string) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Helper function to call Lovable AI
+    async function callLovableAI(systemPrompt: string, userContent: string) {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openAIApiKey}`,
+          'Authorization': `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'google/gemini-2.5-flash',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
@@ -117,7 +117,16 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+        console.error('Lovable AI error:', errorText);
+        
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+        if (response.status === 402) {
+          throw new Error('AI credits depleted. Please add credits to continue.');
+        }
+        
+        throw new Error(`Lovable AI API error: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
@@ -154,7 +163,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "claim_worthy_features": ["features suitable for patent claims"]
 }`;
 
-    const technicalAnalysis = await callOpenAI(technicalExtractionPrompt, 
+    const technicalAnalysis = await callLovableAI(technicalExtractionPrompt, 
       `Invention Idea: ${idea_prompt}\n\nQ&A Results:\n${qa_text}`);
 
     // Stage 2: USPTO-Compliant Legal Document Structuring
@@ -190,7 +199,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "description": "Detailed enablement description per 35 U.S.C. § 112(a)"
 }`;
 
-    const legalFormatted = await callOpenAI(legalFormattingPrompt, technicalAnalysis);
+    const legalFormatted = await callLovableAI(legalFormattingPrompt, technicalAnalysis);
 
     // Stage 3: Professional Claims Drafting (35 U.S.C. § 112(b))
     console.log('Stage 3: Professional Claims Drafting (35 U.S.C. § 112(b))');
@@ -230,7 +239,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "claims": "Patent claims formatted with proper numbering, dependencies, and legal language"
 }`;
 
-    const expandedClaims = await callOpenAI(claimsExpansionPrompt, 
+    const expandedClaims = await callLovableAI(claimsExpansionPrompt, 
       `Technical Analysis: ${technicalAnalysis}\n\nLegal Formatted: ${legalFormatted}`);
 
     // Stage 4: USPTO Abstract & Drawing Descriptions (37 CFR 1.72)
@@ -267,7 +276,7 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
   "drawings": "Brief description of drawings per 35 U.S.C. § 112(a)"
 }`;
 
-    const priorArtDifferentiated = await callOpenAI(priorArtPrompt, 
+    const priorArtDifferentiated = await callLovableAI(priorArtPrompt, 
       `Technical: ${technicalAnalysis}\nLegal: ${legalFormatted}\nClaims: ${expandedClaims}`);
 
     console.log('Multi-model chain completed, assembling final draft');

@@ -33,7 +33,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -143,9 +143,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('About to call OpenAI with context length:', contextualInfo.length);
+    console.log('About to call Lovable AI with context length:', contextualInfo.length);
 
-    console.log('Calling OpenAI for follow-up questions');
+    console.log('Calling Lovable AI for follow-up questions');
     
     // Check if there's existing technical analysis from GitHub/code analysis
     const { data: technicalAnalysis } = await supabase
@@ -202,15 +202,15 @@ Example format: ["What specific materials or components are required for the cor
       ? `Based on the technical analysis above, the user's invention relates to: ${idea_prompt}`
       : `Initial invention idea: ${idea_prompt}`;
 
-    // Call OpenAI to generate follow-up questions using GPT-4o-mini
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Lovable AI to generate follow-up questions
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -228,20 +228,31 @@ Example format: ["What specific materials or components are required for the cor
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('OpenAI API error:', errorText);
+      console.error('Lovable AI API error:', errorText);
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), 
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }), 
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Failed to generate follow-up questions' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const aiData = await aiResponse.json();
     const generatedContent = aiData.choices[0].message.content;
 
-    console.log('OpenAI response received, parsing questions');
+    console.log('Lovable AI response received, parsing questions');
 
     let questions;
     try {
@@ -250,8 +261,8 @@ Example format: ["What specific materials or components are required for the cor
         throw new Error('Response is not an array');
       }
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON array:', parseError);
-      console.error('OpenAI response:', generatedContent);
+      console.error('Failed to parse AI response as JSON array:', parseError);
+      console.error('AI response:', generatedContent);
       return new Response(
         JSON.stringify({ error: 'Failed to parse generated questions' }), 
         { 

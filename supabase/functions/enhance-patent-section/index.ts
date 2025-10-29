@@ -25,7 +25,7 @@ serve(async (req) => {
     // Initialize clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch session data and existing sections
@@ -98,13 +98,13 @@ Requirements:
 - Include specific details and technical specifications
 - Ensure novelty and non-obviousness are clear`;
 
-    // Call OpenAI with enhanced model selection
-    const model = section_type === 'claims' ? 'gpt-4.1-2025-04-14' : 'gpt-5-mini-2025-08-07';
+    // Call Lovable AI
+    const model = section_type === 'claims' ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
     
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -119,12 +119,27 @@ Requirements:
             content: fullPrompt
           }
         ],
-        max_completion_tokens: section_type === 'description' ? 2000 : 1000,
+        max_tokens: section_type === 'description' ? 2000 : 1000,
+        temperature: 0.2,
       }),
     });
 
-    const openaiData = await openaiResponse.json();
-    const enhancedContent = openaiData.choices[0]?.message?.content;
+    if (!lovableResponse.ok) {
+      const errorText = await lovableResponse.text();
+      console.error('Lovable AI error:', errorText);
+      
+      if (lovableResponse.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (lovableResponse.status === 402) {
+        throw new Error('AI credits depleted. Please add credits to continue.');
+      }
+      
+      throw new Error(`Lovable AI API error: ${lovableResponse.statusText}`);
+    }
+
+    const lovableData = await lovableResponse.json();
+    const enhancedContent = lovableData.choices[0]?.message?.content;
 
     if (!enhancedContent) {
       throw new Error('Failed to generate enhanced content');
