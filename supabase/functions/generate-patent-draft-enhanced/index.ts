@@ -65,84 +65,25 @@ serve(async (req) => {
     const sectionTypes = ['abstract', 'field', 'background', 'summary', 'claims', 'description', 'drawings'];
     let sectionsGenerated = 0;
 
-    for (const sectionType of sectionTypes) {
+    // Generate all sections in parallel for speed
+    const sectionPromises = sectionTypes.map(async (sectionType) => {
       console.log(`[ENHANCED DRAFT] Generating ${sectionType}...`);
 
-      // ITERATION 1: Generate initial draft
-      const initialPrompt = getSectionPrompt(sectionType, context);
-      const initialDraft = await callLovableAI(initialPrompt, 'initial');
+      // Single high-quality generation with detailed prompt
+      const prompt = getSectionPrompt(sectionType, context);
+      const content = await callLovableAI(prompt, sectionType);
       
-      // ITERATION 2: Self-critique
-      const critiquePrompt = `You are a patent attorney reviewing this ${sectionType} section. Identify weaknesses, missing elements, and areas for improvement:
-
-${initialDraft}
-
-Provide specific, actionable critique focusing on USPTO compliance, clarity, and legal strength.`;
-
-      const critique = await callLovableAI(critiquePrompt, 'critique');
-
-      // ITERATION 3: Refine based on critique
-      const refinePrompt = `Based on this critique, rewrite the ${sectionType} section with improvements:
-
-CRITIQUE:
-${critique}
-
-ORIGINAL DRAFT:
-${initialDraft}
-
-CONTEXT:
-${context}
-
-Produce a polished, USPTO-compliant section that addresses all critiques.`;
-
-      const finalDraft = await callLovableAI(refinePrompt, 'refine');
-
-      // ITERATION 4: Format check (only for claims)
-      let qualityCheckedDraft = finalDraft;
-      if (sectionType === 'claims') {
-        const formatPrompt = `Verify this claims section follows USPTO format requirements:
-- Numbered claims (1., 2., etc.)
-- Independent claims first
-- Proper dependent claim references
-- Single sentence per claim
-- Correct legal phrasing
-
-CLAIMS:
-${finalDraft}
-
-If corrections needed, provide corrected version. Otherwise return the claims as-is.`;
-
-        qualityCheckedDraft = await callLovableAI(formatPrompt, 'format-check');
-      }
-
       // Calculate quality score
-      const qualityScore = calculateQualityScore(qualityCheckedDraft, sectionType);
+      const qualityScore = calculateQualityScore(content, sectionType);
 
-      // Store iterations for transparency
-      await supabaseClient.from('draft_iterations').insert([
-        {
-          session_id,
-          iteration_number: 1,
-          section_type: sectionType,
-          content: initialDraft,
-          quality_score: 0.6
-        },
-        {
-          session_id,
-          iteration_number: 2,
-          section_type: sectionType,
-          content: finalDraft,
-          critique: critique,
-          quality_score: 0.8
-        },
-        {
-          session_id,
-          iteration_number: 3,
-          section_type: sectionType,
-          content: qualityCheckedDraft,
-          quality_score: qualityScore
-        }
-      ]);
+      // Store iteration for transparency
+      await supabaseClient.from('draft_iterations').insert({
+        session_id,
+        iteration_number: 1,
+        section_type: sectionType,
+        content: content,
+        quality_score: qualityScore
+      });
 
       // Upsert final section
       const { data: existingSection } = await supabaseClient
@@ -156,7 +97,7 @@ If corrections needed, provide corrected version. Otherwise return the claims as
         await supabaseClient
           .from('patent_sections')
           .update({
-            content: qualityCheckedDraft,
+            content: content,
             is_user_edited: false
           })
           .eq('id', existingSection.id);
@@ -166,13 +107,17 @@ If corrections needed, provide corrected version. Otherwise return the claims as
           .insert({
             session_id,
             section_type: sectionType,
-            content: qualityCheckedDraft,
+            content: content,
             is_user_edited: false
           });
       }
 
-      sectionsGenerated++;
-    }
+      return sectionType;
+    });
+
+    // Wait for all sections to complete
+    const completed = await Promise.all(sectionPromises);
+    sectionsGenerated = completed.length;
 
     // Update session status
     await supabaseClient
@@ -192,12 +137,12 @@ If corrections needed, provide corrected version. Otherwise return the claims as
       }
     });
 
-    console.log(`[ENHANCED DRAFT] Complete: ${sectionsGenerated} sections generated with 3x Lovable AI refinement`);
+    console.log(`[ENHANCED DRAFT] Complete: ${sectionsGenerated} sections generated with parallel AI processing`);
 
     return new Response(JSON.stringify({
       success: true,
       sections_generated: sectionsGenerated,
-      iterations_per_section: 3,
+      processing_mode: 'parallel',
       quality_checked: true,
       ai_model: 'google/gemini-2.5-pro'
     }), {
@@ -217,17 +162,17 @@ If corrections needed, provide corrected version. Otherwise return the claims as
   }
 });
 
-async function callLovableAI(prompt: string, stage: string): Promise<string> {
+async function callLovableAI(prompt: string, sectionType: string): Promise<string> {
   if (!LOVABLE_API_KEY) {
     throw new Error('LOVABLE_API_KEY not configured');
   }
 
-  console.log(`[Lovable AI - ${stage}] Calling API...`);
+  console.log(`[Lovable AI] Generating ${sectionType}...`);
 
-  // Use gemini-2.5-pro for maximum quality (equivalent to Claude Sonnet 4.5)
-  const model = stage === 'refine' ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
-  const maxTokens = stage === 'refine' ? 8000 : 4000;
-  const temperature = stage === 'critique' ? 0.3 : 0.1;
+  // Use gemini-2.5-pro for all sections to ensure high quality single-pass generation
+  const model = 'google/gemini-2.5-pro';
+  const maxTokens = sectionType === 'description' ? 10000 : 
+                    sectionType === 'claims' ? 8000 : 4000;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -238,8 +183,12 @@ async function callLovableAI(prompt: string, stage: string): Promise<string> {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      temperature,
+      temperature: 0.1,
       messages: [
+        {
+          role: 'system',
+          content: 'You are an expert USPTO patent attorney. Generate high-quality, legally compliant patent sections that meet all USPTO requirements.'
+        },
         {
           role: 'user',
           content: prompt
