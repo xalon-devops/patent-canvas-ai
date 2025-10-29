@@ -570,12 +570,6 @@ const Session = () => {
   const handleExportPatent = async () => {
     if (!id) return;
 
-    // Check if payment is required
-    if (!hasPaid) {
-      setShowPaymentGate(true);
-      return;
-    }
-
     setExportingPatent(true);
     
     try {
@@ -586,6 +580,12 @@ const Session = () => {
       });
 
       if (error) {
+        // If payment is required, show the gate instead of erroring out
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('payment required') || msg.includes('402')) {
+          setShowPaymentGate(true);
+          return;
+        }
         console.error('Export error:', error);
         throw new Error(error.message || 'Failed to export patent');
       }
@@ -597,9 +597,15 @@ const Session = () => {
 
       console.log('Patent exported successfully:', data);
       
-      // Open download link
+      // Download the file reliably (avoids popup blockers)
       if (data.download_url) {
-        window.open(data.download_url, '_blank');
+        const link = document.createElement('a');
+        link.href = data.download_url;
+        link.download = 'patent-application.docx';
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
       
       toast({
