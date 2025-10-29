@@ -99,20 +99,53 @@ serve(async (req) => {
       ...(primaryOrg ? { organization_name: primaryOrg.name } : {}),
     };
 
-    const { error: dbError } = await supabase
+    // Ensure organization_id is present to satisfy NOT NULL constraint
+    const orgId = primaryOrg?.id || 'unknown';
+
+    // Upsert without relying on a unique constraint on user_id
+    const { data: existingConn, error: fetchConnError } = await supabase
       .from('supabase_connections')
-      .upsert({
-        user_id: userId,
-        access_token,
-        refresh_token,
-        token_expires_at: expiresAt.toISOString(),
-        scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
-        connection_metadata: connectionMetadata,
-        connection_status: 'pending',
-        is_active: false,
-      }, {
-        onConflict: 'user_id',
-      });
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchConnError) {
+      console.error('Fetch connection error:', fetchConnError);
+      throw new Error('Failed to look up existing connection');
+    }
+
+    let dbError = null as any;
+    if (existingConn?.id) {
+      const { error } = await supabase
+        .from('supabase_connections')
+        .update({
+          organization_id: orgId,
+          access_token,
+          refresh_token,
+          token_expires_at: expiresAt.toISOString(),
+          scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
+          connection_metadata: connectionMetadata,
+          connection_status: 'pending',
+          is_active: false,
+        })
+        .eq('id', existingConn.id);
+      dbError = error;
+    } else {
+      const { error } = await supabase
+        .from('supabase_connections')
+        .insert({
+          user_id: userId,
+          organization_id: orgId,
+          access_token,
+          refresh_token,
+          token_expires_at: expiresAt.toISOString(),
+          scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
+          connection_metadata: connectionMetadata,
+          connection_status: 'pending',
+          is_active: false,
+        });
+      dbError = error;
+    }
 
     if (dbError) {
       console.error('Database error:', dbError);
