@@ -45,6 +45,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
   const [sections, setSections] = useState<PatentSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
@@ -71,23 +72,43 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
 
   const generatePatentDraft = async () => {
     setGenerating(true);
+    setProgress(0);
+    setError(null);
     try {
-      // Simulate progress updates
+      // Simulate progress updates with timeout protection
       const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
+        setProgress(prev => Math.min(prev + 5, 85));
+      }, 800);
 
-      // Call the enhanced patent draft generation function
-      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
+      // Add timeout promise (90 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Patent generation timeout - this is taking longer than expected')), 90000);
+      });
+
+      // Call the enhanced patent draft generation function with timeout
+      const generationPromise = supabase.functions.invoke('generate-patent-draft-enhanced', {
         body: {
           session_id: sessionId
         }
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
+      const { data, error } = await Promise.race([
+        generationPromise,
+        timeoutPromise
+      ]) as any;
 
-      if (error) throw error;
+      clearInterval(progressInterval);
+
+      if (error) {
+        console.error('Patent generation error:', error);
+        throw error;
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to generate patent draft');
+      }
+
+      setProgress(90);
 
       // Fetch the actual generated sections from the database
       const { data: sectionsData, error: sectionsError } = await supabase
@@ -96,19 +117,44 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
 
-      if (sectionsError) throw sectionsError;
+      if (sectionsError) {
+        console.error('Sections fetch error:', sectionsError);
+        throw sectionsError;
+      }
 
       if (!sectionsData || sectionsData.length === 0) {
         throw new Error('No patent sections were generated. Please try again.');
       }
 
+      setProgress(100);
+
       setSections(sectionsData);
+      
+      toast({
+        title: "✅ Patent Draft Generated!",
+        description: `Created ${sectionsData.length} sections successfully`,
+      });
       
     } catch (error: any) {
       console.error('Error generating draft:', error);
+      
+      // Provide specific error messages
+      let errorMessage = 'Failed to generate patent draft. ';
+      if (error.message?.includes('timeout')) {
+        errorMessage += 'The generation is taking longer than expected. Please try again.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage += 'AI rate limit reached. Please wait a moment and try again.';
+      } else if (error.message?.includes('payment')) {
+        errorMessage += 'Payment required to generate patent drafts.';
+      } else {
+        errorMessage += error.message || 'Please check your connection and try again.';
+      }
+      
+      setError(errorMessage);
+      
       toast({
         title: "Error generating draft",
-        description: error.message || 'Failed to generate patent draft',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -354,24 +400,24 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-6"
+        className="text-center space-y-6 p-4 sm:p-6"
       >
         <div className="flex items-center justify-center gap-3">
           <Brain className="w-8 h-8 text-primary animate-pulse" />
           <Sparkles className="w-6 h-6 text-primary/60 animate-bounce" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold">
+          <h3 className="text-lg sm:text-xl font-semibold">
             {redrafting ? 'Redrafting Your Patent Application...' : 'Drafting Your Patent Application...'}
           </h3>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
             {redrafting 
               ? 'AI is regenerating all patent sections with fresh analysis'
               : 'AI is generating professional patent sections based on your invention'
             }
           </p>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 max-w-md mx-auto">
           <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
             <motion.div 
               className="h-full bg-primary rounded-full"
@@ -379,12 +425,62 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
               transition={{ duration: 0.3 }}
             />
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs sm:text-sm text-muted-foreground">
             {progress < 30 ? 'Analyzing your invention details...' :
              progress < 60 ? 'Generating patent claims...' :
              progress < 90 ? 'Creating detailed descriptions...' :
              'Finalizing patent sections...'}
           </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show error state with retry button
+  if (error && sections.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-6 p-4 sm:p-6"
+      >
+        <div className="flex items-center justify-center gap-3">
+          <div className="p-4 bg-destructive/10 rounded-full">
+            <FileText className="w-8 h-8 text-destructive" />
+          </div>
+        </div>
+        <div className="space-y-2 max-w-md mx-auto">
+          <h3 className="text-lg sm:text-xl font-semibold">Generation Failed</h3>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {error}
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
+          <Button
+            onClick={() => generatePatentDraft()}
+            variant="default"
+            className="w-full sm:w-auto"
+            disabled={generating}
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Retrying...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try Again
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={() => window.history.back()}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            Go Back
+          </Button>
         </div>
       </motion.div>
     );

@@ -37,19 +37,56 @@ const Dashboard = () => {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (!session?.user) {
-        navigate('/auth');
-      } else {
-        setLoading(false);
-      }
-    });
+    // Add timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      toast({
+        title: "Loading timeout",
+        description: "Taking longer than expected. Please refresh if needed.",
+        variant: "default",
+      });
+    }, 10000); // 10 second timeout
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        clearTimeout(timeout);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (error) {
+          console.error('Session error:', error);
+          toast({
+            title: "Session Error",
+            description: error.message,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        if (!session?.user) {
+          navigate('/auth');
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        console.error('Auth error:', error);
+        setLoading(false);
+        toast({
+          title: "Authentication Error",
+          description: "Please try signing in again.",
+          variant: "destructive",
+        });
+        navigate('/auth');
+      });
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, [navigate, toast]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -128,15 +165,18 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
-        <div className="safe-area">
+        <div className="safe-area px-4 sm:px-6">
           <div className="content-width">
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
+              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                 <img 
                   src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
                   alt="PatentBot AI Logo" 
-                  className="h-12 w-auto"
+                  className="h-10 sm:h-12 w-auto flex-shrink-0"
                 />
+                <p className="text-xs sm:text-sm text-muted-foreground hidden xs:block truncate">
+                  {user?.email}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
@@ -246,18 +286,18 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <main className="safe-area py-8">
+      <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">
           {/* Pricing Cards */}
-          <div className="grid gap-6 md:grid-cols-2 mb-8">
-            <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-glow/30 transition-all duration-500">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <FileText className="h-6 w-6 text-primary" />
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
+            <Card className="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-glow/30 transition-all duration-500">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
+                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold">File Patent Application</h3>
-                  <p className="text-muted-foreground">Complete AI-guided patent drafting</p>
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl font-semibold">File Patent Application</h3>
+                  <p className="text-sm text-muted-foreground hidden sm:block">Complete AI-guided patent drafting</p>
                 </div>
               </div>
               <div className="space-y-3 mb-6">
@@ -293,14 +333,14 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-glow/30 transition-all duration-500">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-secondary/10 rounded-lg">
-                  <Search className="h-6 w-6 text-secondary" />
+            <Card className="p-4 sm:p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-glow/30 transition-all duration-500">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 bg-secondary/10 rounded-lg flex-shrink-0">
+                  <Search className="h-5 w-5 sm:h-6 sm:w-6 text-secondary" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold">Check & See</h3>
-                  <p className="text-muted-foreground">Search for existing patents before you file</p>
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl font-semibold">Check & See</h3>
+                  <p className="text-sm text-muted-foreground hidden sm:block">Search for existing patents before you file</p>
                 </div>
               </div>
               <div className="space-y-3 mb-6">
@@ -340,7 +380,7 @@ const Dashboard = () => {
           </div>
 
           {/* Enhanced Navigation Menu */}
-          <div className="grid gap-8 md:grid-cols-3 mb-12">
+          <div className="grid gap-4 sm:gap-6 md:gap-8 sm:grid-cols-2 md:grid-cols-3 mb-8 sm:mb-12">
             <Card 
               className="glass group relative overflow-hidden border-accent/30 hover:border-accent/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
               onClick={() => navigate('/ideas')}
