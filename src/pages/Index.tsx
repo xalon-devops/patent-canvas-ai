@@ -50,53 +50,53 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Hero Section */}
+      {/* Hero Section - Mobile Optimized */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-primary opacity-5"></div>
-        <div className="container mx-auto px-4 py-20 relative">
+        <div className="w-full px-4 sm:px-6 py-12 sm:py-16 lg:py-20 relative">
           <div className="text-center max-w-4xl mx-auto">
             {/* Logo */}
-            <div className="flex items-center justify-center mb-6">
+            <div className="flex items-center justify-center mb-4 sm:mb-6">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-primary rounded-2xl blur-xl opacity-30"></div>
-                <div className="relative bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="relative bg-white/10 rounded-2xl p-4 sm:p-6 backdrop-blur-sm">
                   <img 
                     src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png?v=2" 
                     alt="PatentBot AI Logo"
-                    className="h-16 w-auto"
+                    className="h-12 sm:h-16 w-auto"
                   />
                 </div>
               </div>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 px-2">
               <span className="bg-gradient-primary bg-clip-text text-transparent">
                 AI-Powered Patent Application Generator
               </span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-6 sm:mb-8 leading-relaxed px-4">
               Transform your innovative ideas into professional patent applications 
               with AI-powered assistance and intelligent prior art analysis
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-8 sm:mb-12 px-4">
               <Button 
                 variant="gradient" 
                 size="lg"
                 onClick={() => navigate('/auth')}
-                className="text-lg h-14 px-8"
+                className="text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto"
               >
-                <Sparkles className="h-5 w-5" />
-                Start Your Patent Journey
-                <ArrowRight className="h-5 w-5" />
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="truncate">Start Your Patent Journey</span>
+                <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
               <Button 
                 variant="professional" 
                 size="lg"
                 onClick={() => navigate('/demo')}
-                className="text-lg h-14 px-8"
+                className="text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto"
               >
                 <Play className="h-5 w-5" />
                 Watch Demo

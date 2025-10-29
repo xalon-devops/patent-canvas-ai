@@ -827,56 +827,58 @@ const Session = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
+      {/* Header - Mobile Optimized */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <div className="w-full px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <Button 
                 variant="ghost" 
                 onClick={() => navigate('/dashboard')}
-                className="p-2"
+                className="p-2 flex-shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div>
-                <h1 className="text-lg font-semibold">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm sm:text-lg font-semibold truncate">
                   {patentSession.idea_prompt ? 
                     patentSession.idea_prompt.slice(0, 60) + (patentSession.idea_prompt.length > 60 ? '...' : '') :
                     'New Patent Application'
                   }
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Created {format(new Date(patentSession.created_at), 'MMM d, yyyy')}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {chatPhase === 'canvas' && (
                 <>
                   <Button 
                     variant="outline" 
                     onClick={() => navigate(`/session/${id}/claims`)}
-                    className="hidden sm:flex"
+                    size="sm"
+                    className="hidden md:flex"
                   >
                     <TreeDeciduous className="h-4 w-4" />
-                    Claims Tree
+                    <span className="hidden lg:inline ml-2">Claims Tree</span>
                   </Button>
                   <Button 
                     variant="outline" 
                     onClick={handleExportPatent}
                     disabled={exportingPatent}
-                    className="hidden sm:flex"
+                    size="sm"
+                    className="hidden md:flex"
                   >
                     {exportingPatent ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Exporting...
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                        <span className="hidden lg:inline ml-2">Exporting...</span>
                       </>
                     ) : (
                       <>
                         <Download className="h-4 w-4" />
-                        Download DOCX
+                        <span className="hidden lg:inline ml-2">Download</span>
                       </>
                     )}
                   </Button>
@@ -1057,8 +1059,8 @@ const Session = () => {
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
-                      <p className="text-sm">{question.question}</p>
+                    <div className="bg-secondary/50 rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%]">
+                      <p className="text-xs sm:text-sm break-words">{question.question}</p>
                       {isCurrentQuestion && (
                         <p className="text-xs text-muted-foreground mt-2 italic">
                           💡 Tip: Be specific about technical details, materials, and measurable improvements
@@ -1069,9 +1071,9 @@ const Session = () => {
                   
                   {question.answer && (
                     <div className="flex gap-3 justify-end">
-                      <div className="bg-primary rounded-lg p-3 max-w-[80%] text-primary-foreground">
-                        <p className="text-sm">{question.answer}</p>
-                      </div>
+                    <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%] text-primary-foreground">
+                      <p className="text-xs sm:text-sm break-words">{question.answer}</p>
+                    </div>
                       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                         <UserIcon className="h-4 w-4 text-primary-foreground" />
                       </div>
