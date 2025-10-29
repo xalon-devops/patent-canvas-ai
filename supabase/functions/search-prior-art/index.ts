@@ -166,17 +166,19 @@ serve(async (req) => {
       // Using Perplexity sonar-pro for patent search (updated 2025-10-29)
       console.log('Querying patent databases via Perplexity AI...');
       
-      const searchPrompt = `Find 10-15 existing patents related to: ${contextText.substring(0, 2000)}
+      const searchPrompt = `Search the web for existing US patents related to: ${contextText.substring(0, 1500)}
 
-Search Google Patents, USPTO, and other patent databases. For each patent found, provide:
-- Patent number (e.g., US1234567)
+Find 10-15 real patents by searching Google Patents website, USPTO.gov, and patent information sites. 
+
+For EACH patent you find, extract:
+- Patent number (e.g., US1234567, US20210123456)
 - Title
-- Abstract (100-200 words)
-- Filing/publication date
-- Assignee/inventor
+- Brief description/abstract (50-100 words)
+- Filing or publication date
+- Assignee/inventor name
 
-Focus on patents with similar technical features, methods, or systems. Return results in JSON array format:
-[{"patent_number": "US...", "title": "...", "abstract": "...", "date": "YYYY-MM-DD", "assignee": "..."}]`;
+Return ONLY a JSON array, no other text:
+[{"patent_number":"US...","title":"...","abstract":"...","date":"YYYY-MM-DD","assignee":"..."}]`;
       
       const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
