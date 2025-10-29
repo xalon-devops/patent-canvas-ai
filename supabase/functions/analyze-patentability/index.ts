@@ -106,30 +106,61 @@ serve(async (req) => {
     High Risk (>80% similar): ${highRiskPriorArt.length}
     Medium Risk (60-80% similar): ${mediumRiskPriorArt.length}
     
-    Top 5 Most Similar Patents:
-    ${priorArt.slice(0, 5).map(p => `
-    - ${p.title}
-      Publication: ${p.publication_number}
-      Similarity: ${(p.similarity_score * 100).toFixed(1)}%
-      Overlaps: ${p.overlap_claims?.slice(0, 2).join(', ') || 'None'}
-      Differences: ${p.difference_claims?.slice(0, 2).join(', ') || 'None'}
-    `).join('\n')}
+    Top 10 Most Similar Patents (DETAILED CLAIM ANALYSIS):
+    ${priorArt.slice(0, 10).map((p, idx) => `
+    ${idx + 1}. ${p.title}
+       Publication: ${p.publication_number}
+       Similarity: ${(p.similarity_score * 100).toFixed(1)}%
+       Assignee: ${p.assignee || 'Unknown'}
+       Date: ${p.patent_date || 'Unknown'}
+       
+       OVERLAPPING CLAIMS (What this patent shares with the invention):
+       ${p.overlap_claims && p.overlap_claims.length > 0 
+         ? p.overlap_claims.map((claim, i) => `       ${i + 1}. ${claim}`).join('\n')
+         : '       None identified'}
+       
+       DIFFERENTIATING CLAIMS (What makes the invention unique):
+       ${p.difference_claims && p.difference_claims.length > 0
+         ? p.difference_claims.map((claim, i) => `       ${i + 1}. ${claim}`).join('\n')
+         : '       None identified'}
+       
+       Summary: ${p.summary || 'No summary available'}
+    `).join('\n\n')}
     `;
 
     const systemPrompt = `You are an expert patent attorney AI that performs comprehensive patentability assessments based on USPTO criteria.
 
-Analyze the invention against these four key criteria, considering ALL provided context including backend analysis, prior art, and Q&A:
+You have been provided with DETAILED PRIOR ART ANALYSIS including:
+- Complete lists of OVERLAPPING CLAIMS (features shared with existing patents)
+- Complete lists of DIFFERENTIATING CLAIMS (unique features of this invention)
 
-1. NOVELTY (35 U.S.C. § 102): Is this invention new? Consider prior art similarity scores - high scores (>80%) significantly reduce novelty.
-2. NON-OBVIOUSNESS (35 U.S.C. § 103): Would this be obvious to a person of ordinary skill? Consider combinations of prior art elements.
-3. UTILITY (35 U.S.C. § 101): Does this have a useful purpose? Consider the technical implementation details from backend analysis.
-4. PATENT ELIGIBILITY (35 U.S.C. § 101): Is this statutory subject matter? Software must show technical improvements, not just abstract ideas.
+Analyze the invention against these four key criteria:
 
-CRITICAL SCORING GUIDELINES:
-- If high-risk prior art exists (>80% similarity), Novelty score MUST be below 70
-- If backend analysis shows basic CRUD operations only, scores should reflect limited innovation
-- Software patents need demonstrated technical improvements over existing systems
-- Consider overlapping claims from prior art in your analysis
+1. NOVELTY (35 U.S.C. § 102): Is this invention new?
+   - Examine ALL overlapping claims across prior art patents
+   - If high-risk prior art exists (>80% similarity), Novelty score MUST be below 70
+   - If medium-risk prior art exists (60-80% similarity), Novelty score should be 70-80
+   - Consider the NUMBER and SIGNIFICANCE of overlapping vs differentiating claims
+
+2. NON-OBVIOUSNESS (35 U.S.C. § 103): Would this be obvious to a person of ordinary skill?
+   - Analyze if differentiating claims represent true innovation or obvious combinations
+   - Consider if overlapping claims from multiple patents could be combined by PHOSITA
+   - Evaluate technical sophistication of unique features
+
+3. UTILITY (35 U.S.C. § 101): Does this have a useful purpose?
+   - Consider technical implementation details from backend analysis
+   - Evaluate practical applications based on Q&A responses
+
+4. PATENT ELIGIBILITY (35 U.S.C. § 101): Is this statutory subject matter?
+   - Software patents MUST show technical improvements, not just abstract ideas
+   - If backend shows only basic CRUD operations, scores should reflect limited innovation
+   - Evaluate if differentiating claims represent technical solutions to technical problems
+
+CRITICAL ANALYSIS REQUIREMENTS:
+- Reference SPECIFIC overlapping claims when discussing prior art conflicts
+- Reference SPECIFIC differentiating claims when discussing novelty
+- Provide claim-by-claim reasoning for scoring decisions
+- Be realistic and evidence-based - don't inflate scores without clear justification
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
@@ -140,7 +171,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "score": 85,
       "maxScore": 100,
       "description": "How new and original is your invention?",
-      "analysis": "Detailed analysis referencing specific prior art if applicable...",
+      "analysis": "Detailed analysis referencing SPECIFIC overlapping and differentiating claims from prior art. Example: 'Patent US123456 overlaps on [claim X] but invention differs via [claim Y]...'",
       "icon": "Lightbulb"
     },
     {
@@ -148,7 +179,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "score": 78,
       "maxScore": 100,
       "description": "Would the invention be obvious to someone skilled in the field?",
-      "analysis": "Analysis considering prior art combinations and technical advancements...",
+      "analysis": "Analysis of whether differentiating claims are obvious combinations. Reference specific overlapping claims and explain why unique features are non-obvious...",
       "icon": "Target"
     },
     {
@@ -168,11 +199,11 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "icon": "Award"
     }
   ],
-  "summary": "Comprehensive summary with specific references to backend features and prior art risks...",
+  "summary": "Comprehensive summary analyzing the balance between overlapping and differentiating claims. Reference specific patents and their claim conflicts...",
   "recommendation": "proceed",
-  "key_strengths": ["Specific technical feature 1", "Backend capability 2"],
-  "areas_for_improvement": ["Differentiate from Patent X", "Emphasize technical improvement Y"],
-  "risk_factors": ["Prior art similarity with Patent A", "Abstract idea concerns if software"]
+  "key_strengths": ["Specific differentiating claim 1 from prior art analysis", "Unique technical approach 2"],
+  "areas_for_improvement": ["Address overlap with Patent US123456 on claim X", "Emphasize technical advantage Y over Patent US789012"],
+  "risk_factors": ["Prior art US123456 overlaps on claims A, B, C", "Patent US789012 shares features X, Y", "Need to demonstrate technical improvement over prior art"]
 }
 
 Be REALISTIC - don't give high scores without justification from the provided data.`;
