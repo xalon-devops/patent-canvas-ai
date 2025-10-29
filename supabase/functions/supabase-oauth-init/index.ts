@@ -57,7 +57,6 @@ serve(async (req) => {
     authUrl.searchParams.set('redirect_uri', callbackUrl);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'organizations:read projects:read');
-    authUrl.searchParams.set('prompt', 'consent');
     authUrl.searchParams.set('state', state);
 
     return new Response(
