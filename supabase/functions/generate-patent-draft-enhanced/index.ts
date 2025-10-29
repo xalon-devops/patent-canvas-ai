@@ -169,10 +169,12 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
 
   console.log(`[Lovable AI] Generating ${sectionType}...`);
 
-  // Use gemini-2.5-pro for all sections to ensure high quality single-pass generation
+  // Use gemini-2.5-pro for all sections with generous token limits for comprehensive output
   const model = 'google/gemini-2.5-pro';
-  const maxTokens = sectionType === 'description' ? 10000 : 
-                    sectionType === 'claims' ? 8000 : 4000;
+  const maxTokens = sectionType === 'description' ? 16000 : 
+                    sectionType === 'claims' ? 12000 : 
+                    sectionType === 'background' ? 8000 :
+                    sectionType === 'summary' ? 10000 : 6000;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -187,7 +189,7 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
       messages: [
         {
           role: 'system',
-          content: 'You are an expert USPTO patent attorney. Generate high-quality, legally compliant patent sections that meet all USPTO requirements.'
+          content: 'You are a senior USPTO patent attorney with 20+ years of experience drafting patents. Generate extremely detailed, comprehensive, legally compliant patent sections that meet all USPTO requirements. Use professional HTML formatting with proper semantic tags (<h3>, <h4>, <p>, <strong>, <ul>, <ol>, <li>). Never use markdown syntax like ** or ##. Be thorough and verbose - quality patents are detailed and comprehensive. Include specific technical details, multiple embodiments, and exhaustive descriptions.'
         },
         {
           role: 'user',
@@ -217,91 +219,158 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
 
 function getSectionPrompt(sectionType: string, context: string): string {
   const prompts: { [key: string]: string } = {
-    abstract: `Write a USPTO-compliant patent abstract (150 words max) that concisely summarizes the invention:
+    abstract: `Write a USPTO-compliant patent abstract in professional HTML format:
 
 ${context}
 
 Requirements:
-- Single paragraph, 150 words max
-- State what the invention is
-- State what the invention does
-- State how it achieves its purpose
-- No commercial puffery
-- Present tense, third person`,
+- 150-200 words
+- Use proper HTML formatting with <p> tags
+- Use <strong> for key terms (NOT markdown **)
+- State what the invention is, does, and how it achieves its purpose
+- Present tense, third person
+- Professional legal language
+- Include specific technical details
 
-    field: `Write the "Field of the Invention" section:
+Return ONLY the HTML content, no markdown.`,
 
-${context}
-
-Requirements:
-- 2-3 sentences
-- State the technical field
-- Reference class/subclass if applicable
-- Be specific but not limiting`,
-
-    background: `Write the "Background of the Invention" section:
+    field: `Write the "Field of the Invention" section in professional HTML format:
 
 ${context}
 
 Requirements:
-- Describe the problem being solved
-- Explain limitations of prior art
-- Do NOT cite specific prior art (that comes later)
-- Build case for why invention is needed
-- 200-400 words`,
+- 3-5 detailed paragraphs wrapped in <p> tags
+- Use <strong> for technical field classifications
+- Provide comprehensive technical context
+- Reference USPTO classification if applicable
+- Explain the broader technical domain
+- Include related fields and applications
+- Professional legal language
 
-    summary: `Write the "Summary of the Invention" section:
+Return ONLY the HTML content with proper <p> and <strong> tags.`,
 
-${context}
-
-Requirements:
-- Expand on the abstract
-- Describe the invention's key features
-- Explain advantages over prior art
-- Describe different embodiments
-- 400-600 words
-- Clear, technical language`,
-
-    claims: `Write independent and dependent patent claims:
+    background: `Write a comprehensive "Background of the Invention" section in professional HTML format:
 
 ${context}
 
 Requirements:
-- Start with 3-5 independent claims (broadest protection)
-- Follow with 10-15 dependent claims (narrow aspects)
-- Use proper format: "1. A method comprising..."
-- Single sentence per claim
-- Dependent claims: "2. The method of claim 1, wherein..."
-- Cover apparatus, method, and system claims
-- Use clear antecedent basis
-- For software/backend inventions, include data structure claims`,
+- 800-1200 words minimum
+- Use <h3> for subsection titles (e.g., "Technical Problem", "Prior Art Limitations", "Industry Need")
+- Use <p> tags for paragraphs
+- Use <strong> for emphasis on key problems
+- Use <ul> and <li> for listing multiple issues or limitations
+- Thoroughly describe:
+  * The technical problem in detail
+  * Current solutions and their specific limitations
+  * Industry challenges and unmet needs
+  * Technical gaps in existing approaches
+  * Why this invention is necessary
+- Build a compelling case for patentability
+- Professional legal language with technical precision
 
-    description: `Write the "Detailed Description" section:
+Return ONLY the HTML content with proper semantic tags.`,
 
-${context}
-
-Requirements:
-- Extremely detailed technical description
-- Reference figures if applicable
-- Explain every element in the claims
-- Provide examples and embodiments
-- Use clear, enabling language
-- 1000-2000 words
-- Satisfy enablement requirement
-- For backend systems, describe data flows and architecture`,
-
-    drawings: `Describe patent drawings needed:
+    summary: `Write a comprehensive "Summary of the Invention" section in professional HTML format:
 
 ${context}
 
 Requirements:
-- List and describe each figure needed
-- Fig. 1: [Overview/system diagram]
-- Fig. 2-N: [Detailed views, flowcharts, etc.]
-- Provide detailed descriptions
-- Explain what each figure shows
-- Reference key elements
-- For backend systems, include architecture diagrams and data flow charts`
+- 1000-1500 words minimum
+- Use <h3> for subsections (e.g., "Overview", "Key Features", "Technical Advantages", "Embodiments")
+- Use <p> tags for paragraphs
+- Use <strong> for key features and advantages
+- Use <ul> and <li> for listing features, advantages, and embodiments
+- Thoroughly describe:
+  * Comprehensive overview of the invention
+  * All key technical features in detail
+  * Specific advantages over prior art
+  * Multiple embodiments and variations
+  * Integration capabilities
+  * Scalability and performance benefits
+  * Security and reliability features
+- Professional legal language with specific technical details
+- Each feature should be explained in 2-3 sentences
+
+Return ONLY the HTML content with proper semantic structure.`,
+
+    claims: `Write comprehensive independent and dependent patent claims in professional HTML format:
+
+${context}
+
+Requirements:
+- 5-7 independent claims (apparatus, method, system, computer program product, data structure)
+- 15-25 dependent claims providing narrow variations
+- Format each claim as: <div class="claim"><strong>1.</strong> A method comprising...</div>
+- Single sentence per claim with proper semicolons and transitional phrases
+- Dependent claims: <div class="claim"><strong>2.</strong> The method of claim 1, wherein...</div>
+- Use <strong> for claim numbers
+- Include claims for:
+  * Method claims (process steps)
+  * Apparatus claims (structural elements)
+  * System claims (interconnected components)
+  * Computer-readable medium claims
+  * Data structure claims (for software inventions)
+- Each independent claim should be 100-200 words
+- Use "comprising", "wherein", "further comprising"
+- Proper antecedent basis throughout
+- Professional claim drafting language
+
+Return ONLY the HTML content with proper claim formatting.`,
+
+    description: `Write an extremely detailed "Detailed Description of the Invention" section in professional HTML format:
+
+${context}
+
+Requirements:
+- 2500-4000 words minimum
+- Use <h3> for major sections (e.g., "System Architecture", "Components", "Process Flow", "Embodiments", "Examples")
+- Use <h4> for subsections within major sections
+- Use <p> tags for paragraphs
+- Use <strong> for component names, technical terms
+- Use <ul> and <li> for listing features, steps, components
+- Use <ol> and <li> for sequential processes
+- Provide exhaustive technical details:
+  * Complete system architecture
+  * Every component and its function
+  * Data structures and schemas
+  * Process flows and algorithms
+  * Integration points and APIs
+  * Multiple detailed embodiments
+  * Specific implementation examples
+  * Performance characteristics
+  * Security mechanisms
+  * Error handling
+  * Edge cases and variations
+- Reference figures (e.g., "as shown in FIG. 1")
+- Enable someone skilled in the art to make and use the invention
+- Include at least 3-5 detailed embodiments
+- Professional legal language with extreme technical precision
+
+Return ONLY the HTML content with comprehensive semantic structure.`,
+
+    drawings: `Write detailed patent drawing descriptions in professional HTML format:
+
+${context}
+
+Requirements:
+- List 8-12 figures minimum
+- Use <div> for each figure description
+- Use <h4> for figure titles (e.g., "Figure 1 - System Architecture Overview")
+- Use <p> for detailed descriptions
+- Use <strong> for reference numerals and key elements
+- Each figure description should be 150-250 words
+- Include:
+  * System architecture diagrams
+  * Component interaction diagrams
+  * Process flowcharts
+  * Data flow diagrams
+  * User interface mockups
+  * Detailed component views
+  * Alternative embodiment diagrams
+- Reference all key elements with numbers (e.g., "element 10", "component 20")
+- Professional technical drawing descriptions
+
+Return ONLY the HTML content with detailed figure descriptions.`
   };
 
   return prompts[sectionType] || `Write the ${sectionType} section based on:\n\n${context}`;

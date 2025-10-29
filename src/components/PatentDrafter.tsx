@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import DOMPurify from 'dompurify';
 import { 
   FileText, 
   Edit, 
@@ -491,11 +492,15 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="prose prose-sm max-w-none">
-                      <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">
-                        {section.content}
-                      </pre>
-                    </div>
+                    <div 
+                      className="prose prose-sm max-w-none leading-relaxed"
+                      dangerouslySetInnerHTML={{ 
+                        __html: DOMPurify.sanitize(section.content, {
+                          ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'div', 'span', 'br'],
+                          ALLOWED_ATTR: ['class']
+                        })
+                      }}
+                    />
                   )}
                 </CardContent>
               </Card>
