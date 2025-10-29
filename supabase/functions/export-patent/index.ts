@@ -57,8 +57,10 @@ serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    const isAdmin = !!adminRole;
-    console.log('User admin status:', { userId: userData.user.id, isAdmin });
+    const adminEmail = 'nash@kronoscapital.us';
+    const isAdminEmail = (userData.user.email || '').toLowerCase() === adminEmail;
+    const isAdmin = !!adminRole || isAdminEmail;
+    console.log('User admin status:', { userId: userData.user.id, email: userData.user.email, isAdmin, viaEmail: isAdminEmail });
 
     // Check payment status (bypass for admins)
     if (!isAdmin) {

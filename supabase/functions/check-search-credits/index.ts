@@ -25,7 +25,7 @@ serve(async (req) => {
       throw new Error('Not authenticated');
     }
 
-    // Check if user is admin - admins get unlimited searches
+    // Admin override: role or specific email bypasses credits/subscription checks
     const { data: adminRole } = await supabaseClient
       .from('user_roles')
       .select('role')
@@ -33,10 +33,12 @@ serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle();
 
-    const isAdmin = !!adminRole;
+    const adminEmail = 'nash@kronoscapital.us';
+    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
+    const isAdmin = !!adminRole || isAdminEmail;
 
     if (isAdmin) {
-      console.log('Admin user detected - granting unlimited searches');
+      console.log('Admin user detected - granting unlimited searches', { viaEmail: isAdminEmail });
       return new Response(JSON.stringify({
         success: true,
         has_subscription: true,

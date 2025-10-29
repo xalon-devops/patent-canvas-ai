@@ -49,8 +49,11 @@ serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    if (adminRole) {
-      logStep("Admin user detected, granting full access");
+    const adminEmail = 'nash@kronoscapital.us';
+    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
+
+    if (adminRole || isAdminEmail) {
+      logStep("Admin user detected, granting full access", { viaEmail: isAdminEmail });
       await supabaseClient.from("subscriptions").upsert({
         user_id: user.id,
         status: "active",
