@@ -84,6 +84,26 @@ const NewApplication = () => {
       }
       setUser(session.user);
 
+      // Restore form state if returning from OAuth
+      const savedState = sessionStorage.getItem('patent_flow_state');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        setCurrentStep(state.currentStep);
+        setPatentType(state.patentType);
+        setIdeaTitle(state.ideaTitle);
+        setIdeaDescription(state.ideaDescription);
+        setGithubUrl(state.githubUrl || '');
+        setSupabaseUrl(state.supabaseUrl || '');
+        setSupabaseKey(state.supabaseKey || '');
+        sessionStorage.removeItem('patent_flow_state');
+        
+        toast({
+          title: '✅ Supabase Connected!',
+          description: 'Your Supabase project has been connected successfully.',
+        });
+        return;
+      }
+
       // Check if OAuth callback succeeded
       const supabaseConnected = searchParams.get('supabase_connected');
       const error = searchParams.get('error');
@@ -228,6 +248,17 @@ const NewApplication = () => {
 
   const handleSupabaseOAuth = async () => {
     setLoading(true);
+    // Save current form state before OAuth
+    sessionStorage.setItem('patent_flow_state', JSON.stringify({
+      currentStep,
+      patentType,
+      ideaTitle,
+      ideaDescription,
+      githubUrl,
+      supabaseUrl,
+      supabaseKey
+    }));
+    
     try {
       const { data, error } = await supabase.functions.invoke('supabase-oauth-init', {
         headers: {
