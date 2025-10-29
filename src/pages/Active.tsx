@@ -238,7 +238,7 @@ const Active = () => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-lg">
@@ -252,7 +252,7 @@ const Active = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg">
@@ -268,7 +268,7 @@ const Active = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-orange-500/10 rounded-lg">
@@ -286,7 +286,7 @@ const Active = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-yellow-500/10 rounded-lg">
@@ -309,15 +309,15 @@ const Active = () => {
 
         {/* Active Patents List */}
         {activePatents.length === 0 ? (
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Active Patents</h3>
               <p className="text-muted-foreground mb-6">
                 Once your patent applications are granted, they will appear here for monitoring.
               </p>
-              <Button onClick={() => navigate('/pending')} className="gap-2">
-                <FileText className="w-4 h-4" />
+              <Button onClick={() => navigate('/pending')} className="bg-primary hover:bg-primary/90">
+                <FileText className="w-4 h-4 mr-2" />
                 View Pending Applications
               </Button>
             </CardContent>
@@ -330,7 +330,7 @@ const Active = () => {
               const maintenanceStatus = patent.maintenance_due ? getMaintenanceStatus(patent.maintenance_due) : null;
               
               return (
-                <Card key={patent.id} className="bg-white/60 border-white/20 backdrop-blur-sm">
+                <Card key={patent.id} className="bg-card/90 border-white/20 backdrop-blur-sm">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

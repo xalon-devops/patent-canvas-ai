@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { validatePatentSection, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
+import DOMPurify from 'dompurify';
 
 interface PatentSession {
   id: string;
@@ -201,7 +202,7 @@ const Claims = () => {
           const dependentClaims = claims.filter(c => c.type === 'dependent' && c.dependsOn === independentClaim.number);
           
           return (
-            <Card key={independentClaim.id} className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
+            <Card key={independentClaim.id} className="shadow-card border-0 bg-card/90 backdrop-blur-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -215,7 +216,7 @@ const Claims = () => {
                       )}
                     </CardTitle>
                     <CardDescription className="text-xs flex items-center gap-2 mt-1">
-                      <span>🧠 Mixtral 8x7B</span>
+                      <span>🧠 AI Generated</span>
                       <span>•</span>
                       <span>{format(new Date(independentClaim.timestamp), 'MMM d, h:mm a')}</span>
                     </CardDescription>
@@ -239,9 +240,10 @@ const Claims = () => {
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <p className="text-sm leading-relaxed mb-4 p-3 bg-primary/5 rounded-lg border-l-2 border-primary">
-                  {independentClaim.content}
-                </p>
+                <div 
+                  className="text-sm leading-relaxed mb-4 p-3 bg-primary/5 rounded-lg border-l-2 border-primary"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(independentClaim.content) }}
+                />
                 
                 {/* Dependent Claims */}
                 {dependentClaims.length > 0 && (
@@ -252,7 +254,7 @@ const Claims = () => {
                     </h5>
                     <div className="pl-4 border-l-2 border-muted space-y-3">
                       {dependentClaims.map((dependentClaim) => (
-                        <Card key={dependentClaim.id} className="bg-muted/20 border border-muted">
+                        <Card key={dependentClaim.id} className="bg-muted/30 border border-muted">
                           <CardHeader className="pb-2">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
@@ -265,7 +267,7 @@ const Claims = () => {
                                   )}
                                 </CardTitle>
                                 <CardDescription className="text-xs flex items-center gap-2 mt-1">
-                                  <span>🧠 Mixtral 8x7B</span>
+                                  <span>🧠 AI Generated</span>
                                   <span>•</span>
                                   <span>Depends on Claim {dependentClaim.dependsOn}</span>
                                 </CardDescription>
@@ -289,9 +291,10 @@ const Claims = () => {
                             </div>
                           </CardHeader>
                           <CardContent className="pt-0">
-                            <p className="text-sm leading-relaxed p-2 bg-background/80 rounded">
-                              {dependentClaim.content}
-                            </p>
+                            <div 
+                              className="text-sm leading-relaxed p-2 bg-background/80 rounded"
+                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(dependentClaim.content) }}
+                            />
                           </CardContent>
                         </Card>
                       ))}
@@ -334,7 +337,7 @@ const Claims = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b bg-card/90 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -360,11 +363,10 @@ const Claims = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button 
-                variant="outline" 
                 onClick={() => navigate(`/session/${id}`)}
-                className="hidden sm:flex"
+                className="bg-primary hover:bg-primary/90"
               >
-                <FileText className="h-4 w-4" />
+                <FileText className="h-4 w-4 mr-2" />
                 Back to Canvas
               </Button>
             </div>
@@ -395,12 +397,10 @@ const Claims = () => {
               <TreeDeciduous className="h-16 w-16 mx-auto mb-4 opacity-20" />
               <h3 className="text-lg font-medium mb-2">No claims found</h3>
               <p className="text-sm mb-4">Claims will appear here once the patent draft is generated</p>
-              <Link to={`/session/${id}`}>
-                <Button variant="outline">
-                  <FileText className="h-4 w-4" />
-                  Go to PatentBot AI™
-                </Button>
-              </Link>
+              <Button onClick={() => navigate(`/session/${id}`)} className="bg-primary hover:bg-primary/90">
+                <FileText className="h-4 w-4 mr-2" />
+                Go to Patent Canvas
+              </Button>
             </div>
           </div>
         )}

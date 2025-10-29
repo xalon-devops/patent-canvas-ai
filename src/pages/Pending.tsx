@@ -267,7 +267,7 @@ const Pending = () => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-lg">
@@ -281,7 +281,7 @@ const Pending = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg">
@@ -297,7 +297,7 @@ const Pending = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-500/10 rounded-lg">
@@ -313,7 +313,7 @@ const Pending = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-orange-500/10 rounded-lg">
@@ -334,15 +334,15 @@ const Pending = () => {
 
         {/* Applications List */}
         {sessions.length === 0 ? (
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Applications Yet</h3>
               <p className="text-muted-foreground mb-6">
                 Start your first patent application to begin tracking its progress.
               </p>
-              <Button onClick={() => navigate('/new-application')} className="gap-2">
-                <FileText className="w-4 h-4" />
+              <Button onClick={() => navigate('/new-application')} className="bg-primary hover:bg-primary/90">
+                <FileText className="w-4 h-4 mr-2" />
                 Create Your First Application
               </Button>
             </CardContent>
@@ -354,7 +354,7 @@ const Pending = () => {
               const highSimilarityCount = sessionPriorArt.filter(r => r.similarity_score > 0.7).length;
               
               return (
-                <Card key={session.id} className="bg-white/60 border-white/20 backdrop-blur-sm">
+                <Card key={session.id} className="bg-card/90 border-white/20 backdrop-blur-sm">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
