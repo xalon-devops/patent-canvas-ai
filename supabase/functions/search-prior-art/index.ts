@@ -147,47 +147,42 @@ serve(async (req) => {
 
     console.log('Derived keywords for search:', keywords);
 
-    // Query PatentsView API using title/abstract text search
-    const queryObj = {
-      _or: [
-        { _text_any: { patent_title: keywords } },
-        { _text_any: { patent_abstract: keywords } }
-      ]
-    } as any;
-
-    const fields = [
-      'patent_number',
-      'patent_title',
-      'patent_abstract',
-      'patent_date'
-    ];
-
-    const options = { per_page: 10 };
-
+    // Query PatentsView API v2 using title/abstract text search
     let apiResults: any[] = [];
     try {
-      const url = `https://api.patentsview.org/patents/query?q=${encodeURIComponent(JSON.stringify(queryObj))}&f=${encodeURIComponent(JSON.stringify(fields))}&o=${encodeURIComponent(JSON.stringify(options))}`;
-      const apiResp = await fetch(url, { method: 'GET' });
-      if (!apiResp.ok) throw new Error(`PatentsView HTTP ${apiResp.status}`);
-      const apiJson = await apiResp.json();
-      apiResults = apiJson?.patents || [];
-      console.log('PatentsView results:', apiResults.length);
+      // PatentsView API v2 endpoint (v1 is deprecated with 410 Gone)
+      const searchTerms = keywords.split(' ').slice(0, 10).join(' ');
+      const url = `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(searchTerms)}&f=["patent_number","patent_title","patent_abstract","patent_date"]&per_page=10`;
+      
+      console.log('Querying PatentsView API v2...');
+      const apiResp = await fetch(url, { 
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!apiResp.ok) {
+        console.error(`PatentsView HTTP ${apiResp.status}: ${await apiResp.text()}`);
+      } else {
+        const apiJson = await apiResp.json();
+        apiResults = apiJson?.patents || apiJson?.results || [];
+        console.log('✓ PatentsView results:', apiResults.length);
+      }
     } catch (apiErr) {
-      console.error('PatentsView API error, will fallback to heuristic:', apiErr);
+      console.error('PatentsView API error, will fallback to heuristic:', apiErr instanceof Error ? apiErr.message : String(apiErr));
       apiResults = [];
     }
 
-    // Generate semantic embedding using Lovable AI for smarter search
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    // Generate semantic embedding using OpenAI for smarter search (not Lovable AI)
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     let queryEmbedding: number[] | null = null;
 
-    if (LOVABLE_API_KEY) {
+    if (OPENAI_API_KEY) {
       try {
-        console.log('Generating semantic embedding with Lovable AI...');
-        const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+        console.log('Generating semantic embedding with OpenAI...');
+        const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -201,11 +196,14 @@ serve(async (req) => {
           queryEmbedding = embeddingData.data?.[0]?.embedding;
           console.log('✓ Query embedding generated');
         } else {
-          console.error('Embedding API error:', embeddingResponse.status);
+          const errorText = await embeddingResponse.text();
+          console.error(`Embedding API error ${embeddingResponse.status}:`, errorText);
         }
       } catch (err) {
-        console.error('Error generating embedding:', err);
+        console.error('Error generating embedding:', err instanceof Error ? err.message : String(err));
       }
+    } else {
+      console.log('OpenAI API key not available, using keyword-only search');
     }
 
     // Compute similarity scores: semantic (AI) + keyword (Jaccard)
@@ -238,14 +236,14 @@ serve(async (req) => {
       // Keyword score (Jaccard)
       const keywordScore = jaccard(contextTokens, absTokens);
       
-      // Semantic score (AI embeddings)
+      // Semantic score (AI embeddings via OpenAI)
       let semanticScore = 0;
-      if (queryEmbedding && LOVABLE_API_KEY) {
+      if (queryEmbedding && OPENAI_API_KEY) {
         try {
-          const patentEmbResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+          const patentEmbResponse = await fetch('https://api.openai.com/v1/embeddings', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -260,9 +258,12 @@ serve(async (req) => {
             if (patentEmbedding) {
               semanticScore = cosineSimilarity(queryEmbedding, patentEmbedding);
             }
+          } else {
+            const errorText = await patentEmbResponse.text();
+            console.error(`Patent embedding error ${patentEmbResponse.status}:`, errorText);
           }
         } catch (err) {
-          console.error('Error generating patent embedding:', err);
+          console.error('Error generating patent embedding:', err instanceof Error ? err.message : String(err));
         }
       }
       
@@ -397,11 +398,18 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in prior art search:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorDetails = error instanceof Error ? error.stack : 'No stack trace';
+    
+    console.error('Error in prior art search:', errorMessage);
+    console.error('Error details:', errorDetails);
+    
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: 'Internal server error', 
-        details: error instanceof Error ? error.message : String(error)
+        details: errorMessage,
+        message: 'Failed to complete prior art search'
       }), 
       { 
         status: 500, 
