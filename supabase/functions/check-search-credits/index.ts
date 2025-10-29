@@ -25,6 +25,32 @@ serve(async (req) => {
       throw new Error('Not authenticated');
     }
 
+    // Check if user is admin - admins get unlimited searches
+    const { data: adminRole } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    const isAdmin = !!adminRole;
+
+    if (isAdmin) {
+      console.log('Admin user detected - granting unlimited searches');
+      return new Response(JSON.stringify({
+        success: true,
+        has_subscription: true,
+        free_searches_remaining: 999999,
+        searches_used: 0,
+        can_search: true,
+        subscription_status: 'admin',
+        plan: 'admin'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Check subscription status
     const { data: subscription } = await supabaseClient
       .from('subscriptions')

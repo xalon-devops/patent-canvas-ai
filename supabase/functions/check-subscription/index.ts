@@ -41,6 +41,36 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Check if user is admin - admins bypass all paywalls
+    const { data: adminRole } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .single();
+
+    if (adminRole) {
+      logStep("Admin user detected, granting full access");
+      await supabaseClient.from("subscriptions").upsert({
+        user_id: user.id,
+        status: "active",
+        plan: "admin",
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        stripe_subscription_id: null,
+      }, { onConflict: 'user_id' });
+
+      return new Response(JSON.stringify({
+        hasSubscription: true,
+        subscribed: true,
+        plan: "admin",
+        current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     

@@ -49,22 +49,37 @@ serve(async (req) => {
       );
     }
 
-    // Check payment status
-    const { data: payment } = await supabase
-      .from('application_payments')
-      .select('status')
-      .eq('application_id', session_id)
+    // Check if user is admin - admins bypass payment requirements
+    const { data: adminRole } = await supabase
+      .from('user_roles')
+      .select('role')
       .eq('user_id', userData.user.id)
+      .eq('role', 'admin')
       .single();
 
-    if (!payment || payment.status !== 'completed') {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Payment required',
-          message: 'Please complete the $1,000 payment to export your patent application'
-        }), 
-        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const isAdmin = !!adminRole;
+    console.log('User admin status:', { userId: userData.user.id, isAdmin });
+
+    // Check payment status (bypass for admins)
+    if (!isAdmin) {
+      const { data: payment } = await supabase
+        .from('application_payments')
+        .select('status')
+        .eq('application_id', session_id)
+        .eq('user_id', userData.user.id)
+        .single();
+
+      if (!payment || payment.status !== 'completed') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Payment required',
+            message: 'Please complete the $1,000 payment to export your patent application'
+          }), 
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      console.log('Admin user - bypassing payment check');
     }
 
     // Fetch patent session and sections
