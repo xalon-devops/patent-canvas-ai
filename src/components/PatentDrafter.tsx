@@ -23,6 +23,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PaymentGateDialog } from './PaymentGateDialog';
 
 interface PatentSection {
   id: string;
@@ -50,6 +51,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
   const [savingDraft, setSavingDraft] = useState(false);
   const [redrafting, setRedrafting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const { toast } = useToast();
 
   const sectionConfig = {
@@ -268,6 +271,46 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
     } finally {
       setRedrafting(false);
       setProgress(0);
+    }
+  };
+
+  const handleExportDraft = async () => {
+    setExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('export-patent', {
+        body: { session_id: sessionId }
+      });
+
+      if (error) {
+        // Check if it's a payment required error
+        if (error.message?.includes('Payment required') || error.message?.includes('402')) {
+          setShowPaymentDialog(true);
+          return;
+        }
+        throw error;
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Export failed');
+      }
+
+      // Download the file
+      window.open(data.download_url, '_blank');
+
+      toast({
+        title: "Export successful!",
+        description: "Your patent application has been exported.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export failed",
+        description: error.message || 'Failed to export patent application',
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -552,16 +595,20 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
               <Button
                 variant="outline"
                 className="gap-2"
-                onClick={() => {
-                  // Future: Export functionality
-                  toast({
-                    title: "Export feature coming soon",
-                    description: "Export to PDF/DOCX will be available soon.",
-                  });
-                }}
+                onClick={handleExportDraft}
+                disabled={exporting}
               >
-                <Download className="w-4 h-4" />
-                Export Draft
+                {exporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Export Draft
+                  </>
+                )}
               </Button>
               <Button
                 onClick={handleSaveDraft}
@@ -584,6 +631,16 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      <PaymentGateDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        applicationId={sessionId}
+        onPaymentSuccess={() => {
+          setShowPaymentDialog(false);
+          handleExportDraft();
+        }}
+      />
     </motion.div>
   );
 };
