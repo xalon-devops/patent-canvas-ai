@@ -24,20 +24,33 @@ serve(async (req) => {
     console.log('[ENHANCED DRAFT - LOVABLE AI] Starting iterative patent generation');
 
     // Fetch session data
-    const { data: sessionData } = await supabaseClient
+    const { data: sessionData, error: sessionError } = await supabaseClient
       .from('patent_sessions')
-      .select('*, ai_questions(*)')
+      .select('*')
       .eq('id', session_id)
       .single();
 
-    if (!sessionData) {
-      throw new Error('Session not found');
+    if (sessionError || !sessionData) {
+      console.error('[ENHANCED DRAFT] Session fetch error:', sessionError);
+      throw new Error(`Session not found: ${sessionError?.message || 'Unknown error'}`);
+    }
+
+    console.log('[ENHANCED DRAFT] Session found, fetching AI questions');
+
+    // Fetch AI questions separately
+    const { data: aiQuestions, error: questionsError } = await supabaseClient
+      .from('ai_questions')
+      .select('*')
+      .eq('session_id', session_id);
+
+    if (questionsError) {
+      console.error('[ENHANCED DRAFT] Questions fetch error:', questionsError);
     }
 
     // Build context
-    let context = `INVENTION IDEA: ${sessionData.idea_prompt}\n\n`;
+    let context = `INVENTION IDEA: ${sessionData.idea_prompt || 'Not provided'}\n\n`;
     context += 'Q&A DETAILS:\n';
-    sessionData.ai_questions?.forEach((q: any) => {
+    aiQuestions?.forEach((q: any) => {
       if (q.answer) {
         context += `Q: ${q.question}\nA: ${q.answer}\n\n`;
       }
