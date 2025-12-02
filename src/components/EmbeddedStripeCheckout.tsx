@@ -4,8 +4,8 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripeConfig';
 
-const STRIPE_PUBLISHABLE_KEY = 'pk_live_51RdXE2KFoovQj4C21CsJdSVAwgULoWVdDMVUuoQZjd2NBxehG1zipBXiAY6Te23TFXzRDMHMh7V9D6EF9NH8I05w00R8CbWKYS';
 const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 interface EmbeddedStripeCheckoutProps {

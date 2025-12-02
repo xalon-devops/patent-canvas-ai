@@ -49,10 +49,10 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const origin = req.headers.get("origin") || "https://jdkogqskjsmwlhigaecb.supabase.co";
+    const appDomain = "https://patentbot-ai.lovable.app";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/pricing`,
+      return_url: `${appDomain}/settings`,
     });
     logStep("Customer portal session created", { sessionId: portalSession.id, url: portalSession.url });
 
