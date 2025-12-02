@@ -185,12 +185,17 @@ function MyComponent() {
 
 - [x] Create centralized `usePatentData` hook
 - [x] Create data registry documentation
-- [ ] Update Dashboard to show dynamic portfolio stats
-- [ ] Update Pending to use centralized hook
-- [ ] Update Active to use centralized hook
-- [ ] Update Ideas to use centralized hook
-- [ ] Update Drafts to use centralized hook
+- [x] Update Dashboard to show dynamic portfolio stats
+- [x] Update Pending to use centralized hook
+- [x] Update Active to use centralized hook
+- [x] Update Ideas to use centralized hook
+- [x] Update Drafts to use centralized hook
+- [x] Update Check to use centralized hook (subscription/credits)
 - [ ] Add real-time subscriptions for live updates
+
+**Note:** Admin.tsx and Session.tsx have special data requirements:
+- Admin: Fetches ALL sessions (admin-level access), uses separate admin queries
+- Session: Individual session detail, uses `usePatentSession` hook
 
 ---
 
