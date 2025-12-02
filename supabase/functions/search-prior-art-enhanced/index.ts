@@ -364,68 +364,104 @@ serve(async (req) => {
   }
 });
 
-// PatentsView API - USPTO patents
+// PatentsView API v2 - USPTO patents (new endpoint)
 async function searchPatentsView(keywords: string[], context: string): Promise<any[]> {
   try {
-    // Build proper query - use top 3 keywords
-    const topKeywords = keywords.slice(0, 3);
-    const queryTerms = topKeywords.map(k => ({
+    const topKeywords = keywords.slice(0, 5);
+    
+    // Build query for new API format
+    const searchTerms = topKeywords.length > 0 
+      ? topKeywords.join(' OR ')
+      : context.split(' ').slice(0, 5).join(' ');
+
+    // New PatentsView API endpoint
+    const query = {
       "_or": [
-        { "patent_title": k },
-        { "patent_abstract": k }
+        { "_text_any": { "patent_title": searchTerms } },
+        { "_text_any": { "patent_abstract": searchTerms } }
       ]
-    }));
-
-    const query = queryTerms.length > 1 
-      ? { "_and": queryTerms }
-      : queryTerms[0] || { "patent_title": context.split(' ')[0] };
-
-    const url = `https://api.patentsview.org/patents/query`;
-    const params = {
-      q: JSON.stringify(query),
-      f: JSON.stringify(["patent_number", "patent_title", "patent_abstract", "patent_date", "assignee_organization"]),
-      o: JSON.stringify({ per_page: 15, page: 1 }),
-      s: JSON.stringify([{ patent_date: "desc" }])
     };
 
-    const queryString = Object.entries(params)
-      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-      .join('&');
+    const url = `https://search.patentsview.org/api/v1/patent/`;
+    const params = new URLSearchParams({
+      q: JSON.stringify(query),
+      f: JSON.stringify(["patent_id", "patent_title", "patent_abstract", "patent_date", "assignees"]),
+      o: JSON.stringify({ size: 15 }),
+      s: JSON.stringify([{ patent_date: "desc" }])
+    });
 
-    console.log('[PatentsView] Searching with keywords:', topKeywords);
+    console.log('[PatentsView v2] Searching:', searchTerms.substring(0, 50));
     
-    const response = await fetch(`${url}?${queryString}`, {
+    const response = await fetch(`${url}?${params}`, {
       headers: { 'Accept': 'application/json' }
     });
     
     if (!response.ok) {
-      console.error('[PatentsView] API error:', response.status);
-      return [];
+      const errorText = await response.text();
+      console.error('[PatentsView v2] API error:', response.status, errorText.substring(0, 200));
+      // Fallback to Google Patents scraping
+      return await searchGooglePatentsFallback(topKeywords);
     }
 
     const data = await response.json();
+    console.log('[PatentsView v2] Found:', data.patents?.length || 0, 'results');
     
     return (data.patents || []).map((p: any) => ({
       title: p.patent_title || 'Untitled Patent',
-      publication_number: `US${p.patent_number}`,
+      publication_number: `US${p.patent_id}`,
       summary: p.patent_abstract || 'No abstract available',
-      url: `https://patents.google.com/patent/US${p.patent_number}`,
+      url: `https://patents.google.com/patent/US${p.patent_id}`,
       patent_date: p.patent_date,
-      assignee: Array.isArray(p.assignees) ? p.assignees[0]?.assignee_organization : 
-                p.assignee_organization?.[0]?.assignee_organization || 'Unknown'
+      assignee: p.assignees?.[0]?.assignee_organization || 'Unknown'
     }));
   } catch (error) {
-    console.error('[PatentsView] Error:', error);
+    console.error('[PatentsView v2] Error:', error);
+    return await searchGooglePatentsFallback(keywords);
+  }
+}
+
+// Fallback: Use Google Patents via SerpAPI or direct search
+async function searchGooglePatentsFallback(keywords: string[]): Promise<any[]> {
+  try {
+    const searchQuery = keywords.slice(0, 3).join(' ');
+    console.log('[Google Patents Fallback] Searching:', searchQuery);
+    
+    // Use a simple approach - construct Google Patents URLs
+    // In production, you'd want SerpAPI or similar
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+    
+    if (SERPAPI_KEY) {
+      const url = `https://serpapi.com/search.json?engine=google_patents&q=${encodeURIComponent(searchQuery)}&api_key=${SERPAPI_KEY}`;
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return (data.organic_results || []).slice(0, 10).map((r: any) => ({
+          title: r.title || 'Untitled Patent',
+          publication_number: r.patent_id || r.publication_number || 'Unknown',
+          summary: r.snippet || 'No abstract available',
+          url: r.pdf || r.link || `https://patents.google.com/patent/${r.patent_id}`,
+          patent_date: r.filing_date || r.publication_date,
+          assignee: r.assignee || 'Unknown'
+        }));
+      }
+    }
+    
+    // No SerpAPI - return empty, Lens might still work
+    console.log('[Google Patents Fallback] No SERPAPI_KEY configured');
+    return [];
+  } catch (error) {
+    console.error('[Google Patents Fallback] Error:', error);
     return [];
   }
 }
 
-// Lens.org API
+// Lens.org API (optional - needs LENS_API_KEY)
 async function searchLensAPI(query: string): Promise<any[]> {
   const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
   
   if (!LENS_API_KEY) {
-    console.log('[Lens] No API key configured');
+    console.log('[Lens] No API key configured, skipping');
     return [];
   }
 
@@ -446,11 +482,12 @@ async function searchLensAPI(query: string): Promise<any[]> {
     });
 
     if (!response.ok) {
-      console.error('[Lens] API error:', response.status);
+      console.error('[Lens] API error:', response.status, '- skipping');
       return [];
     }
 
     const data = await response.json();
+    console.log('[Lens] Found:', data.data?.length || 0, 'results');
     
     return (data.data || []).map((p: any) => ({
       title: p.title || 'Untitled Patent',
