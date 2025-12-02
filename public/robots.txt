@@ -3,21 +3,33 @@
 
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /demo
+Allow: /check
+Allow: /auth
+
+# Disallow authenticated/private pages
 Disallow: /admin
+Disallow: /dashboard
 Disallow: /session/
+Disallow: /ideas
+Disallow: /idea/
+Disallow: /new-application
+Disallow: /settings
+Disallow: /drafts
+Disallow: /active
+Disallow: /pending
+Disallow: /claims
 Disallow: /select-supabase-project
 Disallow: /payment-return
-Disallow: /pending
-Disallow: /active
-Disallow: /claims
 
 # Crawl-delay for respectful crawling
 Crawl-delay: 1
 
-# Sitemap - Absolute URL required
-Sitemap: https://patentbot.ai/sitemap.xml
+# Sitemap location
+Sitemap: https://patentbot-ai.lovable.app/sitemap.xml
 
-# Block AI crawlers for content training
+# Block AI training crawlers (optional - keeps content exclusive)
 User-agent: GPTBot
 Disallow: /
 
