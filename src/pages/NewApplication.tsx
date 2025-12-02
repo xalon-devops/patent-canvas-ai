@@ -601,13 +601,18 @@ const NewApplication = () => {
     setLoading(true);
     try {
       // Update the existing patent session with analysis results before drafting
+      // Normalize patentability score to 0-1 range for database storage
+      const normalizedScore = sessionData.patentabilityScore 
+        ? sessionData.patentabilityScore / 100 
+        : null;
+      
       const { data: updated, error: updateErr } = await supabase
         .from('patent_sessions')
         .update({
           idea_prompt: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`,
           patent_type: sessionData.patentType,
           technical_analysis: sessionData.technicalAnalysis,
-          patentability_score: sessionData.patentabilityScore,
+          patentability_score: normalizedScore,
           data_source: {
             github_url: sessionData.githubUrl,
             files: sessionData.uploadedFiles.map(f => f.name),
