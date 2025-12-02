@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles, Play, Eye } from 'lucide-react';
@@ -270,6 +271,181 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Choose the plan that fits your needs. No hidden fees.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Patent Application */}
+            <Card className="shadow-elegant border-2 border-primary/20 bg-card/80 backdrop-blur-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary"></div>
+              <CardHeader className="text-center pb-2">
+                <Badge className="w-fit mx-auto mb-2 bg-primary/10 text-primary">Most Popular</Badge>
+                <CardTitle className="text-2xl">Patent Application</CardTitle>
+                <CardDescription>Full AI-guided patent drafting</CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="mb-6">
+                  <span className="text-5xl font-bold">$1,000</span>
+                  <span className="text-muted-foreground ml-2">one-time</span>
+                </div>
+                <ul className="text-left space-y-3 mb-6">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>AI-guided interview process</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Comprehensive prior art search</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Full patent draft (all sections)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>DOCX/PDF export for filing</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Unlimited revisions</span>
+                  </li>
+                </ul>
+                <Button 
+                  variant="gradient" 
+                  size="lg"
+                  onClick={() => navigate('/auth')}
+                  className="w-full text-lg h-12"
+                >
+                  Start Patent Application
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Check & See */}
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-2xl">Check & See</CardTitle>
+                <CardDescription>Prior patent search subscription</CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="mb-6">
+                  <span className="text-5xl font-bold">$9.99</span>
+                  <span className="text-muted-foreground ml-2">/month</span>
+                </div>
+                <ul className="text-left space-y-3 mb-6">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Unlimited patent searches</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Similarity analysis reports</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Global patent database access</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>AI-powered novelty assessment</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <span>Cancel anytime</span>
+                  </li>
+                </ul>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={() => navigate('/auth')}
+                  className="w-full text-lg h-12"
+                >
+                  Start Searching
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Trusted by Innovators
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              See what our users say about PatentBot AI
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  "PatentBot AI cut my patent drafting time by 80%. The AI interview process really helped me articulate my invention clearly."
+                </p>
+                <div className="font-semibold">Sarah M.</div>
+                <div className="text-sm text-muted-foreground">Software Engineer & Inventor</div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  "The prior art search saved me from filing a patent that already existed. Worth every penny for the Check & See subscription."
+                </p>
+                <div className="font-semibold">David K.</div>
+                <div className="text-sm text-muted-foreground">Startup Founder</div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  "Professional quality drafts at a fraction of the cost. My patent attorney was impressed with the thoroughness."
+                </p>
+                <div className="font-semibold">Jennifer L.</div>
+                <div className="text-sm text-muted-foreground">Medical Device Inventor</div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-primary text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-glow opacity-10"></div>
@@ -278,18 +454,28 @@ const Index = () => {
             Ready to Protect Your Innovation?
           </h2>
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-            Transform your innovative ideas into professional patent applications with AI-powered assistance
+            Join thousands of inventors using AI to draft professional patent applications
           </p>
-          <Button 
-            variant="secondary"
-            size="lg"
-            onClick={() => navigate('/auth')}
-            className="text-lg h-14 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20 hover:shadow-glow transition-smooth"
-          >
-            <Sparkles className="h-5 w-5" />
-            Get Started Free
-            <ArrowRight className="h-5 w-5" />
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              variant="secondary"
+              size="lg"
+              onClick={() => navigate('/auth')}
+              className="text-lg h-14 px-8 bg-white text-primary hover:bg-white/90 hover:shadow-glow transition-smooth"
+            >
+              <Sparkles className="h-5 w-5" />
+              Start Patent Application — $1,000
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+            <Button 
+              variant="secondary"
+              size="lg"
+              onClick={() => navigate('/auth')}
+              className="text-lg h-14 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20 transition-smooth"
+            >
+              Try Check & See — $9.99/mo
+            </Button>
+          </div>
         </div>
       </section>
 
