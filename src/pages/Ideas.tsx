@@ -22,6 +22,7 @@ import {
 import { format } from 'date-fns';
 import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
+import { PageSEO } from '@/components/SEO';
 
 const Ideas = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -94,6 +95,7 @@ const Ideas = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Ideas />
       <div className="safe-area py-8">
         <div className="content-width">
           {/* Header */}

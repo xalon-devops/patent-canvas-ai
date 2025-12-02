@@ -12,6 +12,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign } from 'lucide-react';
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
+import { PageSEO } from '@/components/SEO';
 
 // Admin button - only shows for users with admin role
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -208,6 +209,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Dashboard />
       {/* Header */}
       <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
         <div className="safe-area px-4 sm:px-6">

@@ -22,6 +22,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PageSEO } from '@/components/SEO';
 
 const Drafts = () => {
   const navigate = useNavigate();
@@ -130,6 +131,7 @@ const Drafts = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Drafts />
       {/* Header */}
       <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
         <div className="safe-area px-4 sm:px-6">

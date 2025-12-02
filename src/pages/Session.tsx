@@ -29,6 +29,7 @@ import SystemMessage from '@/components/SystemMessage';
 import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PaymentGateDialog } from '@/components/PaymentGateDialog';
+import { PageSEO } from '@/components/SEO';
 
 interface PatentSession {
   id: string;
@@ -827,6 +828,7 @@ const Session = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Session />
       {/* Header - Mobile Optimized */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="w-full px-3 sm:px-4 py-3 sm:py-4">

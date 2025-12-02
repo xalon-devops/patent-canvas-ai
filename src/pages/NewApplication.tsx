@@ -32,6 +32,7 @@ import AIQuestionInterface from '@/components/AIQuestionInterface';
 import PriorArtAnalysis from '@/components/PriorArtAnalysis';
 import PatentabilityAssessment from '@/components/PatentabilityAssessment';
 import PatentDrafter from '@/components/PatentDrafter';
+import { PageSEO } from '@/components/SEO';
 
 type PatentType = 'software' | 'non-software' | null;
 
@@ -1120,6 +1121,7 @@ const NewApplication = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <PageSEO.NewApplication />
       <div className="container mx-auto p-6 max-w-6xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
