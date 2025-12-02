@@ -272,7 +272,7 @@ const Check = () => {
                 <Button 
                   onClick={handleSearch}
                   disabled={searching || !searchQuery.trim()}
-                  className="w-full bg-secondary hover:bg-secondary/90"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {searching ? (
                     <>

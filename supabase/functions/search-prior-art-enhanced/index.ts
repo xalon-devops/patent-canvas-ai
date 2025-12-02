@@ -34,12 +34,21 @@ serve(async (req) => {
 
     console.log('[ENHANCED SEARCH] Starting multi-source patent search');
 
-    // Check/deduct search credits
-    const { data: credits } = await supabaseClient
-      .from('user_search_credits')
-      .select('*')
+    // Admin override: role or specific email bypasses credits/subscription checks
+    const { data: adminRole } = await supabaseClient
+      .from('user_roles')
+      .select('role')
       .eq('user_id', user.id)
+      .eq('role', 'admin')
       .maybeSingle();
+
+    const adminEmail = 'nash@kronoscapital.us';
+    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
+    const isAdmin = !!adminRole || isAdminEmail;
+
+    if (isAdmin) {
+      console.log('[ENHANCED SEARCH] Admin user detected - bypassing credit check');
+    }
 
     // Check subscription status
     const { data: subscription } = await supabaseClient
@@ -49,7 +58,35 @@ serve(async (req) => {
       .eq('status', 'active')
       .maybeSingle();
 
-    const hasActiveSubscription = !!subscription;
+    const hasActiveSubscription = !!subscription || isAdmin;
+
+    // Check/create search credits (auto-create if not exists)
+    let { data: credits } = await supabaseClient
+      .from('user_search_credits')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // Create credits record if it doesn't exist (new user gets 3 free searches)
+    if (!credits) {
+      console.log('[ENHANCED SEARCH] Creating new credits record for user');
+      const { data: newCredits, error: createError } = await supabaseClient
+        .from('user_search_credits')
+        .insert({
+          user_id: user.id,
+          searches_used: 0,
+          free_searches_remaining: 3
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('[ENHANCED SEARCH] Failed to create credits:', createError);
+        throw new Error('Failed to initialize search credits');
+      }
+      credits = newCredits;
+    }
+
     const hasCredits = credits && credits.free_searches_remaining > 0;
 
     if (!hasActiveSubscription && !hasCredits) {
@@ -63,7 +100,7 @@ serve(async (req) => {
       });
     }
 
-    // Deduct credit if using free trial
+    // Deduct credit if using free trial (not for subscribers or admins)
     if (!hasActiveSubscription && hasCredits) {
       await supabaseClient
         .from('user_search_credits')
