@@ -11,6 +11,7 @@ import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2 } from 'lu
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
+import { PageSEO } from '@/components/SEO';
 
 const Check = () => {
   // Use centralized data hook - single source of truth
@@ -114,6 +115,7 @@ const Check = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Check />
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
