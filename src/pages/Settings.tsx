@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { ArrowLeft, Bell, Mail, FileText, CreditCard, Shield, Loader2 } from 'lucide-react';
+import { PageSEO } from '@/components/SEO';
 
 interface EmailPreferences {
   draft_complete: boolean;
@@ -127,6 +128,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Settings />
       <div className="safe-area py-8">
         <div className="content-width max-w-2xl mx-auto">
           {/* Header */}

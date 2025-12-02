@@ -99,6 +99,7 @@ export const PageSEO = {
     />
   ),
   
+  // Authenticated pages (noindex)
   Dashboard: () => (
     <SEO
       title="Dashboard"
@@ -109,6 +110,13 @@ export const PageSEO = {
   Ideas: () => (
     <SEO
       title="Ideas Lab"
+      noindex={true}
+    />
+  ),
+  
+  IdeaDetail: () => (
+    <SEO
+      title="Idea Details"
       noindex={true}
     />
   ),
@@ -130,6 +138,48 @@ export const PageSEO = {
   Settings: () => (
     <SEO
       title="Settings"
+      noindex={true}
+    />
+  ),
+  
+  Admin: () => (
+    <SEO
+      title="Admin Dashboard"
+      noindex={true}
+    />
+  ),
+  
+  Drafts: () => (
+    <SEO
+      title="My Drafts"
+      noindex={true}
+    />
+  ),
+  
+  Active: () => (
+    <SEO
+      title="Active Applications"
+      noindex={true}
+    />
+  ),
+  
+  Pending: () => (
+    <SEO
+      title="Pending Applications"
+      noindex={true}
+    />
+  ),
+  
+  Claims: () => (
+    <SEO
+      title="Patent Claims"
+      noindex={true}
+    />
+  ),
+  
+  PaymentReturn: () => (
+    <SEO
+      title="Payment Complete"
       noindex={true}
     />
   ),

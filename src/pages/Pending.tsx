@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePatentData, PatentSession, PriorArtResult } from '@/hooks/usePatentData';
+import { PageSEO } from '@/components/SEO';
 
 const Pending = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -144,6 +145,7 @@ const Pending = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Pending />
       <div className="safe-area py-8">
         <div className="content-width">
           {/* Header */}

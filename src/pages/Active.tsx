@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { format, addYears } from 'date-fns';
 import { usePatentData, PatentSession, InfringementAlert } from '@/hooks/usePatentData';
+import { PageSEO } from '@/components/SEO';
 
 interface ActivePatent extends PatentSession {
   patent_number?: string;
@@ -144,6 +145,7 @@ const Active = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Active />
       <div className="safe-area py-8">
         <div className="content-width">
           {/* Header */}
