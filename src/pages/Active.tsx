@@ -17,44 +17,40 @@ import {
   FileText,
   Search,
   ExternalLink,
-  Clock
+  Clock,
+  Loader
 } from 'lucide-react';
 import { format, addYears } from 'date-fns';
+import { usePatentData, PatentSession, InfringementAlert } from '@/hooks/usePatentData';
 
-interface ActivePatent {
-  id: string;
-  user_id: string;
-  idea_prompt: string;
-  status: string;
-  patent_type: string | null;
-  patentability_score: number | null;
-  created_at: string;
+interface ActivePatent extends PatentSession {
   patent_number?: string;
   grant_date?: string;
   maintenance_due?: string;
 }
 
-interface InfringementAlert {
-  id: string;
-  patent_session_id: string;
-  alert_type: string;
-  severity: string;
-  title: string;
-  description: string;
-  source_url: string | null;
-  confidence_score: number | null;
-  is_read: boolean;
-  created_at: string;
-}
-
 const Active = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [activePatents, setActivePatents] = useState<ActivePatent[]>([]);
-  const [infringementAlerts, setInfringementAlerts] = useState<{[key: string]: InfringementAlert[]}>({});
-  const [loading, setLoading] = useState(true);
   const [scanningInfringement, setScanningInfringement] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Use centralized data hook
+  const { 
+    completedSessions, 
+    alertsBySession: infringementAlerts, 
+    stats,
+    loading,
+    refetch 
+  } = usePatentData(user?.id);
+
+  // Transform completed sessions to active patents with mock data
+  const activePatents: ActivePatent[] = completedSessions.map((session, index) => ({
+    ...session,
+    patent_number: `US${(11000000 + index + Math.floor(Math.random() * 100000)).toString()}`,
+    grant_date: session.created_at ? addYears(new Date(session.created_at), 2).toISOString() : undefined,
+    maintenance_due: session.created_at ? addYears(new Date(session.created_at), 6).toISOString() : undefined,
+  }));
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -64,66 +60,10 @@ const Active = () => {
         return;
       }
       setUser(session.user);
-      await fetchActivePatents(session.user.id);
     };
 
     checkAuth();
   }, [navigate]);
-
-  const fetchActivePatents = async (userId: string) => {
-    try {
-      // For demo purposes, we'll filter completed patent sessions as "active patents"
-      const { data, error } = await supabase
-        .from('patent_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Simulate active patents by adding patent numbers and grant dates
-      const activePatentsData = (data || []).map((session, index) => ({
-        ...session,
-        patent_number: `US${(11000000 + index + Math.floor(Math.random() * 100000)).toString()}`,
-        grant_date: addYears(new Date(session.created_at), 2).toISOString(),
-        maintenance_due: addYears(new Date(session.created_at), 6).toISOString(),
-      }));
-
-      setActivePatents(activePatentsData);
-
-      // Fetch infringement alerts for these patents
-      if (activePatentsData.length > 0) {
-        const sessionIds = activePatentsData.map(p => p.id);
-        const { data: alertData, error: alertError } = await supabase
-          .from('infringement_alerts')
-          .select('*')
-          .in('patent_session_id', sessionIds)
-          .order('created_at', { ascending: false });
-
-        if (alertError) throw alertError;
-
-        // Group alerts by patent session
-        const grouped = (alertData || []).reduce((acc, alert) => {
-          if (!acc[alert.patent_session_id]) {
-            acc[alert.patent_session_id] = [];
-          }
-          acc[alert.patent_session_id].push(alert);
-          return acc;
-        }, {} as {[key: string]: InfringementAlert[]});
-
-        setInfringementAlerts(grouped);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error loading active patents",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const scanForInfringement = async (patentId: string) => {
     setScanningInfringement(patentId);
@@ -157,9 +97,7 @@ const Active = () => {
       });
 
       // Refresh data
-      if (user) {
-        await fetchActivePatents(user.id);
-      }
+      await refetch();
       
     } catch (error: any) {
       console.error('Error scanning for infringement:', error);
@@ -245,7 +183,7 @@ const Active = () => {
                   <Shield className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{activePatents.length}</p>
+                  <p className="text-2xl font-bold">{stats.activePatents}</p>
                   <p className="text-sm text-muted-foreground">Active Patents</p>
                 </div>
               </div>
@@ -259,9 +197,7 @@ const Active = () => {
                   <DollarSign className="w-6 h-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    ${(activePatents.length * 125000).toLocaleString()}
-                  </p>
+                  <p className="text-2xl font-bold">${stats.portfolioValue.toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">Portfolio Value</p>
                 </div>
               </div>
@@ -275,11 +211,7 @@ const Active = () => {
                   <AlertTriangle className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {Object.values(infringementAlerts).reduce((total, alerts) => 
-                      total + alerts.filter(a => !a.is_read).length, 0
-                    )}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.unreadAlerts}</p>
                   <p className="text-sm text-muted-foreground">New Alerts</p>
                 </div>
               </div>

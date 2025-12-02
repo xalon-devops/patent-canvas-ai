@@ -20,35 +20,22 @@ import {
   Loader
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface PatentSession {
-  id: string;
-  user_id: string;
-  idea_prompt: string;
-  status: string;
-  patent_type: string | null;
-  patentability_score: number | null;
-  download_url: string | null;
-  created_at: string;
-}
-
-interface PriorArtResult {
-  id: string;
-  session_id: string;
-  title: string;
-  similarity_score: number;
-  publication_number: string;
-  created_at: string;
-}
+import { usePatentData, PatentSession, PriorArtResult } from '@/hooks/usePatentData';
 
 const Pending = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [sessions, setSessions] = useState<PatentSession[]>([]);
-  const [priorArtResults, setPriorArtResults] = useState<{[key: string]: PriorArtResult[]}>({});
-  const [loading, setLoading] = useState(true);
   const [searchingPriorArt, setSearchingPriorArt] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Use centralized data hook
+  const { 
+    pendingSessions: sessions, 
+    priorArtBySession: priorArtResults, 
+    stats, 
+    loading,
+    refetch 
+  } = usePatentData(user?.id);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -58,86 +45,10 @@ const Pending = () => {
         return;
       }
       setUser(session.user);
-      await fetchSessions(session.user.id);
     };
 
     checkAuth();
   }, [navigate]);
-
-  const fetchSessions = async (userId: string) => {
-    setLoading(true);
-    try {
-      // Fetch both patent_sessions and patent_ideas to show all applications
-      const [sessionsResult, ideasResult] = await Promise.all([
-        supabase
-          .from('patent_sessions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('patent_ideas')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-      ]);
-
-      if (sessionsResult.error) throw sessionsResult.error;
-      if (ideasResult.error) throw ideasResult.error;
-
-      // Convert patent_ideas to match PatentSession format for display
-      const convertedIdeas = (ideasResult.data || []).map(idea => ({
-        id: idea.id,
-        user_id: idea.user_id,
-        created_at: idea.created_at,
-        idea_prompt: idea.description,
-        status: idea.status === 'monitoring' ? 'in_progress' : idea.status,
-        patent_type: idea.patent_type,
-        patentability_score: null,
-        download_url: null,
-        ai_analysis_complete: false,
-        data_source: idea.data_source || {},
-        visual_analysis: {},
-        technical_analysis: null
-      }));
-
-      // Combine and sort all applications by creation date
-      const allSessions = [...(sessionsResult.data || []), ...convertedIdeas]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      setSessions(allSessions);
-
-      // Fetch prior art results for patent_sessions only
-      const sessionIds = (sessionsResult.data || []).map(s => s.id);
-      if (sessionIds.length > 0) {
-        const { data: priorArtData, error: priorArtError } = await supabase
-          .from('prior_art_results')
-          .select('*')
-          .in('session_id', sessionIds)
-          .order('similarity_score', { ascending: false });
-
-        if (priorArtError) throw priorArtError;
-
-        // Group prior art results by session
-        const grouped = (priorArtData || []).reduce((acc, result) => {
-          if (!acc[result.session_id]) {
-            acc[result.session_id] = [];
-          }
-          acc[result.session_id].push(result);
-          return acc;
-        }, {} as {[key: string]: PriorArtResult[]});
-
-        setPriorArtResults(grouped);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error loading applications",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const performPriorArtSearch = async (sessionId: string) => {
     setSearchingPriorArt(sessionId);
@@ -163,10 +74,8 @@ const Pending = () => {
         variant: "default",
       });
 
-      // Refresh the data
-      if (user) {
-        await fetchSessions(user.id);
-      }
+      // Refresh the data using centralized hook
+      await refetch();
       
     } catch (error: any) {
       console.error('Error in prior art search:', error);
@@ -274,7 +183,7 @@ const Pending = () => {
                   <FileText className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{sessions.length}</p>
+                  <p className="text-2xl font-bold">{stats.totalApplications}</p>
                   <p className="text-sm text-muted-foreground">Total Applications</p>
                 </div>
               </div>
@@ -288,9 +197,7 @@ const Pending = () => {
                   <CheckCircle className="w-6 h-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {sessions.filter(s => s.status === 'completed').length}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.completedApplications}</p>
                   <p className="text-sm text-muted-foreground">Completed</p>
                 </div>
               </div>
@@ -304,9 +211,7 @@ const Pending = () => {
                   <Loader className="w-6 h-6 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {sessions.filter(s => s.status === 'in_progress').length}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.inProgressApplications}</p>
                   <p className="text-sm text-muted-foreground">In Progress</p>
                 </div>
               </div>
@@ -320,11 +225,7 @@ const Pending = () => {
                   <AlertTriangle className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {Object.values(priorArtResults).reduce((total, results) => 
-                      total + results.filter(r => r.similarity_score > 0.7).length, 0
-                    )}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.highSimilarityCount}</p>
                   <p className="text-sm text-muted-foreground">High Similarity</p>
                 </div>
               </div>
