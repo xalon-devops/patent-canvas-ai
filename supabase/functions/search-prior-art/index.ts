@@ -147,71 +147,86 @@ serve(async (req) => {
 
     console.log('Derived keywords for search:', keywords);
 
-    // Query patent databases via Perplexity AI
+    // Query patent databases via Lovable AI (better results)
     let apiResults: any[] = [];
-    const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!PERPLEXITY_API_KEY) {
-      console.error('PERPLEXITY_API_KEY not configured');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ 
-          error: 'Patent search API not configured. Please contact support.',
-          details: 'Missing PERPLEXITY_API_KEY'
+          error: 'Patent search AI not configured. Please contact support.',
+          details: 'Missing LOVABLE_API_KEY'
         }), 
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     try {
-      // Using Perplexity sonar-pro for patent search (updated 2025-10-29)
-      console.log('Querying patent databases via Perplexity AI...');
+      console.log('Querying patent databases via Lovable AI...');
       
-      const searchPrompt = `Search the web for existing US patents related to: ${contextText.substring(0, 1500)}
+      const searchPrompt = `Search for real US patents that are similar to this invention idea:
 
-Find 10-15 real patents by searching Google Patents website, USPTO.gov, and patent information sites. 
+${contextText.substring(0, 2000)}
 
-For EACH patent you find, extract:
-- Patent number (e.g., US1234567, US20210123456)
-- Title
-- Brief description/abstract (50-100 words)
-- Filing or publication date
-- Assignee/inventor name
+Find 8-12 REAL existing US patents from major companies and inventors. Search patent databases for:
+- Software/technology patents if this is a tech product
+- Method/process patents if this describes a method
+- System patents if this is a system architecture
 
-Return ONLY a JSON array, no other text:
+For EACH patent, provide:
+1. Patent number (format: US followed by 7-11 digits, like US10123456 or US20210123456A1)
+2. Official title from the patent
+3. Brief abstract (50-100 words)
+4. Publication/filing date (YYYY-MM-DD format)
+5. Assignee company or inventor name
+
+Return ONLY a valid JSON array with NO additional text:
 [{"patent_number":"US...","title":"...","abstract":"...","date":"YYYY-MM-DD","assignee":"..."}]`;
       
-      const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+      const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar-pro',
+          model: 'google/gemini-2.5-flash',
           messages: [
             {
               role: 'system',
-              content: 'You are a patent search expert. Search patent databases and return structured JSON data only. Be precise and factual.'
+              content: 'You are a patent search expert with access to USPTO, Google Patents, and EPO databases. Always return factual patent data as a valid JSON array. Be thorough and find relevant prior art patents.'
             },
             {
               role: 'user',
               content: searchPrompt
             }
           ],
-          temperature: 0.2,
-          max_tokens: 4000,
-          return_images: false,
-          return_related_questions: false
+          temperature: 0.3,
         }),
       });
 
-      if (!perplexityResponse.ok) {
-        const errorText = await perplexityResponse.text();
-        console.error(`Perplexity API HTTP ${perplexityResponse.status}:`, errorText);
+      if (!lovableResponse.ok) {
+        const errorText = await lovableResponse.text();
+        console.error(`Lovable AI HTTP ${lovableResponse.status}:`, errorText);
+        
+        // Handle rate limiting
+        if (lovableResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limited. Please try again in a moment.' }), 
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (lovableResponse.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), 
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       } else {
-        const perplexityData = await perplexityResponse.json();
-        const responseText = perplexityData.choices?.[0]?.message?.content || '';
-        console.log('Perplexity response length:', responseText.length);
+        const lovableData = await lovableResponse.json();
+        const responseText = lovableData.choices?.[0]?.message?.content || '';
+        console.log('Lovable AI response length:', responseText.length);
         
         // Parse JSON from response (handle markdown code blocks)
         let jsonText = responseText;
@@ -234,15 +249,15 @@ Return ONLY a JSON array, no other text:
               patent_date: p.date || p.filing_date || p.publication_date || null,
               assignee_organization: [p.assignee || p.inventor || 'Unknown']
             }));
-            console.log('✓ Perplexity found patents:', apiResults.length);
+            console.log('✓ Lovable AI found patents:', apiResults.length);
           }
         } catch (parseErr) {
-          console.error('Failed to parse Perplexity JSON:', parseErr);
+          console.error('Failed to parse Lovable AI JSON:', parseErr);
           console.log('Raw response:', responseText.substring(0, 500));
         }
       }
     } catch (apiErr) {
-      console.error('Perplexity API error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
+      console.error('Lovable AI error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
       apiResults = [];
     }
 
