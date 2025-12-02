@@ -16,13 +16,16 @@ import {
   ArrowLeft,
   Clock,
   Shield,
-  Search
+  Search,
+  Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
+import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 
 const Ideas = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -31,7 +34,8 @@ const Ideas = () => {
     ideas, 
     alertsByIdea,
     stats,
-    loading 
+    loading,
+    refetch
   } = usePatentData(user?.id);
 
   // Flatten alerts for display
@@ -112,13 +116,28 @@ const Ideas = () => {
               </p>
             </div>
             <Button 
+              onClick={() => setQuickCaptureOpen(true)} 
+              variant="outline"
+              className="gap-2 px-4 py-2"
+            >
+              <Plus className="w-4 h-4" />
+              Quick Capture
+            </Button>
+            <Button 
               onClick={() => navigate('/new-application')} 
               className="gap-2 px-6 py-3 bg-gradient-primary hover:scale-105 transition-transform shadow-glow"
             >
               <Lightbulb className="w-5 h-5" />
-              Capture New Idea
+              Full Patent Draft
             </Button>
           </div>
+
+          {/* Quick Idea Capture Dialog */}
+          <QuickIdeaCapture 
+            open={quickCaptureOpen} 
+            onOpenChange={setQuickCaptureOpen}
+            onSuccess={() => refetch()}
+          />
 
           {/* Enhanced Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">

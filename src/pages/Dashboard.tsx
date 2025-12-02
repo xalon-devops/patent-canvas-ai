@@ -234,6 +234,10 @@ const Dashboard = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="glass border-white/10">
+                    <DropdownMenuItem onClick={() => navigate('/settings')}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
                       <Key className="h-4 w-4 mr-2" />
                       Change Password
