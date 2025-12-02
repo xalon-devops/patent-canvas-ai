@@ -220,27 +220,27 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-gradient-to-br from-background/80 to-muted/40">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary">{results.length}</div>
+            <div className="text-3xl font-bold text-foreground">{results.length}</div>
             <div className="text-sm text-muted-foreground">Patents Found</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-red-50 to-red-100/50 border-red-200">
+        <Card className="bg-card border-red-500/50">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{highRiskCount}</div>
+            <div className="text-3xl font-bold text-red-500">{highRiskCount}</div>
             <div className="text-sm text-muted-foreground">High Risk</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100/50 border-yellow-200">
+        <Card className="bg-card border-yellow-500/50">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{mediumRiskCount}</div>
+            <div className="text-3xl font-bold text-yellow-500">{mediumRiskCount}</div>
             <div className="text-sm text-muted-foreground">Medium Risk</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
+        <Card className="bg-card border-green-500/50">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{lowRiskCount}</div>
+            <div className="text-3xl font-bold text-green-500">{lowRiskCount}</div>
             <div className="text-sm text-muted-foreground">Low Risk</div>
           </CardContent>
         </Card>
