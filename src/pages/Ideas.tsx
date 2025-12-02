@@ -19,38 +19,23 @@ import {
   Search
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface PatentIdea {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string;
-  patent_type: string;
-  data_source: any;
-  prior_art_monitoring: boolean;
-  last_monitored_at: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface MonitoringAlert {
-  id: string;
-  alert_type: string;
-  severity: string;
-  title: string;
-  description: string;
-  is_read: boolean;
-  created_at: string;
-}
+import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
 
 const Ideas = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [ideas, setIdeas] = useState<PatentIdea[]>([]);
-  const [alerts, setAlerts] = useState<MonitoringAlert[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Use centralized data hook
+  const { 
+    ideas, 
+    alertsByIdea,
+    stats,
+    loading 
+  } = usePatentData(user?.id);
+
+  // Flatten alerts for display
+  const alerts = Object.values(alertsByIdea).flat();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -60,49 +45,10 @@ const Ideas = () => {
         return;
       }
       setUser(session.user);
-      await fetchIdeas(session.user.id);
-      await fetchAlerts(session.user.id);
     };
 
     checkAuth();
   }, [navigate]);
-
-  const fetchIdeas = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('patent_ideas')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setIdeas(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error loading ideas",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAlerts = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('infringement_alerts')
-        .select('*')
-        .is('patent_session_id', null)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setAlerts(data || []);
-    } catch (error: any) {
-      console.error('Error fetching alerts:', error);
-    }
-  };
 
   const handleViewIdea = (ideaId: string) => {
     navigate(`/idea/${ideaId}`);
@@ -183,7 +129,7 @@ const Ideas = () => {
                     <Lightbulb className="w-8 h-8 text-primary" />
                   </div>
                   <div>
-                    <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">{ideas.length}</p>
+                    <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">{stats.totalIdeas}</p>
                     <p className="text-sm text-muted-foreground font-medium">Active Ideas</p>
                   </div>
                 </div>
@@ -197,9 +143,7 @@ const Ideas = () => {
                   <Eye className="w-6 h-6 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {ideas.filter(i => i.status === 'monitoring').length}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.monitoringIdeas}</p>
                   <p className="text-sm text-muted-foreground">Being Monitored</p>
                 </div>
               </div>
@@ -213,9 +157,7 @@ const Ideas = () => {
                   <FileText className="w-6 h-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {ideas.filter(i => i.status === 'drafted').length}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.draftedIdeas}</p>
                   <p className="text-sm text-muted-foreground">Drafted</p>
                 </div>
               </div>
@@ -229,9 +171,7 @@ const Ideas = () => {
                   <AlertTriangle className="w-6 h-6 text-orange-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {alerts.filter(a => !a.is_read).length}
-                  </p>
+                  <p className="text-2xl font-bold">{stats.unreadAlerts}</p>
                   <p className="text-sm text-muted-foreground">New Alerts</p>
                 </div>
               </div>

@@ -9,7 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign } from 'lucide-react';
+import { usePatentData } from '@/hooks/usePatentData';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -379,6 +380,9 @@ const Dashboard = () => {
             </p>
           </div>
 
+          {/* Dynamic Portfolio Stats */}
+          <PortfolioStatsSection userId={user?.id} />
+
           {/* Enhanced Navigation Menu */}
           <div className="grid gap-4 sm:gap-6 md:gap-8 sm:grid-cols-2 md:grid-cols-3 mb-8 sm:mb-12">
             <Card 
@@ -485,5 +489,84 @@ const Dashboard = () => {
     </div>
   );
 };
+
+// Portfolio Stats Component using centralized data hook
+function PortfolioStatsSection({ userId }: { userId: string | undefined }) {
+  const { stats, loading } = usePatentData(userId);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="glass animate-pulse">
+            <CardContent className="p-4 sm:p-6">
+              <div className="h-12 bg-muted/50 rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <Card className="glass hover:shadow-glow/20 transition-all">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 sm:p-3 bg-primary/10 rounded-xl">
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold">{stats.totalApplications}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Applications</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass hover:shadow-glow/20 transition-all">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 sm:p-3 bg-green-500/10 rounded-xl">
+              <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold">{stats.activePatents}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Active Patents</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass hover:shadow-glow/20 transition-all">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 sm:p-3 bg-accent/10 rounded-xl">
+              <Lightbulb className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold">{stats.totalIdeas}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Ideas</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass hover:shadow-glow/20 transition-all">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 sm:p-3 bg-orange-500/10 rounded-xl">
+              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold">{stats.unreadAlerts}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Alerts</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default Dashboard;
