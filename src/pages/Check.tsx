@@ -152,21 +152,21 @@ const Check = () => {
           /* Subscription Required */
           <div className="text-center space-y-8">
             <div className="space-y-4">
-              <div className="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="h-10 w-10 text-secondary" />
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <Lock className="h-10 w-10 text-primary" />
               </div>
-              <h2 className="text-3xl font-bold">Subscription Required</h2>
+              <h2 className="text-3xl font-bold text-foreground">Subscription Required</h2>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Get unlimited patent searches with our Check & See subscription. 
                 Search before you file to save time and money.
               </p>
             </div>
 
-            <Card className="max-w-md mx-auto shadow-card">
+            <Card className="max-w-md mx-auto shadow-card border-primary/20">
               <CardHeader className="text-center">
-                <CardTitle className="text-2xl">Check & See Plan</CardTitle>
+                <CardTitle className="text-2xl text-foreground">Check & See Plan</CardTitle>
                 <CardDescription>Unlimited prior patent searches</CardDescription>
-                <div className="text-4xl font-bold mt-4 text-secondary">
+                <div className="text-4xl font-bold mt-4 text-primary">
                   $9.99
                   <span className="text-base font-normal text-muted-foreground block mt-1">per month</span>
                 </div>
@@ -174,24 +174,24 @@ const Check = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-4 w-4 text-secondary" />
-                    <span className="text-sm">Unlimited searches</span>
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">Unlimited searches</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-4 w-4 text-secondary" />
-                    <span className="text-sm">AI-powered analysis</span>
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">AI-powered analysis</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-4 w-4 text-secondary" />
-                    <span className="text-sm">USPTO & Google Patents</span>
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">USPTO & Google Patents</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-4 w-4 text-secondary" />
-                    <span className="text-sm">Cancel anytime</span>
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">Cancel anytime</span>
                   </div>
                 </div>
                 <Button 
-                  className="w-full bg-secondary hover:bg-secondary/90"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   onClick={() => setShowCheckout(true)}
                 >
                   <Zap className="h-4 w-4 mr-2" />
