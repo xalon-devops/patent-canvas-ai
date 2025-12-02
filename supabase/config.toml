@@ -94,3 +94,24 @@ verify_jwt = true
 
 [functions.run-prior-art-monitoring]
 verify_jwt = false
+
+[functions.export-patent]
+verify_jwt = true
+
+[functions.analyze-code]
+verify_jwt = false
+
+[functions.enhance-patent-section]
+verify_jwt = false
+
+[functions.get-supabase-organizations]
+verify_jwt = true
+
+[functions.get-supabase-projects]
+verify_jwt = true
+
+[functions.finalize-supabase-connection]
+verify_jwt = true
+
+[functions.check-subscription]
+verify_jwt = true

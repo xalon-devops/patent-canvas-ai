@@ -139,11 +139,11 @@ serve(async (req) => {
       .eq('id', session_id);
 
     // Send completion email
-    await supabaseClient.functions.invoke('send-notification-email', {
+    await supabaseClient.functions.invoke('send-email', {
       body: {
-        user_id: sessionData.user_id,
-        type: 'draft_complete',
-        session_id: session_id
+        type: 'patent_completion',
+        userId: sessionData.user_id,
+        sessionId: session_id
       }
     });
 
