@@ -41,8 +41,29 @@ interface AssessmentCriterion {
   maxScore: number;
   description: string;
   analysis: string;
-  icon: React.ElementType;
+  icon: React.ElementType | string;
 }
+
+// Map icon names from API to actual components
+const iconMap: Record<string, React.ElementType> = {
+  Lightbulb,
+  Target,
+  Zap,
+  Award,
+  Shield,
+  CheckCircle,
+  AlertTriangle,
+  TrendingUp,
+  BarChart3,
+  FileText,
+};
+
+const getIconComponent = (icon: React.ElementType | string): React.ElementType => {
+  if (typeof icon === 'string') {
+    return iconMap[icon] || Lightbulb;
+  }
+  return icon;
+};
 
 const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({ 
   sessionData, 
@@ -309,7 +330,7 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
         </h3>
         
         {criteria.map((criterion, index) => {
-          const IconComponent = criterion.icon;
+          const IconComponent = getIconComponent(criterion.icon);
           const isVisible = index <= currentCriterionIndex;
           
           return (
