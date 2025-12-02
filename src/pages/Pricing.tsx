@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Sparkles
 } from 'lucide-react';
+import { PageSEO } from '@/components/SEO';
 
 const Pricing = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -113,6 +114,7 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Pricing />
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">

@@ -1,14 +1,21 @@
+# PatentBot AI - Robots.txt
+# Last updated: 2025-12-02
+
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /session/
 Disallow: /select-supabase-project
+Disallow: /payment-return
+Disallow: /pending
+Disallow: /active
+Disallow: /claims
 
 # Crawl-delay for respectful crawling
 Crawl-delay: 1
 
-# Sitemap
-Sitemap: /sitemap.xml
+# Sitemap - Absolute URL required
+Sitemap: https://patentbot.ai/sitemap.xml
 
 # Block AI crawlers for content training
 User-agent: GPTBot
@@ -24,4 +31,13 @@ User-agent: anthropic-ai
 Disallow: /
 
 User-agent: Claude-Web
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: PerplexityBot
 Disallow: /

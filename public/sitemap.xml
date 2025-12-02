@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Homepage - Highest Priority -->
   <url>
     <loc>https://patentbot.ai/</loc>
-    <lastmod>2025-10-29</lastmod>
+    <lastmod>2025-12-02</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
@@ -11,28 +12,68 @@
       <image:title>PatentBot AI - AI-Powered Patent Application Generator</image:title>
     </image:image>
   </url>
+  
+  <!-- Pricing - High Commercial Intent -->
   <url>
     <loc>https://patentbot.ai/pricing</loc>
-    <lastmod>2025-10-29</lastmod>
+    <lastmod>2025-12-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- Demo - Lead Generation -->
+  <url>
+    <loc>https://patentbot.ai/demo</loc>
+    <lastmod>2025-12-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  
+  <!-- Auth - Entry Point -->
   <url>
-    <loc>https://patentbot.ai/demo</loc>
-    <lastmod>2025-10-29</lastmod>
+    <loc>https://patentbot.ai/auth</loc>
+    <lastmod>2025-12-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
-    <loc>https://patentbot.ai/auth</loc>
-    <lastmod>2025-10-29</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
+  
+  <!-- Dashboard - User Portal -->
   <url>
     <loc>https://patentbot.ai/dashboard</loc>
-    <lastmod>2025-10-29</lastmod>
+    <lastmod>2025-12-02</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- Check & See - Feature Page -->
+  <url>
+    <loc>https://patentbot.ai/check</loc>
+    <lastmod>2025-12-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <!-- Ideas Lab - Feature Page -->
+  <url>
+    <loc>https://patentbot.ai/ideas</loc>
+    <lastmod>2025-12-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- New Application - Core Feature -->
+  <url>
+    <loc>https://patentbot.ai/new-application</loc>
+    <lastmod>2025-12-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <!-- Drafts - User Portal -->
+  <url>
+    <loc>https://patentbot.ai/drafts</loc>
+    <lastmod>2025-12-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>

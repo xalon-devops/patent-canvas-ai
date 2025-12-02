@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCircle, Clock, Users, Star, Brain, Atom, Lightbulb, Target, Award, TrendingUp } from 'lucide-react';
 import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
+import { PageSEO } from '@/components/SEO';
 
 const Demo = () => {
   const [currentPhase, setCurrentPhase] = useState<'intro' | 'demo' | 'outro'>('intro');
@@ -185,6 +186,7 @@ const Demo = () => {
 
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-hidden">
+      <PageSEO.Demo />
       {/* Logo and Branding - Only show during intro and outro */}
       {(currentPhase === 'intro' || currentPhase === 'outro') && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-40 space-y-8">

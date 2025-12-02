@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain } from 'lucide-react';
+import { PageSEO } from '@/components/SEO';
 
 const Auth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -118,6 +119,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+      <PageSEO.Auth />
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
