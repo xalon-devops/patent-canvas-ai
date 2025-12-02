@@ -29,6 +29,7 @@ const Check = () => {
   const [priorArtResults, setPriorArtResults] = useState<any[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
   const [localFreeSearches, setLocalFreeSearches] = useState<number | null>(null);
+  const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -79,6 +80,7 @@ const Check = () => {
 
       if (data?.results) {
         setPriorArtResults(data.results);
+        setSearchKeywords(data.keywords_used || []);
         
         // Update remaining searches locally for immediate feedback
         if (data.search_credits_remaining !== 'unlimited') {
@@ -86,8 +88,8 @@ const Check = () => {
         }
 
         toast({
-          title: "🎯 Enhanced Search Complete",
-          description: `Found ${data.results.length} patents using AI semantic matching across ${data.sources_used?.length || 2} databases.`,
+          title: "🎯 AI Analysis Complete",
+          description: `Found ${data.results.length} patents using semantic AI matching across ${data.sources_used?.join(' & ') || 'multiple databases'}.`,
         });
       }
     } catch (error: any) {
@@ -290,7 +292,11 @@ const Check = () => {
             </Card>
 
             {priorArtResults.length > 0 && (
-              <PriorArtDisplay priorArt={priorArtResults} />
+              <PriorArtDisplay 
+                priorArt={priorArtResults} 
+                searchKeywords={searchKeywords}
+                onRetrySearch={handleSearch}
+              />
             )}
 
             {!searching && priorArtResults.length === 0 && searchQuery && (

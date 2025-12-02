@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.52.1";
 
@@ -5,11 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface SearchSource {
-  name: string;
-  results: any[];
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -34,7 +30,7 @@ serve(async (req) => {
 
     console.log('[ENHANCED SEARCH] Starting multi-source patent search');
 
-    // Admin override: role or specific email bypasses credits/subscription checks
+    // Admin override
     const { data: adminRole } = await supabaseClient
       .from('user_roles')
       .select('role')
@@ -47,10 +43,10 @@ serve(async (req) => {
     const isAdmin = !!adminRole || isAdminEmail;
 
     if (isAdmin) {
-      console.log('[ENHANCED SEARCH] Admin user detected - bypassing credit check');
+      console.log('[ENHANCED SEARCH] Admin user - bypassing credit check');
     }
 
-    // Check subscription status
+    // Check subscription
     const { data: subscription } = await supabaseClient
       .from('subscriptions')
       .select('*')
@@ -60,30 +56,22 @@ serve(async (req) => {
 
     const hasActiveSubscription = !!subscription || isAdmin;
 
-    // Check/create search credits (auto-create if not exists)
+    // Get or create credits
     let { data: credits } = await supabaseClient
       .from('user_search_credits')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    // Create credits record if it doesn't exist (new user gets 3 free searches)
     if (!credits) {
-      console.log('[ENHANCED SEARCH] Creating new credits record for user');
+      console.log('[ENHANCED SEARCH] Creating new credits for user');
       const { data: newCredits, error: createError } = await supabaseClient
         .from('user_search_credits')
-        .insert({
-          user_id: user.id,
-          searches_used: 0,
-          free_searches_remaining: 3
-        })
+        .insert({ user_id: user.id, searches_used: 0, free_searches_remaining: 3 })
         .select()
         .single();
 
-      if (createError) {
-        console.error('[ENHANCED SEARCH] Failed to create credits:', createError);
-        throw new Error('Failed to initialize search credits');
-      }
+      if (createError) throw new Error('Failed to initialize search credits');
       credits = newCredits;
     }
 
@@ -94,13 +82,10 @@ serve(async (req) => {
         success: false,
         error: 'No search credits remaining. Please subscribe to continue.',
         requires_subscription: true
-      }), {
-        status: 402,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Deduct credit if using free trial (not for subscribers or admins)
+    // Deduct credit if using free trial
     if (!hasActiveSubscription && hasCredits) {
       await supabaseClient
         .from('user_search_credits')
@@ -112,7 +97,7 @@ serve(async (req) => {
         .eq('user_id', user.id);
     }
 
-    // Get session data for context
+    // Build context
     let contextText = '';
     if (session_id) {
       const { data: sessionData } = await supabaseClient
@@ -124,59 +109,66 @@ serve(async (req) => {
       if (sessionData) {
         contextText = sessionData.idea_prompt || '';
         sessionData.ai_questions?.forEach((q: any) => {
-          if (q.answer) {
-            contextText += ` ${q.question} ${q.answer}`;
-          }
+          if (q.answer) contextText += ` ${q.question} ${q.answer}`;
         });
       }
     } else {
       contextText = `${ideaTitle || ''} ${ideaDescription || ''}`;
     }
 
-    // Generate embedding for semantic search
+    if (!contextText.trim()) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No search context provided'
+      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    console.log('[ENHANCED SEARCH] Context length:', contextText.length);
+
+    // Extract smart keywords using AI
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    let searchKeywords: string[] = [];
     let queryEmbedding: number[] | null = null;
 
     if (OPENAI_API_KEY) {
+      // Use AI to extract better search terms
+      console.log('[ENHANCED SEARCH] Extracting keywords with AI');
+      try {
+        const keywordResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { 
+                role: 'system', 
+                content: 'Extract 5-8 specific technical keywords for patent search from the invention description. Return ONLY a JSON array of keywords, no explanation. Focus on: core technology, methods, components, applications.' 
+              },
+              { role: 'user', content: contextText.substring(0, 3000) }
+            ],
+            temperature: 0.3,
+          }),
+        });
+        
+        const keywordData = await keywordResponse.json();
+        const keywordText = keywordData.choices?.[0]?.message?.content || '[]';
+        try {
+          searchKeywords = JSON.parse(keywordText.replace(/```json\n?|\n?```/g, ''));
+        } catch {
+          searchKeywords = extractKeywords(contextText);
+        }
+      } catch (e) {
+        console.error('[ENHANCED SEARCH] AI keyword extraction failed:', e);
+        searchKeywords = extractKeywords(contextText);
+      }
+
+      // Generate embedding
       console.log('[ENHANCED SEARCH] Generating query embedding');
-      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: contextText.substring(0, 8000),
-        }),
-      });
-
-      const embeddingData = await embeddingResponse.json();
-      queryEmbedding = embeddingData.data?.[0]?.embedding;
-    }
-
-    // Source 1: PatentsView API (US Patents)
-    console.log('[ENHANCED SEARCH] Searching PatentsView');
-    const patentsViewResults = await searchPatentsView(contextText);
-
-    // Source 2: Google Patents (if Lens API key available)
-    console.log('[ENHANCED SEARCH] Searching Google Patents');
-    const googlePatentsResults = await searchGooglePatents(contextText);
-
-    // Combine and rank results
-    const allResults = [
-      ...patentsViewResults.map(r => ({ ...r, source: 'patentsview' })),
-      ...googlePatentsResults.map(r => ({ ...r, source: 'google_patents' }))
-    ];
-
-    // Generate embeddings and calculate semantic similarity for each result
-    const rankedResults = [];
-    for (const result of allResults.slice(0, 20)) { // Process top 20 to save API costs
-      let semanticScore = 0;
-      
-      if (queryEmbedding && OPENAI_API_KEY) {
-        const resultText = `${result.title} ${result.summary}`.substring(0, 8000);
-        const resultEmbResponse = await fetch('https://api.openai.com/v1/embeddings', {
+      try {
+        const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -184,62 +176,166 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: 'text-embedding-3-small',
-            input: resultText,
+            input: contextText.substring(0, 8000),
           }),
         });
 
-        const resultEmbData = await resultEmbResponse.json();
-        const resultEmbedding = resultEmbData.data?.[0]?.embedding;
+        const embeddingData = await embeddingResponse.json();
+        queryEmbedding = embeddingData.data?.[0]?.embedding;
+      } catch (e) {
+        console.error('[ENHANCED SEARCH] Embedding generation failed:', e);
+      }
+    } else {
+      searchKeywords = extractKeywords(contextText);
+    }
 
-        if (resultEmbedding) {
-          // Cosine similarity
-          semanticScore = cosineSimilarity(queryEmbedding, resultEmbedding);
-          result.embedding = `[${resultEmbedding.join(',')}]`;
+    console.log('[ENHANCED SEARCH] Keywords:', searchKeywords.slice(0, 5));
+
+    // Search multiple sources in parallel
+    const [patentsViewResults, lensResults] = await Promise.all([
+      searchPatentsView(searchKeywords, contextText),
+      searchLensAPI(contextText),
+    ]);
+
+    console.log(`[ENHANCED SEARCH] PatentsView: ${patentsViewResults.length}, Lens: ${lensResults.length}`);
+
+    // Combine results
+    const allResults = [
+      ...patentsViewResults.map(r => ({ ...r, source: 'USPTO' })),
+      ...lensResults.map(r => ({ ...r, source: 'Lens.org' }))
+    ];
+
+    // Deduplicate by patent number
+    const seen = new Set<string>();
+    const uniqueResults = allResults.filter(r => {
+      const key = r.publication_number?.toLowerCase() || r.title?.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Score and rank results
+    const rankedResults = [];
+    for (const result of uniqueResults.slice(0, 20)) {
+      let semanticScore = 0;
+      let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
+
+      // Calculate semantic similarity if we have embeddings
+      if (queryEmbedding && OPENAI_API_KEY) {
+        try {
+          const resultText = `${result.title} ${result.summary}`.substring(0, 8000);
+          const resultEmbResponse = await fetch('https://api.openai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'text-embedding-3-small',
+              input: resultText,
+            }),
+          });
+
+          const resultEmbData = await resultEmbResponse.json();
+          const resultEmbedding = resultEmbData.data?.[0]?.embedding;
+
+          if (resultEmbedding) {
+            semanticScore = cosineSimilarity(queryEmbedding, resultEmbedding);
+          }
+        } catch (e) {
+          console.error('[ENHANCED SEARCH] Result embedding failed:', e);
         }
       }
 
-      // Combined scoring: semantic (60%) + keyword match (40%)
-      const keywordScore = calculateKeywordMatch(contextText, result.title + ' ' + result.summary);
-      const finalScore = (semanticScore * 0.6) + (keywordScore * 0.4);
+      // Combined score: semantic (70%) + keyword (30%)
+      const finalScore = semanticScore > 0 
+        ? (semanticScore * 0.7) + (keywordScore * 0.3)
+        : keywordScore;
+
+      // Generate AI analysis for overlap/differences
+      let overlapClaims: string[] = [];
+      let differenceClaims: string[] = [];
+
+      if (OPENAI_API_KEY && finalScore > 0.3) {
+        try {
+          const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { 
+                  role: 'system', 
+                  content: `Analyze patent overlap. Return JSON: {"overlaps":["..."],"differences":["..."]}. 2-4 items each. Be specific and technical.`
+                },
+                { 
+                  role: 'user', 
+                  content: `USER INVENTION:\n${contextText.substring(0, 1500)}\n\nEXISTING PATENT:\nTitle: ${result.title}\nAbstract: ${result.summary}` 
+                }
+              ],
+              temperature: 0.3,
+            }),
+          });
+          
+          const analysisData = await analysisResponse.json();
+          const analysisText = analysisData.choices?.[0]?.message?.content || '{}';
+          try {
+            const parsed = JSON.parse(analysisText.replace(/```json\n?|\n?```/g, ''));
+            overlapClaims = parsed.overlaps || [];
+            differenceClaims = parsed.differences || [];
+          } catch {}
+        } catch (e) {
+          console.error('[ENHANCED SEARCH] Analysis failed:', e);
+        }
+      }
+
+      if (overlapClaims.length === 0) {
+        overlapClaims = generateGenericOverlaps(result.title, contextText);
+      }
+      if (differenceClaims.length === 0) {
+        differenceClaims = generateGenericDifferences(result.title, contextText);
+      }
 
       rankedResults.push({
         ...result,
-        similarity_score: finalScore,
+        similarity_score: Math.min(finalScore, 0.99),
         semantic_score: semanticScore,
-        keyword_score: keywordScore
+        keyword_score: keywordScore,
+        overlap_claims: overlapClaims,
+        difference_claims: differenceClaims,
       });
     }
 
-    // Sort by final score
+    // Sort by score
     rankedResults.sort((a, b) => b.similarity_score - a.similarity_score);
 
-    // Store top results in database
-    if (session_id) {
-      // Clear existing results
+    // Store results
+    if (session_id && rankedResults.length > 0) {
       await supabaseClient
         .from('prior_art_results')
         .delete()
         .eq('session_id', session_id);
 
-      // Insert new results
       const resultsToStore = rankedResults.slice(0, 15).map(result => ({
         session_id,
         title: result.title,
         publication_number: result.publication_number,
         summary: result.summary,
         similarity_score: result.similarity_score,
+        semantic_score: result.semantic_score,
+        keyword_score: result.keyword_score,
         url: result.url,
         source: result.source,
         patent_date: result.patent_date,
         assignee: result.assignee,
-        overlap_claims: result.overlap_claims || [],
-        difference_claims: result.difference_claims || [],
-        embedding: result.embedding || null
+        overlap_claims: result.overlap_claims,
+        difference_claims: result.difference_claims,
       }));
 
-      await supabaseClient
-        .from('prior_art_results')
-        .insert(resultsToStore);
+      await supabaseClient.from('prior_art_results').insert(resultsToStore);
     }
 
     console.log(`[ENHANCED SEARCH] Complete: ${rankedResults.length} results, top score: ${rankedResults[0]?.similarity_score || 0}`);
@@ -248,7 +344,8 @@ serve(async (req) => {
       success: true,
       results: rankedResults.slice(0, 15),
       results_found: rankedResults.length,
-      sources_used: ['patentsview', 'google_patents'],
+      sources_used: ['USPTO', 'Lens.org'],
+      keywords_used: searchKeywords.slice(0, 5),
       search_credits_remaining: hasActiveSubscription ? 'unlimited' : (credits?.free_searches_remaining - 1)
     }), {
       status: 200,
@@ -267,23 +364,55 @@ serve(async (req) => {
   }
 });
 
-async function searchPatentsView(query: string): Promise<any[]> {
+// PatentsView API - USPTO patents
+async function searchPatentsView(keywords: string[], context: string): Promise<any[]> {
   try {
-    const keywords = extractKeywords(query);
-    const searchQuery = keywords.slice(0, 5).join(' OR ');
+    // Build proper query - use top 3 keywords
+    const topKeywords = keywords.slice(0, 3);
+    const queryTerms = topKeywords.map(k => ({
+      "_or": [
+        { "patent_title": k },
+        { "patent_abstract": k }
+      ]
+    }));
+
+    const query = queryTerms.length > 1 
+      ? { "_and": queryTerms }
+      : queryTerms[0] || { "patent_title": context.split(' ')[0] };
+
+    const url = `https://api.patentsview.org/patents/query`;
+    const params = {
+      q: JSON.stringify(query),
+      f: JSON.stringify(["patent_number", "patent_title", "patent_abstract", "patent_date", "assignee_organization"]),
+      o: JSON.stringify({ per_page: 15, page: 1 }),
+      s: JSON.stringify([{ patent_date: "desc" }])
+    };
+
+    const queryString = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
+
+    console.log('[PatentsView] Searching with keywords:', topKeywords);
     
-    const url = `https://api.patentsview.org/patents/query?q={"_or":[{"patent_title":"${encodeURIComponent(searchQuery)}"},{"patent_abstract":"${encodeURIComponent(searchQuery)}"}]}&f=["patent_number","patent_title","patent_abstract","patent_date","assignee_organization"]&o={"per_page":10}`;
+    const response = await fetch(`${url}?${queryString}`, {
+      headers: { 'Accept': 'application/json' }
+    });
     
-    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('[PatentsView] API error:', response.status);
+      return [];
+    }
+
     const data = await response.json();
     
     return (data.patents || []).map((p: any) => ({
-      title: p.patent_title || 'No title',
-      publication_number: p.patent_number || 'Unknown',
+      title: p.patent_title || 'Untitled Patent',
+      publication_number: `US${p.patent_number}`,
       summary: p.patent_abstract || 'No abstract available',
-      url: `https://patents.google.com/patent/${p.patent_number}`,
+      url: `https://patents.google.com/patent/US${p.patent_number}`,
       patent_date: p.patent_date,
-      assignee: p.assignee_organization?.[0] || 'Unknown'
+      assignee: Array.isArray(p.assignees) ? p.assignees[0]?.assignee_organization : 
+                p.assignee_organization?.[0]?.assignee_organization || 'Unknown'
     }));
   } catch (error) {
     console.error('[PatentsView] Error:', error);
@@ -291,12 +420,12 @@ async function searchPatentsView(query: string): Promise<any[]> {
   }
 }
 
-async function searchGooglePatents(query: string): Promise<any[]> {
-  // Placeholder for Google Patents API integration
-  // Would require Lens API or scraping fallback
+// Lens.org API
+async function searchLensAPI(query: string): Promise<any[]> {
   const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
   
   if (!LENS_API_KEY) {
+    console.log('[Lens] No API key configured');
     return [];
   }
 
@@ -308,45 +437,64 @@ async function searchGooglePatents(query: string): Promise<any[]> {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        query: query.substring(0, 500),
-        size: 10
+        query: {
+          match: query.substring(0, 500)
+        },
+        size: 10,
+        sort: [{ date_published: "desc" }]
       })
     });
 
+    if (!response.ok) {
+      console.error('[Lens] API error:', response.status);
+      return [];
+    }
+
     const data = await response.json();
     
-    return (data.results || []).map((p: any) => ({
-      title: p.title || 'No title',
-      publication_number: p.lens_id || 'Unknown',
+    return (data.data || []).map((p: any) => ({
+      title: p.title || 'Untitled Patent',
+      publication_number: p.lens_id || p.publication_number || 'Unknown',
       summary: p.abstract || 'No abstract available',
-      url: p.lens_url || '#',
+      url: `https://lens.org/lens/patent/${p.lens_id}`,
       patent_date: p.date_published,
-      assignee: p.applicants?.[0] || 'Unknown'
+      assignee: p.applicants?.[0]?.extracted_name || 'Unknown'
     }));
   } catch (error) {
-    console.error('[Google Patents/Lens] Error:', error);
+    console.error('[Lens] Error:', error);
     return [];
   }
 }
 
 function extractKeywords(text: string): string[] {
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during']);
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 
+    'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before',
+    'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then',
+    'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each',
+    'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
+    'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just',
+    'should', 'now', 'also', 'which', 'what', 'this', 'that', 'these', 'those',
+    'using', 'system', 'method', 'device', 'apparatus', 'process', 'based'
+  ]);
   
   const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
+    .replace(/[^\w\s-]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 3 && !stopWords.has(w));
   
+  // Count frequency and get unique technical terms
   const freq: { [key: string]: number } = {};
   words.forEach(w => freq[w] = (freq[w] || 0) + 1);
   
   return Object.entries(freq)
     .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
     .map(e => e[0]);
 }
 
 function calculateKeywordMatch(query: string, text: string): number {
-  const queryKeywords = new Set(extractKeywords(query).slice(0, 10));
+  const queryKeywords = new Set(extractKeywords(query).slice(0, 15));
   const textKeywords = new Set(extractKeywords(text));
   
   let matches = 0;
@@ -358,6 +506,8 @@ function calculateKeywordMatch(query: string, text: string): number {
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) return 0;
+  
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -368,5 +518,28 @@ function cosineSimilarity(a: number[], b: number[]): number {
     normB += b[i] * b[i];
   }
   
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator > 0 ? dotProduct / denominator : 0;
+}
+
+function generateGenericOverlaps(patentTitle: string, userContext: string): string[] {
+  const titleWords = patentTitle.toLowerCase().split(/\s+/);
+  const contextWords = userContext.toLowerCase().split(/\s+/);
+  const common = titleWords.filter(w => w.length > 4 && contextWords.includes(w));
+  
+  if (common.length > 0) {
+    return [
+      `Both address ${common[0]} technology`,
+      `Similar application domain`
+    ];
+  }
+  return ['General technology overlap'];
+}
+
+function generateGenericDifferences(patentTitle: string, userContext: string): string[] {
+  return [
+    'Your invention may have novel implementation approach',
+    'Specific technical implementation may differ',
+    'Target use case differentiation possible'
+  ];
 }
