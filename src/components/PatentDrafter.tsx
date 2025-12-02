@@ -80,9 +80,9 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         setProgress(prev => Math.min(prev + 5, 85));
       }, 800);
 
-      // Add timeout promise (90 seconds)
+      // Add timeout promise (180 seconds for complex AI generation)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Patent generation timeout - this is taking longer than expected')), 90000);
+        setTimeout(() => reject(new Error('Patent generation timeout - this is taking longer than expected')), 180000);
       });
 
       // Call the enhanced patent draft generation function with timeout
