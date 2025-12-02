@@ -311,7 +311,7 @@ const Check = () => {
             <DialogTitle>Subscribe to Check & See</DialogTitle>
           </DialogHeader>
           <EmbeddedStripeCheckout
-            priceId={import.meta.env.PROD ? 'price_CHECK_SEE_PROD' : 'price_CHECK_SEE_TEST'}
+            priceId="price_1RdXHaKFoovQj4C2Vx8MmN3P"
             planType="check_and_see"
             mode="subscription"
             onSuccess={() => {

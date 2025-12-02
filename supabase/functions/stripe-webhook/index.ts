@@ -108,6 +108,26 @@ serve(async (req) => {
             logStep("Error updating application payment", { error: appPaymentError });
           } else {
             logStep("Application payment completed", { applicationId: session.metadata.application_id });
+            
+            // Send payment confirmation email
+            try {
+              await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-notification-email`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({
+                  user_id: session.metadata.user_id,
+                  type: "payment_received",
+                  session_id: session.metadata.application_id,
+                  payment_amount: session.amount_total,
+                }),
+              });
+              logStep("Payment confirmation email sent");
+            } catch (emailError) {
+              logStep("Error sending payment email", { error: emailError });
+            }
           }
         }
         break;

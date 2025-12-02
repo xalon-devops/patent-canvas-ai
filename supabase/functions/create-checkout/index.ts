@@ -42,8 +42,9 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { priceId, planType = "check_and_see" } = await req.json();
-    if (!priceId) throw new Error("Price ID is required");
+    const { priceId: requestedPriceId, planType = "check_and_see" } = await req.json();
+    // Use default Check & See price if not provided
+    const priceId = requestedPriceId || 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
     logStep("Request parsed", { priceId, planType });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });

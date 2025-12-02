@@ -88,3 +88,9 @@ verify_jwt = true
 
 [functions.supabase-oauth-callback]
 verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.run-prior-art-monitoring]
+verify_jwt = false

@@ -76,7 +76,7 @@ const Pricing = () => {
       // Create Stripe checkout session
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
-          priceId: 'price_1QV6gYFNwHcT0mL0YhCz5aBJ', // Replace with your actual Stripe price ID
+          priceId: 'price_1RdXHaKFoovQj4C2Vx8MmN3P', // Check & See subscription price
           planType: 'premium'
         }
       });
