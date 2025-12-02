@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useAuthenticatedPatentData, PatentSession } from '@/hooks/usePatentData';
 import { 
   ArrowLeft, 
   Clock, 
@@ -23,60 +23,24 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface DraftSession {
-  id: string;
-  patent_type: string;
-  idea_prompt: string;
-  status: string;
-  created_at: string;
-  ai_analysis_complete: boolean;
-  patentability_score: number | null;
-  data_source: any;
-}
-
 const Drafts = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [drafts, setDrafts] = useState<DraftSession[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Use centralized data hook - single source of truth
+  const { 
+    draftSessions: drafts, 
+    loading, 
+    isAuthenticated,
+    refetchSessions 
+  } = useAuthenticatedPatentData();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-      await loadDrafts(session.user.id);
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  const loadDrafts = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('patent_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'in_progress')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setDrafts(data || []);
-    } catch (error: any) {
-      console.error('Error loading drafts:', error);
-      toast({
-        title: "Error loading drafts",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  // Redirect if not authenticated
+  React.useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/auth');
     }
-  };
+  }, [loading, isAuthenticated, navigate]);
 
   const resumeDraft = (sessionId: string) => {
     navigate(`/new-application?sessionId=${sessionId}`);
@@ -91,7 +55,8 @@ const Drafts = () => {
 
       if (error) throw error;
 
-      setDrafts(prev => prev.filter(draft => draft.id !== sessionId));
+      // Refetch to update centralized state
+      refetchSessions();
       toast({
         title: "Draft deleted",
         description: "The draft application has been removed.",
@@ -106,7 +71,7 @@ const Drafts = () => {
     }
   };
 
-  const getStepFromSession = (draft: DraftSession) => {
+  const getStepFromSession = (draft: PatentSession) => {
     // Determine current step based on session data
     if (!draft.idea_prompt) return 1;
     if (!draft.data_source || Object.keys(draft.data_source).length === 0) return 3;

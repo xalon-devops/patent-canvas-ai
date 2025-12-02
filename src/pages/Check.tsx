@@ -6,53 +6,41 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useAuthenticatedPatentData } from '@/hooks/usePatentData';
 import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2 } from 'lucide-react';
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 
 const Check = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [hasSubscription, setHasSubscription] = useState(false);
-  const [freeSearchesRemaining, setFreeSearchesRemaining] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Use centralized data hook - single source of truth
+  const { 
+    subscription, 
+    searchCredits, 
+    loading, 
+    isAuthenticated,
+    refetch 
+  } = useAuthenticatedPatentData();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDescription, setSearchDescription] = useState('');
   const [searching, setSearching] = useState(false);
   const [priorArtResults, setPriorArtResults] = useState<any[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [localFreeSearches, setLocalFreeSearches] = useState<number | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Derived state from centralized hook
+  const hasSubscription = subscription?.status === 'active';
+  const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? 3;
+
+  // Redirect if not authenticated
   useEffect(() => {
-    checkAuthAndSubscription();
-  }, []);
-
-  const checkAuthAndSubscription = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-
-      setUser(session.user);
-
-      // Check search credits and subscription
-      const { data: creditsData } = await supabase.functions.invoke('check-search-credits');
-      
-      if (creditsData?.success) {
-        setHasSubscription(creditsData.has_subscription);
-        setFreeSearchesRemaining(creditsData.free_searches_remaining);
-      }
-    } catch (error: any) {
-      console.error('Error checking subscription:', error);
-    } finally {
-      setLoading(false);
+    if (!loading && !isAuthenticated) {
+      navigate('/auth');
     }
-  };
+  }, [loading, isAuthenticated, navigate]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -91,9 +79,9 @@ const Check = () => {
       if (data?.results) {
         setPriorArtResults(data.results);
         
-        // Update remaining searches
+        // Update remaining searches locally for immediate feedback
         if (data.search_credits_remaining !== 'unlimited') {
-          setFreeSearchesRemaining(data.search_credits_remaining);
+          setLocalFreeSearches(data.search_credits_remaining);
         }
 
         toast({
@@ -328,7 +316,7 @@ const Check = () => {
             mode="subscription"
             onSuccess={() => {
               setShowCheckout(false);
-              checkAuthAndSubscription();
+              refetch(); // Refetch centralized data
             }}
           />
         </DialogContent>
