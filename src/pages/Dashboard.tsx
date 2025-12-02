@@ -11,11 +11,50 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign } from 'lucide-react';
 import { usePatentData } from '@/hooks/usePatentData';
+import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
+
+// Admin button - only shows for users with admin role
+function AdminButton({ userId }: { userId: string | undefined }) {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!userId) return;
+    
+    const checkAdmin = async () => {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      setIsAdmin(!!data);
+    };
+    
+    checkAdmin();
+  }, [userId]);
+
+  if (!isAdmin) return null;
+
+  return (
+    <Button 
+      variant="ghost" 
+      size="sm"
+      onClick={() => navigate('/admin')}
+      className="text-muted-foreground hover:text-foreground hidden sm:flex"
+    >
+      <Shield className="h-4 w-4" />
+      Admin
+    </Button>
+  );
+}
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -68,6 +107,11 @@ const Dashboard = () => {
         if (!session?.user) {
           navigate('/auth');
         } else {
+          // Check if this is a new user (show welcome if not dismissed)
+          const welcomeDismissed = localStorage.getItem('patentbot_welcome_dismissed');
+          if (!welcomeDismissed) {
+            setShowWelcome(true);
+          }
           setLoading(false);
         }
       })
@@ -180,15 +224,7 @@ const Dashboard = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/admin')}
-                  className="text-muted-foreground hover:text-foreground hidden sm:flex"
-                >
-                  <Shield className="h-4 w-4" />
-                  Admin
-                </Button>
+                <AdminButton userId={user?.id} />
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -289,6 +325,17 @@ const Dashboard = () => {
 
       <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">
+          {/* Welcome Onboarding for New Users */}
+          {showWelcome && (
+            <WelcomeOnboarding 
+              userName={user?.email}
+              onDismiss={() => {
+                setShowWelcome(false);
+                localStorage.setItem('patentbot_welcome_dismissed', 'true');
+              }}
+            />
+          )}
+
           {/* Pricing Cards */}
           <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
             <Card className="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-glow/30 transition-all duration-500">
