@@ -24,6 +24,7 @@ import {
   Wand2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatDate, formatDateTime } from '@/lib/dateUtils';
 import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import SystemMessage from '@/components/SystemMessage';
 import PatentCanvas from '@/components/PatentCanvas';
@@ -849,7 +850,7 @@ const Session = () => {
                   }
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                  Created {format(new Date(patentSession.created_at), 'MMM d, yyyy')}
+                  Created {formatDate(patentSession.created_at)}
                 </p>
               </div>
             </div>
@@ -1361,7 +1362,7 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
               {timestamp && (
                 <>
                   <span>•</span>
-                  <span>{format(new Date(timestamp), 'MMM d, h:mm a')}</span>
+                  <span>{formatDateTime(timestamp)}</span>
                 </>
               )}
             </div>

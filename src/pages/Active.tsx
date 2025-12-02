@@ -20,7 +20,8 @@ import {
   Clock,
   Loader
 } from 'lucide-react';
-import { format, addYears } from 'date-fns';
+import { addYears } from 'date-fns';
+import { formatDate, formatDateShort, formatMonthYear, calculateYearsRemaining } from '@/lib/dateUtils';
 import { usePatentData, PatentSession, InfringementAlert } from '@/hooks/usePatentData';
 import { PageSEO } from '@/components/SEO';
 
@@ -286,7 +287,7 @@ const Active = () => {
                           </div>
                           <div className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            Granted: {patent.grant_date && format(new Date(patent.grant_date), 'MMM dd, yyyy')}
+                            Granted: {patent.grant_date && formatDate(patent.grant_date)}
                           </div>
                           {patent.patent_type && (
                             <Badge variant="outline" className="text-xs">
@@ -321,7 +322,7 @@ const Active = () => {
                                 <p className="text-xs text-muted-foreground">{alert.description}</p>
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {format(new Date(alert.created_at), 'MMM dd')}
+                                {formatDateShort(alert.created_at)}
                               </div>
                               {alert.source_url && (
                                 <Button
@@ -361,7 +362,7 @@ const Active = () => {
                       <div>
                         <p className="text-muted-foreground">Maintenance Due</p>
                         <p className="font-medium">
-                          {patent.maintenance_due ? format(new Date(patent.maintenance_due), 'MMM yyyy') : 'N/A'}
+                          {patent.maintenance_due ? formatMonthYear(patent.maintenance_due) : 'N/A'}
                         </p>
                       </div>
                       <div>

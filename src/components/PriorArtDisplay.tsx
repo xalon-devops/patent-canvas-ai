@@ -13,7 +13,7 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatMonthYear } from '@/lib/dateUtils';
 
 interface PriorArtResult {
   id: string;
@@ -165,7 +165,7 @@ export default function PriorArtDisplay({ priorArt, isSearching = false, onRetry
                     <FileText className="w-4 h-4" />
                     Patent {result.publication_number}
                     <Calendar className="w-4 h-4 ml-2" />
-                    {format(new Date(result.created_at), 'MMM yyyy')}
+                    {formatMonthYear(result.created_at)}
                   </CardDescription>
                 </div>
                 

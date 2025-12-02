@@ -19,7 +19,7 @@ import {
   XCircle,
   Loader
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDate, formatDateShort, formatMonthYear } from '@/lib/dateUtils';
 import { usePatentData, PatentSession, PriorArtResult } from '@/hooks/usePatentData';
 import { PageSEO } from '@/components/SEO';
 
@@ -273,7 +273,7 @@ const Pending = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            Created: {format(new Date(session.created_at), 'MMM dd, yyyy')}
+                            Created: {formatDate(session.created_at)}
                           </div>
                           {session.patent_type && (
                             <Badge variant="outline" className="text-xs">
@@ -319,7 +319,7 @@ const Pending = () => {
                             <p className="text-muted-foreground">Last Updated</p>
                             <p className="font-medium">
                               {sessionPriorArt.length > 0 
-                                ? format(new Date(Math.max(...sessionPriorArt.map(r => new Date(r.created_at).getTime()))), 'MMM dd')
+                                ? formatDateShort(new Date(Math.max(...sessionPriorArt.map(r => new Date(r.created_at).getTime()))))
                                 : 'Never'
                               }
                             </p>

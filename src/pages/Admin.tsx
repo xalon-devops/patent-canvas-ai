@@ -24,7 +24,7 @@ import {
   Globe,
   Eye
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateAdmin } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
 
 interface AdminPatentSession {
@@ -486,7 +486,7 @@ const Admin = () => {
                       </CardTitle>
                       <CardDescription className="space-y-1">
                         <div>User: {session.user_email}</div>
-                        <div>Created: {format(new Date(session.created_at), 'MMM d, yyyy HH:mm')}</div>
+                        <div>Created: {formatDateAdmin(session.created_at)}</div>
                         <div className="text-xs font-mono">ID: {session.id}</div>
                       </CardDescription>
                     </div>

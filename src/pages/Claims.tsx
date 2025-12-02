@@ -15,7 +15,7 @@ import {
   Brain,
   Layers
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateTime } from '@/lib/dateUtils';
 import { validatePatentSection, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import DOMPurify from 'dompurify';
 
@@ -201,7 +201,7 @@ const Claims = () => {
                     <CardDescription className="text-xs flex items-center gap-2 mt-1">
                       <span>🧠 AI Generated</span>
                       <span>•</span>
-                      <span>{format(new Date(independentClaim.timestamp), 'MMM d, h:mm a')}</span>
+                      <span>{formatDateTime(independentClaim.timestamp)}</span>
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-1">

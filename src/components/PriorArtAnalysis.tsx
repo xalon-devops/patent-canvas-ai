@@ -18,7 +18,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
+import { formatMonthYear } from '@/lib/dateUtils';
 
 interface SessionData {
   sessionId: string;
@@ -274,7 +274,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
                         <span className="text-xs bg-muted px-2 py-0.5 rounded">{result.assignee}</span>
                       )}
                       {result.patent_date && (
-                        <span className="text-xs">{format(new Date(result.patent_date), 'MMM yyyy')}</span>
+                        <span className="text-xs">{formatMonthYear(result.patent_date)}</span>
                       )}
                       <Badge className={getSimilarityColor(result.similarity_score)}>
                         {getRiskIcon(result.similarity_score)}
