@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles, Play, Eye } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { getCurrentYear } from '@/lib/dateUtils';
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -483,7 +484,7 @@ const Index = () => {
       <footer className="py-8 border-t bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <p className="text-muted-foreground">
-            © {new Date().getFullYear()} PatentBot AI™. Professional patent drafting with AI assistance.
+            © {getCurrentYear()} PatentBot AI™. Professional patent drafting with AI assistance.
           </p>
         </div>
       </footer>

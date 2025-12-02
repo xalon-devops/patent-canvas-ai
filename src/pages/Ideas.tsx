@@ -19,7 +19,7 @@ import {
   Search,
   Plus
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDate, formatDateShort } from '@/lib/dateUtils';
 import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 import { PageSEO } from '@/components/SEO';
@@ -223,7 +223,7 @@ const Ideas = () => {
                     <p className="text-sm text-muted-foreground">{alert.description}</p>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {format(new Date(alert.created_at), 'MMM dd, yyyy')}
+                    {formatDate(alert.created_at)}
                   </div>
                 </div>
               ))}
@@ -267,7 +267,7 @@ const Ideas = () => {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      {format(new Date(idea.created_at), 'MMM dd, yyyy')}
+                      {formatDate(idea.created_at)}
                     </div>
                     <Badge variant="outline" className="text-xs">
                       {idea.patent_type}
@@ -281,7 +281,7 @@ const Ideas = () => {
                         Monitoring enabled
                         {idea.last_monitored_at && (
                           <span className="ml-1">
-                            · Last check: {format(new Date(idea.last_monitored_at), 'MMM dd')}
+                            · Last check: {formatDateShort(idea.last_monitored_at)}
                           </span>
                         )}
                       </span>

@@ -20,7 +20,7 @@ import {
   Search,
   RefreshCw
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDate } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
 
 interface PatentIdea {
@@ -251,12 +251,12 @@ const IdeaDetail = () => {
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Created {format(new Date(idea.created_at), 'MMM d, yyyy')}
+              Created {formatDate(idea.created_at)}
             </div>
             {idea.last_monitored_at && (
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Last monitored {format(new Date(idea.last_monitored_at), 'MMM d, yyyy')}
+                Last monitored {formatDate(idea.last_monitored_at)}
               </div>
             )}
           </div>
