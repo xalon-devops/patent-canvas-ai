@@ -16,7 +16,9 @@ import {
   Trash2,
   Edit,
   Play,
-  Loader2
+  Loader2,
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -42,6 +44,8 @@ const IdeaDetail = () => {
   const [idea, setIdea] = useState<PatentIdea | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [runningMonitoring, setRunningMonitoring] = useState(false);
+  const [monitoringResults, setMonitoringResults] = useState<any>(null);
 
   useEffect(() => {
     checkAuthAndLoadIdea();
@@ -117,6 +121,44 @@ const IdeaDetail = () => {
 
   const handleDraftPatent = () => {
     navigate(`/new-application?ideaId=${id}`);
+  };
+
+  const handleRunMonitoring = async () => {
+    if (!idea) return;
+    
+    setRunningMonitoring(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('run-prior-art-monitoring', {
+        body: {
+          ideaId: idea.id,
+          searchQuery: `${idea.title}: ${idea.description}`,
+          userId: user?.id,
+        }
+      });
+
+      if (error) throw error;
+
+      setMonitoringResults(data);
+      
+      // Refresh idea data
+      if (user) {
+        await loadIdea(user.id);
+      }
+
+      toast({
+        title: "🎯 Monitoring Complete",
+        description: `Found ${data.resultsFound} similar patents. ${data.highestSimilarity ? `Highest similarity: ${Math.round(data.highestSimilarity * 100)}%` : 'No high-similarity matches found.'}`,
+      });
+    } catch (error: any) {
+      console.error('Monitoring error:', error);
+      toast({
+        title: "Monitoring failed",
+        description: error.message || "Failed to run prior art monitoring.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunningMonitoring(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -277,6 +319,41 @@ const IdeaDetail = () => {
               <Play className="h-4 w-4 mr-2" />
               Draft Full Patent Application
             </Button>
+            <Button 
+              variant="secondary"
+              className="w-full"
+              size="lg"
+              onClick={handleRunMonitoring}
+              disabled={runningMonitoring}
+            >
+              {runningMonitoring ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Running Prior Art Search...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Run Prior Art Monitoring
+                </>
+              )}
+            </Button>
+            {monitoringResults && (
+              <div className="p-4 bg-muted/50 rounded-lg text-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Latest Monitoring Results</span>
+                </div>
+                <p className="text-muted-foreground">
+                  Found {monitoringResults.resultsFound} similar patents.
+                  {monitoringResults.highestSimilarity && (
+                    <span className="block mt-1">
+                      Highest similarity: <strong>{Math.round(monitoringResults.highestSimilarity * 100)}%</strong>
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
             <Button 
               variant="outline" 
               className="w-full"

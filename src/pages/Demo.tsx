@@ -15,7 +15,7 @@ const Demo = () => {
   const navigate = useNavigate();
 
   const introText = "What if your apps could patent themselves with AI?";
-  const outroText = "Join 10,000+ inventors who've protected their innovations with AI";
+  const outroText = "Start protecting your innovation today with AI-powered patent drafting";
 
   const demoSteps = [
     { title: "Login & Dashboard", duration: 2500 },
@@ -250,11 +250,11 @@ const Demo = () => {
                   {/* Step 0: Dashboard */}
                   {demoStep === 0 && (
                     <div className="space-y-6 animate-fade-in">
-                      <div className="flex items-center justify-between">
-                        <h1 className="text-3xl font-bold text-foreground">Welcome to PatentBot AI™</h1>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Users className="h-4 w-4" />
-                          10,247 patents filed
+                        <div className="flex items-center justify-between">
+                         <h1 className="text-3xl font-bold text-foreground">Welcome to PatentBot AI™</h1>
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                           <Shield className="h-4 w-4" />
+                          AI-Powered Protection
                         </div>
                       </div>
                       

@@ -276,7 +276,7 @@ const Index = () => {
             Ready to Protect Your Innovation?
           </h2>
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
-            Join thousands of inventors who trust PatentBot AI™ to transform their ideas into professional patent applications
+            Transform your innovative ideas into professional patent applications with AI-powered assistance
           </p>
           <Button 
             variant="secondary"
@@ -295,7 +295,7 @@ const Index = () => {
       <footer className="py-8 border-t bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <p className="text-muted-foreground">
-            © 2024 PatentBot AI™. Professional patent drafting with AI assistance.
+            © {new Date().getFullYear()} PatentBot AI™. Professional patent drafting with AI assistance.
           </p>
         </div>
       </footer>
