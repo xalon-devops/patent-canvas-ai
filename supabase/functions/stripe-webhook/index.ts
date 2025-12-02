@@ -111,23 +111,46 @@ serve(async (req) => {
             
             // Send payment confirmation email
             try {
-              await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-notification-email`, {
+              await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                   "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
                 },
                 body: JSON.stringify({
-                  user_id: session.metadata.user_id,
                   type: "payment_received",
-                  session_id: session.metadata.application_id,
-                  payment_amount: session.amount_total,
+                  userId: session.metadata.user_id,
+                  sessionId: session.metadata.application_id,
+                  amount: session.amount_total,
+                  paymentType: "patent_application",
                 }),
               });
               logStep("Payment confirmation email sent");
             } catch (emailError) {
               logStep("Error sending payment email", { error: emailError });
             }
+          }
+        }
+
+        // Send subscription welcome email for new subscriptions
+        if (session.mode === "subscription" && session.metadata?.user_id) {
+          try {
+            await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                type: "subscription_welcome",
+                userId: session.metadata.user_id,
+                planType: "Check & See",
+                amount: session.amount_total,
+              }),
+            });
+            logStep("Subscription welcome email sent");
+          } catch (emailError) {
+            logStep("Error sending subscription email", { error: emailError });
           }
         }
         break;

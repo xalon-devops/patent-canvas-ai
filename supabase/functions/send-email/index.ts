@@ -79,7 +79,7 @@ serve(async (req) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://jdkogqskjsmwlhigaecb.supabase.co/dashboard" 
+                <a href="https://patentbot.ai/dashboard" 
                    style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   Go to Dashboard
                 </a>
@@ -136,7 +136,7 @@ serve(async (req) => {
               ` : ''}
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://jdkogqskjsmwlhigaecb.supabase.co/session/${sessionId}" 
+                <a href="https://patentbot.ai/session/${sessionId}" 
                    style="background: transparent; color: #001F3F; border: 2px solid #001F3F; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   View Application
                 </a>
@@ -151,6 +151,64 @@ serve(async (req) => {
         };
         break;
 
+      case 'payment_received':
+        const { amount, paymentType, applicationTitle } = await req.json().catch(() => ({}));
+        const formattedAmount = amount ? `$${(amount / 100).toFixed(2)}` : '$1,000.00';
+        
+        emailData = {
+          to: recipientEmail,
+          subject: "Payment Received - PatentBot AI™",
+          html: `
+            <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
+                <p style="color: #666; margin: 10px 0;">Payment Confirmation</p>
+              </div>
+              
+              <h2 style="color: #001F3F;">✅ Payment Received</h2>
+              
+              <p>Thank you for your payment! Your transaction has been successfully processed.</p>
+              
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #001F3F; margin-top: 0;">Payment Details:</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Amount:</td>
+                    <td style="padding: 8px 0; font-weight: bold; text-align: right;">${formattedAmount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Type:</td>
+                    <td style="padding: 8px 0; text-align: right;">${paymentType === 'subscription' ? 'Check & See Subscription' : 'Patent Application Fee'}</td>
+                  </tr>
+                  ${applicationTitle ? `
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Application:</td>
+                    <td style="padding: 8px 0; text-align: right;">${applicationTitle}</td>
+                  </tr>
+                  ` : ''}
+                  <tr>
+                    <td style="padding: 8px 0; color: #666;">Date:</td>
+                    <td style="padding: 8px 0; text-align: right;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="https://patentbot.ai/dashboard" 
+                   style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  Go to Dashboard
+                </a>
+              </div>
+              
+              <p style="color: #666; font-size: 14px;">
+                This is your receipt for tax purposes. If you have any questions about this charge, please contact support.
+              </p>
+            </div>
+          `,
+          emailType: 'payment_received'
+        };
+        break;
+
       case 'subscription_welcome':
         emailData = {
           to: recipientEmail,
@@ -159,33 +217,32 @@ serve(async (req) => {
             <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 30px;">
                 <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
-                <p style="color: #666; margin: 10px 0;">Thank you for upgrading!</p>
+                <p style="color: #666; margin: 10px 0;">Thank you for subscribing!</p>
               </div>
               
-              <h2 style="color: #001F3F;">🚀 Welcome to ${planType || 'Premium'}!</h2>
+              <h2 style="color: #001F3F;">🚀 Welcome to ${planType || 'Check & See'}!</h2>
               
-              <p>Thank you for upgrading to PatentBot AI™ ${planType || 'Premium'}! You now have access to all our advanced features.</p>
+              <p>Thank you for subscribing to PatentBot AI™! You now have unlimited access to our prior art search tools.</p>
               
               <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #001F3F; margin-top: 0;">Your Premium Benefits:</h3>
+                <h3 style="color: #001F3F; margin-top: 0;">Your Subscription Benefits:</h3>
                 <ul style="color: #555;">
-                  <li>✅ Unlimited patent applications</li>
-                  <li>✅ Advanced AI-powered prior art search</li>
-                  <li>✅ Professional DOCX/PDF export</li>
+                  <li>✅ Unlimited prior art searches</li>
+                  <li>✅ AI-powered patent analysis</li>
+                  <li>✅ Competitive landscape monitoring</li>
                   <li>✅ Priority support</li>
-                  <li>✅ Advanced claims editing tools</li>
                 </ul>
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://jdkogqskjsmwlhigaecb.supabase.co/dashboard" 
+                <a href="https://patentbot.ai/check" 
                    style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Start Your First Patent
+                  Start Searching
                 </a>
               </div>
               
               <p style="color: #666; font-size: 14px;">
-                Your subscription gives you everything you need to protect your innovations. Let's get started!
+                Your subscription renews monthly at $9.99. You can manage your subscription anytime from your dashboard.
               </p>
             </div>
           `,
