@@ -115,3 +115,6 @@ verify_jwt = true
 
 [functions.check-subscription]
 verify_jwt = true
+
+[functions.get-user-count]
+verify_jwt = false
