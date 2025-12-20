@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect } from "react";
 import { logEvent } from "@/lib/conversionTracker";
+import { initTrackIt } from "@/lib/trackitAnalytics";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,9 @@ import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
+
+// Initialize TrackIt analytics on app load
+initTrackIt();
 
 const RouteTracker = () => {
   const location = useLocation();

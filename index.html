@@ -198,36 +198,8 @@
     }
     </script>
 
-    <!-- NEXUS Universal Tracking Script -->
-    <script>
-    (function() {
-      const ENDPOINT = "https://nfhocvpfbzrvqlscvqec.supabase.co/functions/v1/track-visit";
-
-      const params = new URLSearchParams(window.location.search);
-      const referral_code = params.get("ref");
-      const offer_id = params.get("offer_id");
-
-      let cid = localStorage.getItem("nexus_cid");
-      if (!cid) {
-        cid = "cid_" + Math.random().toString(36).substring(2) + "_" + Date.now();
-        localStorage.setItem("nexus_cid", cid);
-      }
-
-      if (referral_code && offer_id) {
-        fetch(ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            cid,
-            referral_code,
-            offer_id,
-            url: window.location.href,
-            timestamp: new Date().toISOString()
-          })
-        }).catch(function() {});
-      }
-    })();
-    </script>
+    <!-- TrackIt AI Tracking SDK -->
+    <script src="https://otyzhtrzyfqodrmhaevo.supabase.co/functions/v1/sdk-tracker?token=71d6952e5e9757ae67cea90dbf976df4027c42dc0969e294ec79097f5f59ccf3"></script>
   </head>
 
   <body>
