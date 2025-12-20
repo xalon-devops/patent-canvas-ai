@@ -29,7 +29,7 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
 
