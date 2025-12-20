@@ -268,6 +268,45 @@ export function usePatentData(userId: string | undefined) {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Real-time subscription updates for payment status changes
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('subscription-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[PatentData] Subscription changed, refetching...');
+          fetchSubscription();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'application_payments',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[PatentData] Application payment changed, refetching...');
+          fetchAllData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, fetchSubscription, fetchAllData]);
+
   // Computed stats - single source of truth for all portfolio metrics
   const stats: PortfolioStats = {
     totalApplications: sessions.length,
