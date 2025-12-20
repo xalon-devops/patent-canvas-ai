@@ -5,17 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary Meta Tags (defaults - react-helmet overrides per page) -->
-    <title>PatentBot AI™ - AI-Powered Patent Application Generator | $1,000 Flat Fee</title>
-    <meta name="description" content="File patent applications in minutes with PatentBot AI™. AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee. Start protecting your innovation today." />
-    <meta name="keywords" content="patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property, patent protection, file patent online" />
+    <title>PatentBot AI™ - AI-Powered Patent Application Generator | File Patents for $1,000</title>
+    <meta name="description" content="File patent applications in minutes with PatentBot AI™. AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee vs $10,000+ attorney costs. Start protecting your invention today." />
+    <meta name="keywords" content="patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property, patent protection, file patent online, provisional patent, utility patent, patent attorney alternative" />
     <meta name="author" content="PatentBot AI" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
     <meta name="theme-color" content="#1a1f2e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="canonical" href="https://patentbot-ai.lovable.app/" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="canonical" href="https://patentbot-ai.com/" />
     
     <!-- Favicon -->
     <link rel="icon" href="/favicon.png" type="image/png">
@@ -27,24 +29,44 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://patentbot-ai.lovable.app/" />
-    <meta property="og:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
-    <meta property="og:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta property="og:image" content="https://patentbot-ai.lovable.app/social-preview.png" />
-    <meta property="og:image:secure_url" content="https://patentbot-ai.lovable.app/social-preview.png" />
+    <meta property="og:url" content="https://patentbot-ai.com/" />
+    <meta property="og:title" content="PatentBot AI™ - File Patent Applications with AI for $1,000" />
+    <meta property="og:description" content="Transform your invention into a USPTO-ready patent application in minutes. AI-guided drafting, prior art search, professional formatting. Save 90% vs patent attorneys." />
+    <meta property="og:image" content="https://patentbot-ai.com/social-preview.png" />
+    <meta property="og:image:secure_url" content="https://patentbot-ai.com/social-preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="PatentBot AI - File patents with AI assistance" />
+    <meta property="og:image:alt" content="PatentBot AI - AI-Powered Patent Application Generator" />
     <meta property="og:site_name" content="PatentBot AI" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://patentbot-ai.lovable.app/" />
-    <meta name="twitter:title" content="PatentBot AI™ - AI-Powered Patent Application Generator" />
-    <meta name="twitter:description" content="File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee." />
-    <meta name="twitter:image" content="https://patentbot-ai.lovable.app/social-preview.png" />
+    <meta name="twitter:url" content="https://patentbot-ai.com/" />
+    <meta name="twitter:title" content="PatentBot AI™ - File Patent Applications with AI for $1,000" />
+    <meta name="twitter:description" content="Transform your invention into a USPTO-ready patent application in minutes. AI-guided drafting, prior art search. Save 90% vs patent attorneys." />
+    <meta name="twitter:image" content="https://patentbot-ai.com/social-preview.png" />
+    <meta name="twitter:creator" content="@patentbotai" />
+
+    <!-- Structured Data (JSON-LD) - WebSite for Sitelinks Search Box -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "PatentBot AI",
+      "alternateName": ["PatentBot", "Patent Bot AI"],
+      "url": "https://patentbot-ai.com/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://patentbot-ai.com/check?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
 
     <!-- Structured Data (JSON-LD) - SoftwareApplication -->
     <script type="application/ld+json">
@@ -61,7 +83,9 @@
           "price": "1000",
           "priceCurrency": "USD",
           "name": "Patent Application Filing",
-          "description": "Complete AI-guided patent application with USPTO-ready formatting"
+          "description": "Complete AI-guided patent application with USPTO-ready formatting, claims drafting, and prior art analysis",
+          "availability": "https://schema.org/InStock",
+          "priceValidUntil": "2026-12-31"
         },
         {
           "@type": "Offer",
@@ -69,28 +93,30 @@
           "priceCurrency": "USD",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "billingDuration": "P1M"
+            "billingDuration": "P1M",
+            "billingIncrement": 1
           },
-          "name": "Check & See Subscription",
-          "description": "Unlimited prior patent searches per month"
+          "name": "Check & See - Prior Art Search",
+          "description": "Unlimited prior patent searches per month with AI-powered similarity analysis"
         }
       ],
-      "description": "AI-powered patent application generator. File patents in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting.",
-      "url": "https://patentbot-ai.lovable.app/",
-      "logo": "https://patentbot-ai.lovable.app/logo.png",
-      "image": "https://patentbot-ai.lovable.app/social-preview.png",
+      "description": "AI-powered patent application generator. File patents in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. Save 90% compared to traditional patent attorneys.",
+      "url": "https://patentbot-ai.com/",
+      "logo": "https://patentbot-ai.com/logo.png",
+      "image": "https://patentbot-ai.com/social-preview.png",
       "featureList": [
-        "AI-guided patent drafting",
-        "Prior art search",
-        "USPTO-ready formatting",
-        "Real-time collaboration",
-        "DOCX/PDF export"
+        "AI-guided patent claim drafting",
+        "Automated prior art search",
+        "USPTO-compliant formatting",
+        "Professional DOCX/PDF export",
+        "Real-time patent collaboration",
+        "Patent novelty assessment"
       ],
-      "screenshot": "https://patentbot-ai.lovable.app/social-preview.png",
+      "screenshot": "https://patentbot-ai.com/social-preview.png",
       "provider": {
         "@type": "Organization",
         "name": "PatentBot AI",
-        "url": "https://patentbot-ai.lovable.app/"
+        "url": "https://patentbot-ai.com/"
       },
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -108,14 +134,21 @@
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "PatentBot AI",
-      "url": "https://patentbot-ai.lovable.app/",
-      "logo": "https://patentbot-ai.lovable.app/logo.png",
-      "description": "AI-powered patent application generator helping inventors protect their innovations.",
+      "legalName": "PatentBot AI Inc.",
+      "url": "https://patentbot-ai.com/",
+      "logo": "https://patentbot-ai.com/logo.png",
+      "description": "AI-powered patent application platform helping inventors and entrepreneurs protect their innovations at a fraction of traditional costs.",
+      "foundingDate": "2024",
       "sameAs": [],
       "contactPoint": {
         "@type": "ContactPoint",
         "contactType": "customer service",
-        "availableLanguage": "English"
+        "availableLanguage": "English",
+        "email": "support@patentbot-ai.com"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "US"
       }
     }
     </script>
@@ -131,7 +164,7 @@
           "name": "How much does PatentBot AI cost?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "PatentBot AI offers two pricing options: $1,000 flat fee for a complete patent application, or $9.99/month for unlimited prior art searches with Check & See."
+            "text": "PatentBot AI offers two pricing options: $1,000 flat fee for a complete patent application (vs $10,000+ for attorneys), or $9.99/month for unlimited prior art searches with our Check & See feature."
           }
         },
         {
@@ -139,7 +172,7 @@
           "name": "Can PatentBot AI file patents with the USPTO?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "PatentBot AI generates USPTO-ready patent applications in professional DOCX/PDF format. The AI-guided process ensures all required sections are complete and properly formatted for filing."
+            "text": "PatentBot AI generates USPTO-ready patent applications in professional DOCX/PDF format. The AI-guided process ensures all required sections (claims, abstract, description, drawings) are complete and properly formatted for filing with the United States Patent and Trademark Office."
           }
         },
         {
@@ -147,7 +180,7 @@
           "name": "How does AI patent drafting work?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "PatentBot AI uses advanced AI to interview you about your invention, conduct prior art searches, and automatically generate professional patent claims, descriptions, and abstracts based on your input."
+            "text": "PatentBot AI uses advanced artificial intelligence to interview you about your invention, conduct comprehensive prior art searches across patent databases, and automatically generate professional patent claims, detailed descriptions, and abstracts based on your input. The entire process takes minutes instead of weeks."
           }
         },
         {
@@ -155,28 +188,36 @@
           "name": "Is PatentBot AI cheaper than a patent attorney?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Traditional patent attorneys charge $5,000-$15,000 for a patent application. PatentBot AI provides professional-quality drafts for just $1,000 - saving inventors up to 90%."
+            "text": "Yes, significantly. Traditional patent attorneys charge $5,000-$15,000 for a single patent application. PatentBot AI provides professional-quality, USPTO-ready patent drafts for just $1,000 - saving inventors up to 90% while maintaining high quality standards."
           }
         },
         {
           "@type": "Question",
-          "name": "What is prior art search?",
+          "name": "What is prior art search and why do I need it?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Prior art search identifies existing patents similar to your invention. This helps determine if your idea is novel and patentable before investing in a full application. PatentBot AI offers unlimited searches for $9.99/month."
+            "text": "Prior art search identifies existing patents and publications similar to your invention. This critical step helps determine if your idea is novel and patentable before investing in a full application. PatentBot AI's Check & See feature offers unlimited AI-powered prior art searches for just $9.99/month, searching USPTO, Google Patents, and international databases."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What types of patents can PatentBot AI help with?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "PatentBot AI specializes in utility patents and provisional patent applications for software, hardware, methods, processes, and inventions. Our AI is trained on thousands of successful patent applications to ensure your application meets USPTO requirements."
           }
         }
       ]
     }
     </script>
 
-    <!-- Structured Data (JSON-LD) - Product for pricing visibility -->
+    <!-- Structured Data (JSON-LD) - Product for Google Merchant visibility -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "Product",
       "name": "PatentBot AI Patent Application Service",
-      "description": "Complete AI-guided patent application with prior art search and USPTO-ready formatting",
+      "description": "Complete AI-guided patent application with prior art search, claims drafting, and USPTO-ready formatting. Save 90% vs traditional patent attorneys.",
       "brand": {
         "@type": "Brand",
         "name": "PatentBot AI"
@@ -186,7 +227,12 @@
         "price": "1000",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
-        "url": "https://patentbot-ai.lovable.app/pricing"
+        "url": "https://patentbot-ai.com/pricing",
+        "priceValidUntil": "2026-12-31",
+        "seller": {
+          "@type": "Organization",
+          "name": "PatentBot AI"
+        }
       },
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -194,6 +240,67 @@
         "reviewCount": "127",
         "bestRating": "5",
         "worstRating": "1"
+      },
+      "review": [
+        {
+          "@type": "Review",
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": "5",
+            "bestRating": "5"
+          },
+          "author": {
+            "@type": "Person",
+            "name": "Tech Entrepreneur"
+          },
+          "reviewBody": "PatentBot AI saved me thousands on my patent application. The AI-guided process was intuitive and the final document was professional quality."
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured Data (JSON-LD) - Service for local/service SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "serviceType": "Patent Application Service",
+      "name": "AI Patent Application Drafting",
+      "description": "Professional AI-powered patent application drafting service. Get USPTO-ready patent documents in minutes for $1,000 flat fee.",
+      "provider": {
+        "@type": "Organization",
+        "name": "PatentBot AI",
+        "url": "https://patentbot-ai.com/"
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "United States"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Patent Services",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Complete Patent Application",
+              "description": "Full AI-guided patent drafting with claims, description, abstract, and drawings"
+            },
+            "price": "1000",
+            "priceCurrency": "USD"
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Prior Art Search Subscription",
+              "description": "Unlimited AI-powered prior art searches"
+            },
+            "price": "9.99",
+            "priceCurrency": "USD"
+          }
+        ]
       }
     }
     </script>

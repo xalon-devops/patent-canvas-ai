@@ -64,7 +64,7 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
-    const appDomain = "https://patentbot-ai.lovable.app";
+    const appDomain = "https://patentbot-ai.com";
     
     // Create embedded checkout session
     const session = await stripe.checkout.sessions.create({
