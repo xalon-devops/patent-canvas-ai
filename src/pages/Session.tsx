@@ -129,6 +129,38 @@ const Session = () => {
     return () => subscription.unsubscribe();
   }, [navigate, id]);
 
+  // Real-time listener for payment status updates (webhook-triggered)
+  useEffect(() => {
+    if (!id) return;
+
+    const paymentChannel = supabase
+      .channel(`payment-updates-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'application_payments',
+          filter: `application_id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('[Session] Payment status updated:', payload);
+          if (payload.new && payload.new.status === 'completed') {
+            setHasPaid(true);
+            toast({
+              title: "✅ Payment Confirmed",
+              description: "Your payment has been processed. You can now export your patent!",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(paymentChannel);
+    };
+  }, [id, toast]);
+
   const checkPaymentStatus = async () => {
     if (!id) return;
     
