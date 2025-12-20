@@ -31,25 +31,25 @@ export function trackPurchase(data: {
 
 /**
  * Send current user count to TrackIt
- * This counts total users from the users table (which mirrors auth.users)
+ * Uses edge function with service role to bypass RLS
  */
 export async function syncUserCount() {
   try {
-    // Count total users from the public.users table
-    const { count, error } = await supabase
-      .from("users")
-      .select("*", { count: "exact", head: true });
+    // Call edge function to get total user count (bypasses RLS)
+    const { data, error } = await supabase.functions.invoke("get-user-count");
 
     if (error) {
       console.error("[TrackIt] Error fetching user count:", error);
       return;
     }
 
-    const userCount = count ?? 0;
+    const userCount = data?.count ?? 0;
     
     if (window.KX?.setUserCount) {
       window.KX.setUserCount(userCount);
       console.log("[TrackIt] User count synced:", userCount);
+    } else {
+      console.log("[TrackIt] KX.setUserCount not available yet, count:", userCount);
     }
   } catch (err) {
     console.error("[TrackIt] Error syncing user count:", err);
@@ -60,8 +60,8 @@ export async function syncUserCount() {
  * Initialize TrackIt analytics - call on app startup
  */
 export function initTrackIt() {
-  // Sync user count on startup (with small delay to ensure SDK is loaded)
+  // Sync user count on startup (with delay to ensure SDK is loaded)
   setTimeout(() => {
     syncUserCount();
-  }, 1000);
+  }, 2000);
 }
