@@ -49,7 +49,7 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const appDomain = "https://patentbot-ai.lovable.app";
+    const appDomain = "https://patentbot-ai.com";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${appDomain}/settings`,

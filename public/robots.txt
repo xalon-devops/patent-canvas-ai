@@ -1,6 +1,8 @@
 # PatentBot AI - Robots.txt
-# Last updated: 2025-12-02
+# Domain: patentbot-ai.com
+# Last updated: 2025-12-20
 
+# Allow all search engines to crawl public pages
 User-agent: *
 Allow: /
 Allow: /pricing
@@ -8,7 +10,7 @@ Allow: /demo
 Allow: /check
 Allow: /auth
 
-# Disallow authenticated/private pages
+# Disallow authenticated/private user pages
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /session/
@@ -22,14 +24,19 @@ Disallow: /pending
 Disallow: /claims
 Disallow: /select-supabase-project
 Disallow: /payment-return
+Disallow: /payment/
 
 # Crawl-delay for respectful crawling
 Crawl-delay: 1
 
-# Sitemap location
-Sitemap: https://patentbot-ai.lovable.app/sitemap.xml
+# Sitemap location (CRITICAL for Google indexing)
+Sitemap: https://patentbot-ai.com/sitemap.xml
 
-# Block AI training crawlers (optional - keeps content exclusive)
+# ============================================
+# AI Training Crawler Blocking (Optional)
+# Keeps content exclusive to search engines
+# ============================================
+
 User-agent: GPTBot
 Disallow: /
 
@@ -53,3 +60,15 @@ Disallow: /
 
 User-agent: PerplexityBot
 Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: FacebookBot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
