@@ -20,37 +20,53 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [accessType, setAccessType] = useState<'premium' | 'admin' | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (!session?.user) {
-          navigate('/auth');
-        } else {
-          checkUserAccess(session.user.id);
-        }
-      }
-    );
+    let isMounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (!session?.user) {
-        navigate('/auth');
-      } else {
-        checkUserAccess(session.user.id);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!isMounted) return;
+      // IMPORTANT: only sync state updates here (no Supabase calls)
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setAuthChecked(true);
     });
 
-    return () => subscription.unsubscribe();
-  }, [navigate, requiresPremium, requiresAdmin]);
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!isMounted) return;
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+      setAuthChecked(true);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return;
+
+    if (!user) {
+      setHasAccess(false);
+      setAccessType(null);
+      setLoading(false);
+      navigate('/auth');
+      return;
+    }
+
+    setLoading(true);
+    // Defer access check to avoid deadlocks in auth listeners
+    setTimeout(() => {
+      checkUserAccess(user.id);
+    }, 0);
+  }, [authChecked, user?.id, requiresPremium, requiresAdmin, navigate]);
 
   const checkUserAccess = async (userId: string) => {
     try {
