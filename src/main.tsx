@@ -3,10 +3,8 @@ import { HelmetProvider } from 'react-helmet-async'
 import App from './App.tsx'
 import './index.css'
 
-// Apply stored theme before React hydration to prevent flash
-const storedTheme = localStorage.getItem('patentbot-theme');
-const theme = storedTheme === 'light' ? 'light' : 'dark';
-document.documentElement.classList.add(theme);
+// Ensure light mode only - remove any dark class
+document.documentElement.classList.remove('dark');
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
