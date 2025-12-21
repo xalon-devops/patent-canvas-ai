@@ -177,7 +177,7 @@ const Demo = () => {
   }, [currentPhase, showCTA]);
 
   const handleSignUp = () => {
-    navigate('/auth');
+    navigate('/auth?tab=signup');
   };
 
   const handleClose = () => {

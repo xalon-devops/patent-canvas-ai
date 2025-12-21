@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect } from "react";
 import { logEvent } from "@/lib/conversionTracker";
 import { initTrackIt } from "@/lib/trackitAnalytics";
+import ScrollToTop from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -50,6 +51,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <RouteTracker />
           <Routes>
             <Route path="/" element={<Index />} />
