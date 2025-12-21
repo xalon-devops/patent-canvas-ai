@@ -41,7 +41,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
             onClick={() => navigate('/')}
           >
             <img 
-              src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
+              src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
               alt="PatentBot AI" 
               className="h-10 w-auto opacity-90 hover:opacity-100 transition-opacity"
             />
