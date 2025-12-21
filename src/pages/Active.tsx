@@ -128,9 +128,9 @@ const Active = () => {
     const now = new Date();
     const monthsUntilDue = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30);
     
-    if (monthsUntilDue < 0) return { status: 'overdue', color: 'bg-red-500' };
-    if (monthsUntilDue < 6) return { status: 'due soon', color: 'bg-orange-500' };
-    return { status: 'current', color: 'bg-green-500' };
+    if (monthsUntilDue < 0) return { status: 'overdue', color: 'text-destructive' };
+    if (monthsUntilDue < 6) return { status: 'due soon', color: 'text-warning' };
+    return { status: 'current', color: 'text-success' };
   };
 
   if (loading) {
@@ -354,7 +354,7 @@ const Active = () => {
                         <p className="text-muted-foreground">Years Remaining</p>
                         <p className="font-medium">
                           {patent.grant_date ? 
-                            Math.max(0, 20 - Math.floor((new Date().getTime() - new Date(patent.grant_date).getTime()) / (1000 * 60 * 60 * 24 * 365)))
+                            calculateYearsRemaining(patent.grant_date, 20)
                             : 'N/A'
                           }
                         </p>

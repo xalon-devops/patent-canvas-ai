@@ -5,6 +5,7 @@ import { Play, ArrowRight, Sparkles, X, FileText, Search, Zap, Shield, CheckCirc
 import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PageSEO } from '@/components/SEO';
+import { getCurrentISOString } from '@/lib/dateUtils';
 
 const Demo = () => {
   const [currentPhase, setCurrentPhase] = useState<'intro' | 'demo' | 'outro'>('intro');
@@ -29,11 +30,11 @@ const Demo = () => {
 
   // Mock data for enhanced components
   const mockPatentSections = [
-    { id: '1', section_type: 'abstract', content: 'A revolutionary AI-powered system for automated patent application generation through code repository analysis...', is_user_edited: false, created_at: new Date().toISOString() },
-    { id: '2', section_type: 'background', content: 'The field of patent law has traditionally required extensive manual documentation...', is_user_edited: false, created_at: new Date().toISOString() },
-    { id: '3', section_type: 'summary', content: 'The present invention provides a novel approach to automated patent generation...', is_user_edited: false, created_at: new Date().toISOString() },
-    { id: '4', section_type: 'claims', content: '1. A computer-implemented method for generating patent applications...', is_user_edited: false, created_at: new Date().toISOString() },
-    { id: '5', section_type: 'description', content: 'The detailed description of the invention includes comprehensive technical specifications...', is_user_edited: false, created_at: new Date().toISOString() }
+    { id: '1', section_type: 'abstract', content: 'A revolutionary AI-powered system for automated patent application generation through code repository analysis...', is_user_edited: false, created_at: getCurrentISOString() },
+    { id: '2', section_type: 'background', content: 'The field of patent law has traditionally required extensive manual documentation...', is_user_edited: false, created_at: getCurrentISOString() },
+    { id: '3', section_type: 'summary', content: 'The present invention provides a novel approach to automated patent generation...', is_user_edited: false, created_at: getCurrentISOString() },
+    { id: '4', section_type: 'claims', content: '1. A computer-implemented method for generating patent applications...', is_user_edited: false, created_at: getCurrentISOString() },
+    { id: '5', section_type: 'description', content: 'The detailed description of the invention includes comprehensive technical specifications...', is_user_edited: false, created_at: getCurrentISOString() }
   ];
 
   const mockPriorArt = [
@@ -46,7 +47,7 @@ const Demo = () => {
       url: "https://patents.google.com/patent/US11234567B2/en",
       publication_date: "2023-01-15",
       filing_date: "2021-08-20",
-      created_at: new Date().toISOString()
+      created_at: getCurrentISOString()
     },
     {
       id: "2",
@@ -57,7 +58,7 @@ const Demo = () => {
       url: "https://patents.google.com/patent/US10987654B1/en",
       publication_date: "2022-11-30",
       filing_date: "2020-05-12",
-      created_at: new Date().toISOString()
+      created_at: getCurrentISOString()
     },
     {
       id: "3",
@@ -68,7 +69,7 @@ const Demo = () => {
       url: "https://patents.google.com/patent/US10456789B2/en", 
       publication_date: "2022-07-08",
       filing_date: "2019-12-03",
-      created_at: new Date().toISOString()
+      created_at: getCurrentISOString()
     }
   ];
 
