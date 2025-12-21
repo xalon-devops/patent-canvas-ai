@@ -71,7 +71,6 @@ const SelectSupabaseProject = () => {
     try {
       console.log('[SELECT-PROJECT] Fetching organizations...');
       
-      // First check if a pending connection exists
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         throw new Error('Not authenticated');
@@ -79,7 +78,7 @@ const SelectSupabaseProject = () => {
 
       const { data: connCheck } = await supabase
         .from('supabase_connections')
-        .select('id, connection_status, created_at')
+        .select('id, connection_status, created_at, access_token')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -91,9 +90,13 @@ const SelectSupabaseProject = () => {
         throw new Error('No Supabase connection found. Please restart the OAuth flow.');
       }
       
-      if (connCheck.connection_status !== 'pending') {
-        throw new Error(`Connection status is ${connCheck.connection_status}, expected pending. Please restart the OAuth flow.`);
+      // Accept both 'pending' and 'active' connections - allow changing project
+      if (connCheck.connection_status !== 'pending' && connCheck.connection_status !== 'active') {
+        throw new Error(`Connection status is ${connCheck.connection_status}. Please restart the OAuth flow.`);
       }
+
+      // Store the connection ID for later
+      setConnectionId(connCheck.id);
 
       const { data, error } = await supabase.functions.invoke('get-supabase-organizations', {
         headers: {
@@ -106,7 +109,10 @@ const SelectSupabaseProject = () => {
       console.log('[SELECT-PROJECT] Organizations loaded:', data.organizations?.length);
       
       setOrganizations(data.organizations || []);
-      setConnectionId(data.connectionId);
+      // Also update connectionId from response if provided
+      if (data.connectionId) {
+        setConnectionId(data.connectionId);
+      }
       
       if (data.organizations?.length === 1) {
         // Auto-select if only one org
