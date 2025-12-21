@@ -139,7 +139,7 @@ const Pricing = () => {
                   <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20"></div>
                   <div className="relative rounded-lg p-2">
                     <img 
-                      src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
+                      src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
                       alt="PatentBot AI Logo" 
                       className="h-8 w-auto"
                     />

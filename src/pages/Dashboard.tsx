@@ -260,7 +260,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
               <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                 <img 
-                  src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
+                  src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
                   alt="PatentBot AI Logo" 
                   className="h-10 sm:h-12 w-auto flex-shrink-0"
                 />
