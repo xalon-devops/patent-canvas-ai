@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { ArrowRight } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
+
 
 interface PublicHeaderProps {
   transparent?: boolean;
@@ -49,7 +49,6 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
 
           {/* Navigation - Minimal */}
           <nav className="flex items-center gap-4">
-            <ThemeToggle />
             {loading ? (
               <div className="w-20 h-9 bg-muted/30 rounded-lg animate-pulse" />
             ) : user ? (

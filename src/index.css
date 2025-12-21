@@ -49,7 +49,7 @@ img, video, iframe, embed, object {
 }
 
 /* =============================================================================
-   INSTITUTIONAL DESIGN SYSTEM
+   INSTITUTIONAL DESIGN SYSTEM - LIGHT MODE ONLY
    Premium, capital-grade aesthetic inspired by Stripe, OpenAI, Apple
 ============================================================================= */
 
@@ -57,50 +57,49 @@ img, video, iframe, embed, object {
   /* =========================================================================
      LIGHT MODE - Clean, professional, high contrast
      ========================================================================= */
-  :root,
-  .light {
+  :root {
     /* Background - Clean white/off-white */
     --background: 220 20% 98%;
-    --foreground: 220 20% 10%;
+    --foreground: 220 25% 12%;
 
-    /* Card surfaces - Subtle gray */
+    /* Card surfaces - Pure white with subtle warmth */
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 220 25% 12%;
 
     /* Primary - Refined blue (darker for contrast on light bg) */
-    --primary: 215 80% 45%;
+    --primary: 215 80% 42%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 215 70% 55%;
+    --primary-glow: 215 70% 50%;
     --primary-variant: 215 60% 35%;
 
     /* Secondary - Light gray */
     --secondary: 220 14% 92%;
-    --secondary-foreground: 220 20% 15%;
+    --secondary-foreground: 220 25% 15%;
 
-    /* Muted - Soft gray */
+    /* Muted - Soft gray for subdued text */
     --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 45%;
+    --muted-foreground: 220 12% 40%;
 
     /* Accent - Light blue-gray */
     --accent: 220 14% 90%;
-    --accent-foreground: 220 20% 10%;
+    --accent-foreground: 220 25% 12%;
     --accent-glow: 215 60% 50%;
 
     /* Destructive */
-    --destructive: 0 65% 48%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
     /* Borders - Visible but subtle */
-    --border: 220 14% 85%;
-    --input: 220 14% 85%;
+    --border: 220 14% 82%;
+    --input: 220 14% 82%;
     --ring: 215 60% 45%;
 
     /* Brand tokens */
-    --xalon-cyan: 215 80% 45%;
-    --xalon-cyan-light: 215 70% 55%;
+    --xalon-cyan: 215 80% 42%;
+    --xalon-cyan-light: 215 70% 50%;
     --xalon-cyan-dark: 215 60% 35%;
     --xalon-blue: 225 70% 45%;
     --xalon-blue-light: 225 60% 55%;
@@ -109,18 +108,18 @@ img, video, iframe, embed, object {
     --xalon-dark-muted: 220 14% 94%;
     
     /* Gradients - Light mode appropriate */
-    --gradient-primary: linear-gradient(135deg, hsl(215 80% 45%), hsl(225 70% 45%));
+    --gradient-primary: linear-gradient(135deg, hsl(215 80% 42%), hsl(225 70% 45%));
     --gradient-secondary: linear-gradient(135deg, hsl(220 14% 94%), hsl(0 0% 100%));
     --gradient-subtle: linear-gradient(180deg, hsl(220 20% 98%), hsl(0 0% 100%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(220 14% 96% / 0.7));
-    --gradient-glow: linear-gradient(135deg, hsl(215 70% 55%), hsl(225 60% 55%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.95), hsl(220 14% 96% / 0.8));
+    --gradient-glow: linear-gradient(135deg, hsl(215 70% 50%), hsl(225 60% 55%));
     
     /* Shadows - Visible on light backgrounds */
-    --shadow-primary: 0 1px 3px hsl(220 20% 10% / 0.08);
-    --shadow-glow: 0 0 30px hsl(215 80% 45% / 0.12);
-    --shadow-card: 0 1px 3px hsl(220 20% 10% / 0.06), 0 1px 2px hsl(220 20% 10% / 0.04);
-    --shadow-elegant: 0 4px 20px hsl(220 20% 10% / 0.1);
-    --shadow-accent: 0 0 20px hsl(215 60% 45% / 0.08);
+    --shadow-primary: 0 1px 3px hsl(220 20% 10% / 0.1);
+    --shadow-glow: 0 0 30px hsl(215 80% 42% / 0.15);
+    --shadow-card: 0 1px 3px hsl(220 20% 10% / 0.08), 0 1px 2px hsl(220 20% 10% / 0.06);
+    --shadow-elegant: 0 4px 20px hsl(220 20% 10% / 0.12);
+    --shadow-accent: 0 0 20px hsl(215 60% 45% / 0.1);
     
     /* Transitions */
     --transition-smooth: all 0.2s ease;
@@ -128,8 +127,8 @@ img, video, iframe, embed, object {
     --transition-subtle: all 0.3s ease;
 
     /* Glassmorphism - Light mode */
-    --glass-bg: 0 0% 100% / 0.85;
-    --glass-border: 220 20% 10% / 0.06;
+    --glass-bg: 0 0% 100% / 0.9;
+    --glass-border: 220 20% 10% / 0.08;
     --glass-blur: blur(20px);
 
     /* Premium spacing */
@@ -146,113 +145,13 @@ img, video, iframe, embed, object {
 
     /* Sidebar - Light */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 215 80% 45%;
+    --sidebar-foreground: 220 25% 12%;
+    --sidebar-primary: 215 80% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 94%;
-    --sidebar-accent-foreground: 220 20% 10%;
-    --sidebar-border: 220 14% 85%;
+    --sidebar-accent-foreground: 220 25% 12%;
+    --sidebar-border: 220 14% 82%;
     --sidebar-ring: 215 60% 45%;
-  }
-
-  /* =========================================================================
-     DARK MODE - Premium, institutional aesthetic
-     ========================================================================= */
-  .dark {
-    /* Background - Pure, clean foundations */
-    --background: 220 20% 4%;
-    --foreground: 0 0% 96%;
-
-    /* Card surfaces - Subtle elevation */
-    --card: 220 16% 6%;
-    --card-foreground: 0 0% 96%;
-
-    --popover: 220 16% 6%;
-    --popover-foreground: 0 0% 96%;
-
-    /* Primary - Refined blue */
-    --primary: 215 80% 55%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 215 70% 65%;
-    --primary-variant: 215 60% 45%;
-
-    /* Secondary - Warm gray for depth */
-    --secondary: 220 10% 12%;
-    --secondary-foreground: 0 0% 90%;
-
-    /* Muted - Sophisticated gray spectrum */
-    --muted: 220 10% 14%;
-    --muted-foreground: 220 8% 55%;
-
-    /* Accent - Warm, inviting */
-    --accent: 220 12% 16%;
-    --accent-foreground: 0 0% 96%;
-    --accent-glow: 215 60% 60%;
-
-    /* Destructive */
-    --destructive: 0 60% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Borders - Barely visible, sophisticated */
-    --border: 220 10% 15%;
-    --input: 220 10% 15%;
-    --ring: 215 60% 55%;
-
-    /* Brand tokens - Institutional blue */
-    --xalon-cyan: 215 80% 55%;
-    --xalon-cyan-light: 215 70% 65%;
-    --xalon-cyan-dark: 215 60% 45%;
-    --xalon-blue: 225 70% 55%;
-    --xalon-blue-light: 225 60% 65%;
-    --xalon-dark: 220 20% 4%;
-    --xalon-dark-card: 220 16% 6%;
-    --xalon-dark-muted: 220 10% 12%;
-    
-    /* Gradients - Subtle, professional */
-    --gradient-primary: linear-gradient(135deg, hsl(215 80% 55%), hsl(225 70% 55%));
-    --gradient-secondary: linear-gradient(135deg, hsl(220 10% 14%), hsl(220 16% 6%));
-    --gradient-subtle: linear-gradient(180deg, hsl(220 20% 4%), hsl(220 16% 6%));
-    --gradient-card: linear-gradient(145deg, hsl(220 16% 7% / 0.9), hsl(220 10% 12% / 0.7));
-    --gradient-glow: linear-gradient(135deg, hsl(215 70% 65%), hsl(225 60% 65%));
-    
-    /* Shadows - Refined, not dramatic */
-    --shadow-primary: 0 1px 2px hsl(220 20% 4% / 0.3);
-    --shadow-glow: 0 0 30px hsl(215 80% 55% / 0.15);
-    --shadow-card: 0 1px 3px hsl(220 20% 4% / 0.4);
-    --shadow-elegant: 0 4px 20px hsl(220 20% 4% / 0.5);
-    --shadow-accent: 0 0 20px hsl(215 60% 55% / 0.1);
-    
-    /* Transitions */
-    --transition-smooth: all 0.2s ease;
-    --transition-fast: all 0.15s ease;
-    --transition-subtle: all 0.3s ease;
-
-    /* Glassmorphism - Barely there */
-    --glass-bg: 220 16% 6% / 0.85;
-    --glass-border: 255 255 255 / 0.06;
-    --glass-blur: blur(20px);
-
-    /* Premium spacing */
-    --space-xs: 0.25rem;
-    --space-sm: 0.5rem;
-    --space-md: 1rem;
-    --space-lg: 1.5rem;
-    --space-xl: 2rem;
-    --space-2xl: 3rem;
-    --space-3xl: 4rem;
-    --space-4xl: 6rem;
-
-    --radius: 0.75rem;
-
-    /* Sidebar */
-    --sidebar-background: 220 16% 6%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 215 80% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 10% 14%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 220 10% 15%;
-    --sidebar-ring: 215 60% 55%;
   }
 }
 
@@ -266,13 +165,45 @@ img, video, iframe, embed, object {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1.7;
     letter-spacing: -0.01em;
+    font-weight: 400;
   }
 
-  /* Editorial headings */
+  /* Editorial headings - Bold and clear */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     letter-spacing: -0.025em;
-    font-weight: 500;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  h1 {
+    font-size: 2.25rem;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: 1.875rem;
+    line-height: 1.25;
+    font-weight: 600;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+    font-weight: 600;
+  }
+
+  h4 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+
+  /* Body text - Clear and readable */
+  p {
+    color: hsl(var(--foreground));
+    line-height: 1.7;
   }
 
   /* Serif accents for emphasis */
@@ -288,16 +219,16 @@ img, video, iframe, embed, object {
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: hsl(var(--muted));
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.2);
+    background: hsl(var(--border));
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: hsl(var(--muted-foreground) / 0.4);
   }
 }
 
@@ -310,14 +241,14 @@ img, video, iframe, embed, object {
   }
 
   .glass-strong {
-    background: hsl(220 16% 6% / 0.95);
+    background: hsl(0 0% 100% / 0.95);
     backdrop-filter: blur(30px);
-    border: 1px solid hsl(255 255 255 / 0.08);
+    border: 1px solid hsl(220 14% 85%);
   }
 
   /* Premium cards - Clean, not flashy */
   .card-premium {
-    @apply bg-card border border-border/50 rounded-xl;
+    @apply bg-card border border-border rounded-xl;
     box-shadow: var(--shadow-card);
   }
 
@@ -332,7 +263,7 @@ img, video, iframe, embed, object {
   }
 
   .card-hover:hover {
-    @apply border-border;
+    @apply border-primary/30;
     box-shadow: var(--shadow-elegant);
     transform: translateY(-1px);
   }
@@ -343,7 +274,7 @@ img, video, iframe, embed, object {
   }
 
   .interactive:hover {
-    opacity: 0.85;
+    opacity: 0.9;
   }
 
   /* Premium buttons - Refined */
@@ -385,9 +316,22 @@ img, video, iframe, embed, object {
     text-wrap: balance;
   }
 
+  /* Ensure text visibility on all backgrounds */
+  .text-on-card {
+    color: hsl(var(--card-foreground));
+  }
+
+  .text-on-primary {
+    color: hsl(var(--primary-foreground));
+  }
+
+  .text-on-muted {
+    color: hsl(var(--muted-foreground));
+  }
+
   /* Dividers - Subtle */
   .divider {
-    @apply border-t border-border/30;
+    @apply border-t border-border;
   }
 
   /* Animations - Subtle only */
@@ -431,7 +375,7 @@ img, video, iframe, embed, object {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.05) 50%, hsl(var(--muted)) 75%);
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.08) 50%, hsl(var(--muted)) 75%);
   background-size: 800px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -458,7 +402,7 @@ img, video, iframe, embed, object {
 /* Institutional badge */
 .badge-institutional {
   @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
-  @apply bg-muted text-muted-foreground border border-border/50;
+  @apply bg-muted text-muted-foreground border border-border;
 }
 
 /* Focus states - Accessible but subtle */

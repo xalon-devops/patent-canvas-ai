@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
+
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { PageSEO } from '@/components/SEO';
@@ -269,7 +269,6 @@ const Dashboard = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <ThemeToggle />
                 <AdminButton userId={user?.id} />
                 
                 <DropdownMenu>
