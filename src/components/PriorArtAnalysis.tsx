@@ -71,8 +71,8 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         .join(' ');
       const context = `${sessionData.ideaTitle} ${sessionData.ideaDescription} ${qaContext}`.slice(0, 4000);
 
-      // Trigger backend search with rich context
-      const { error: invokeError } = await supabase.functions.invoke('search-prior-art', {
+      // Trigger backend search with real patent databases (Perplexity, Lens.org, Google Patents)
+      const { error: invokeError } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: {
           session_id: sessionData.sessionId,
           search_query: context,
