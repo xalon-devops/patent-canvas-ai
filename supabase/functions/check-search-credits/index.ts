@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.52.1";
 
+// FREE_SEARCHES_LIMIT - synced with src/lib/pricingConstants.ts
+const FREE_SEARCHES_LIMIT = 3;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -77,7 +80,7 @@ serve(async (req) => {
         .insert({
           user_id: user.id,
           searches_used: 0,
-          free_searches_remaining: 3
+          free_searches_remaining: FREE_SEARCHES_LIMIT
         })
         .select()
         .single();

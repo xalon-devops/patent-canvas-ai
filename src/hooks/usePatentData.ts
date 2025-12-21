@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { PATENT_VALUE_ESTIMATE, HIGH_SIMILARITY_THRESHOLD } from '@/lib/pricingConstants';
+import { PATENT_VALUE_ESTIMATE, HIGH_SIMILARITY_THRESHOLD, SUPABASE_QUERY_LIMIT } from '@/lib/pricingConstants';
 
 // ===== TYPE DEFINITIONS =====
 export interface PatentSession {
@@ -117,7 +117,8 @@ export function usePatentData(userId: string | undefined) {
       .from('patent_sessions')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(SUPABASE_QUERY_LIMIT);
 
     if (error) throw error;
     setSessions(data || []);
@@ -132,7 +133,8 @@ export function usePatentData(userId: string | undefined) {
       .from('patent_ideas')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(SUPABASE_QUERY_LIMIT);
 
     if (error) throw error;
     setIdeas(data || []);
@@ -147,7 +149,8 @@ export function usePatentData(userId: string | undefined) {
       .from('prior_art_results')
       .select('*')
       .in('session_id', sessionIds)
-      .order('similarity_score', { ascending: false });
+      .order('similarity_score', { ascending: false })
+      .limit(SUPABASE_QUERY_LIMIT);
 
     if (error) throw error;
 
@@ -167,7 +170,8 @@ export function usePatentData(userId: string | undefined) {
     const { data, error } = await supabase
       .from('infringement_alerts')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(SUPABASE_QUERY_LIMIT);
 
     if (error) throw error;
 

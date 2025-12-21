@@ -54,6 +54,11 @@ export const PATENT_TERM_YEARS = 20;
 /** Number of free prior art searches allowed */
 export const FREE_SEARCHES_LIMIT = 3;
 
+// ===== QUERY LIMITS =====
+
+/** Maximum rows to fetch from Supabase in a single query (high for popular app scale) */
+export const SUPABASE_QUERY_LIMIT = 50000;
+
 // ===== SIMILARITY THRESHOLDS =====
 
 /** Threshold for "high similarity" classification (0-1) */
