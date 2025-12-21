@@ -36,19 +36,21 @@ serve(async (req) => {
       throw new Error('Missing organizationId parameter');
     }
 
-    // Get the user's OAuth connection
+    // Get the user's most recent OAuth connection (pending or active)
     const { data: connection, error: connError } = await supabase
       .from('supabase_connections')
       .select('*')
       .eq('user_id', user.id)
-      .eq('connection_status', 'pending')
+      .in('connection_status', ['pending', 'active'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
     if (connError || !connection) {
-      throw new Error('No pending connection found');
+      throw new Error('No Supabase connection found. Please start the OAuth flow first.');
     }
+
+    console.log('Found connection for projects:', connection.id);
 
     // Fetch projects for the organization using the stored access token
     const projectsResponse = await fetch(

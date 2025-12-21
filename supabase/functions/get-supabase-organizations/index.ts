@@ -30,19 +30,21 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Get the user's OAuth connection
+    // Get the user's most recent OAuth connection (pending or active)
     const { data: connection, error: connError } = await supabase
       .from('supabase_connections')
       .select('*')
       .eq('user_id', user.id)
-      .eq('connection_status', 'pending')
+      .in('connection_status', ['pending', 'active'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
     if (connError || !connection) {
-      throw new Error('No pending connection found');
+      throw new Error('No Supabase connection found. Please start the OAuth flow first.');
     }
+
+    console.log('Found connection:', connection.id, 'status:', connection.connection_status);
 
     // Fetch organizations using the stored access token
     const orgResponse = await fetch('https://api.supabase.com/v1/organizations', {
