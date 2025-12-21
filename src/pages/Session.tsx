@@ -722,6 +722,12 @@ const Session = () => {
   const handleFilePatent = async () => {
     if (!id || filingPatent) return;
     
+    // Check if payment is already completed before attempting to file
+    if (!hasPaid) {
+      setShowPaymentGate(true);
+      return;
+    }
+    
     setFilingPatent(true);
     
     try {
@@ -732,6 +738,12 @@ const Session = () => {
       });
 
       if (error) {
+        // Handle payment required error from server (double-check)
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('payment required') || msg.includes('402')) {
+          setShowPaymentGate(true);
+          return;
+        }
         console.error('Filing error:', error);
         throw new Error(error.message || 'Failed to file patent');
       }

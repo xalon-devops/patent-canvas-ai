@@ -49,7 +49,7 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin - admins bypass payment requirements
+    // Check if user is admin - admins bypass payment requirements (via user_roles table only)
     const { data: adminRole } = await supabase
       .from('user_roles')
       .select('role')
@@ -57,10 +57,8 @@ serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    const adminEmail = 'nash@kronoscapital.us';
-    const isAdminEmail = (userData.user.email || '').toLowerCase() === adminEmail;
-    const isAdmin = !!adminRole || isAdminEmail;
-    console.log('User admin status:', { userId: userData.user.id, email: userData.user.email, isAdmin, viaEmail: isAdminEmail });
+    const isAdmin = !!adminRole;
+    console.log('User admin status:', { userId: userData.user.id, isAdmin });
 
     // Check payment status (bypass for admins)
     if (!isAdmin) {
