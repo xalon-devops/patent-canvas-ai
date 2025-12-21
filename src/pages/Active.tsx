@@ -23,7 +23,7 @@ import {
 import { addYears } from 'date-fns';
 import { formatDate, formatDateShort, formatMonthYear, calculateYearsRemaining } from '@/lib/dateUtils';
 import { usePatentData, PatentSession, InfringementAlert } from '@/hooks/usePatentData';
-import { PATENT_VALUE_ESTIMATE, MAINTENANCE_DUE_SOON_MONTHS, formatDollars } from '@/lib/pricingConstants';
+import { PATENT_VALUE_ESTIMATE, MAINTENANCE_DUE_SOON_MONTHS, formatDollars, calculatePortfolioValue } from '@/lib/pricingConstants';
 import { PageSEO } from '@/components/SEO';
 
 interface ActivePatent extends PatentSession {
@@ -201,7 +201,7 @@ const Active = () => {
                   <DollarSign className="w-6 h-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">${stats.portfolioValue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">{formatDollars(stats.portfolioValue)}</p>
                   <p className="text-sm text-muted-foreground">Portfolio Value</p>
                 </div>
               </div>

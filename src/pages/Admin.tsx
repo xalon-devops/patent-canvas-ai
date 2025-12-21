@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { formatDateAdmin, getCurrentISOString } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
-import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY, SUPABASE_QUERY_LIMIT } from '@/lib/pricingConstants';
+import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY, SUPABASE_QUERY_LIMIT, formatPrice } from '@/lib/pricingConstants';
 
 // PatentBot AI Price IDs (Stripe) - ONLY track revenue from these
 const PATENTBOT_PRICE_IDS = {
@@ -524,19 +524,19 @@ const Admin = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="p-4 bg-card rounded-lg border text-center">
                 <div className="text-2xl font-bold text-green-500">
-                  ${(revenueStats.totalRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {formatPrice(revenueStats.totalRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Total Revenue</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
                 <div className="text-2xl font-bold text-primary">
-                  ${(revenueStats.patentRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {formatPrice(revenueStats.patentRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Patent Apps ({PATENT_APPLICATION_PRICE_DISPLAY})</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
                 <div className="text-2xl font-bold text-secondary">
-                  ${(revenueStats.subscriptionRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {formatPrice(revenueStats.subscriptionRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Subscriptions ({CHECK_AND_SEE_PRICE_DISPLAY})</div>
               </div>
