@@ -79,7 +79,7 @@ serve(async (req) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot.ai/dashboard" 
+                <a href="https://patentbot-ai.com/dashboard"
                    style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   Go to Dashboard
                 </a>
@@ -136,7 +136,7 @@ serve(async (req) => {
               ` : ''}
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot.ai/session/${sessionId}" 
+                <a href="https://patentbot-ai.com/session/${sessionId}"
                    style="background: transparent; color: #001F3F; border: 2px solid #001F3F; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   View Application
                 </a>
@@ -194,7 +194,7 @@ serve(async (req) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot.ai/dashboard" 
+                <a href="https://patentbot-ai.com/dashboard"
                    style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   Go to Dashboard
                 </a>
@@ -235,7 +235,7 @@ serve(async (req) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot.ai/check" 
+                <a href="https://patentbot-ai.com/check"
                    style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   Start Searching
                 </a>
