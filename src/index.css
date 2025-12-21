@@ -2,15 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-First: Prevent horizontal scrolling */
-html, body {
+/* Mobile-First: Prevent horizontal scrolling like native iOS app */
+html {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
   overflow-x: hidden;
   max-width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Ensure all containers respect viewport width */
 * {
   box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* Prevent images and media from causing horizontal overflow */
+img, video, iframe, embed, object {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Prevent text overflow on mobile */
@@ -18,12 +34,27 @@ html, body {
   @apply truncate sm:whitespace-normal;
 }
 
-/* Mobile-friendly touch targets */
+/* Mobile-friendly touch targets (44px minimum per Apple HIG) */
 @media (max-width: 640px) {
-  button, a {
+  button, 
+  a, 
+  [role="button"],
+  input[type="submit"],
+  input[type="button"] {
     min-height: 44px;
-    min-width: 44px;
   }
+  
+  /* Improve tap targets for links */
+  a {
+    padding: 0.25rem 0;
+  }
+}
+
+/* Prevent horizontal scroll from any element */
+.safe-container {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
