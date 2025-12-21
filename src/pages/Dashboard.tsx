@@ -13,6 +13,7 @@ import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Sh
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { PageSEO } from '@/components/SEO';
+import { getCurrentISOString } from '@/lib/dateUtils';
 
 // Admin button - only shows for users with admin role
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -355,9 +356,23 @@ const Dashboard = () => {
           {showWelcome && (
             <WelcomeOnboarding 
               userName={user?.email}
-              onDismiss={() => {
+              onDismiss={async () => {
                 setShowWelcome(false);
-                localStorage.setItem('patentbot_welcome_dismissed', 'true');
+                // Persist to database so it never shows again
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from('users')
+                    .update({ onboarding_completed_at: getCurrentISOString() })
+                    .eq('id', user.id);
+                  
+                  if (error) {
+                    console.error('Failed to save onboarding state:', error);
+                    // Fallback to localStorage
+                    localStorage.setItem('patentbot_welcome_dismissed', 'true');
+                  }
+                } else {
+                  localStorage.setItem('patentbot_welcome_dismissed', 'true');
+                }
               }}
             />
           )}

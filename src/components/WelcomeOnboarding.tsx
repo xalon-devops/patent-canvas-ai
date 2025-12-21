@@ -12,6 +12,12 @@ interface WelcomeOnboardingProps {
 export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProps) => {
   const navigate = useNavigate();
   
+  // Helper that marks onboarding complete before navigating
+  const handleAction = (path: string) => {
+    onDismiss(); // This saves to DB
+    navigate(path);
+  };
+  
   return (
     <Card className="mb-8 bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-primary/20 overflow-hidden">
       <CardHeader className="pb-4">
@@ -64,7 +70,7 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
             <Button 
               size="sm" 
               className="w-full bg-primary hover:bg-primary/90"
-              onClick={() => navigate('/new-application')}
+              onClick={() => handleAction('/new-application')}
             >
               Start Patent ($1,000)
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -100,7 +106,7 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
               size="sm" 
               variant="outline"
               className="w-full border-secondary/50 hover:bg-secondary/10"
-              onClick={() => navigate('/check')}
+              onClick={() => handleAction('/check')}
             >
               Search Patents (Free)
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -136,7 +142,7 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
               size="sm" 
               variant="outline"
               className="w-full border-accent/50 hover:bg-accent/10"
-              onClick={() => navigate('/ideas')}
+              onClick={() => handleAction('/ideas')}
             >
               Explore Ideas Lab
               <ArrowRight className="h-4 w-4 ml-2" />
