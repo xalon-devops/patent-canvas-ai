@@ -102,53 +102,39 @@ serve(async (req) => {
     // Ensure organization_id is present to satisfy NOT NULL constraint
     const orgId = primaryOrg?.id || 'unknown';
 
-    // Upsert without relying on a unique constraint on user_id
-    const { data: existingConn, error: fetchConnError } = await supabase
+    // IMPORTANT: allow switching connected projects reliably.
+    // We keep exactly one active connection per user by deactivating all previous connections
+    // whenever a new OAuth flow completes.
+    const { error: deactivateError } = await supabase
       .from('supabase_connections')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
+      .update({ is_active: false, connection_status: 'inactive' })
+      .eq('user_id', userId);
 
-    if (fetchConnError) {
-      console.error('Fetch connection error:', fetchConnError);
-      throw new Error('Failed to look up existing connection');
+    if (deactivateError) {
+      console.warn(
+        '[OAUTH-CALLBACK] Failed to deactivate previous connections (continuing):',
+        deactivateError,
+      );
     }
 
-    let dbError = null as any;
-    if (existingConn?.id) {
-      const { error } = await supabase
-        .from('supabase_connections')
-        .update({
-          organization_id: orgId,
-          access_token,
-          refresh_token,
-          token_expires_at: expiresAt.toISOString(),
-          scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
-          connection_metadata: connectionMetadata,
-          connection_status: 'pending',
-          is_active: false,
-        })
-        .eq('id', existingConn.id);
-      dbError = error;
-    } else {
-      const { error } = await supabase
-        .from('supabase_connections')
-        .insert({
-          user_id: userId,
-          organization_id: orgId,
-          access_token,
-          refresh_token,
-          token_expires_at: expiresAt.toISOString(),
-          scopes: tokenData.scope ? String(tokenData.scope).split(' ') : ['organizations:read', 'projects:read'],
-          connection_metadata: connectionMetadata,
-          connection_status: 'pending',
-          is_active: false,
-        });
-      dbError = error;
-    }
+    const { error: insertError } = await supabase
+      .from('supabase_connections')
+      .insert({
+        user_id: userId,
+        organization_id: orgId,
+        access_token,
+        refresh_token,
+        token_expires_at: expiresAt.toISOString(),
+        scopes: tokenData.scope
+          ? String(tokenData.scope).split(' ')
+          : ['organizations:read', 'projects:read'],
+        connection_metadata: connectionMetadata,
+        connection_status: 'pending',
+        is_active: false,
+      });
 
-    if (dbError) {
-      console.error('Database error:', dbError);
+    if (insertError) {
+      console.error('Database error:', insertError);
       throw new Error('Failed to store connection');
     }
 

@@ -50,7 +50,9 @@ serve(async (req) => {
         .eq('user_id', user.id)
         .eq('is_active', true)
         .eq('connection_status', 'active')
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (connError || !connection) {
         throw new Error('No active Supabase connection found. Please connect your Supabase project first.');
