@@ -68,6 +68,21 @@ serve(async (req) => {
       throw new Error('Failed to finalize connection');
     }
 
+    // Ensure there is only ONE active connection per user.
+    // This prevents project switching from leaving multiple active rows behind.
+    const { error: deactivateOthersError } = await supabase
+      .from('supabase_connections')
+      .update({ is_active: false, connection_status: 'inactive' })
+      .eq('user_id', user.id)
+      .neq('id', connectionId);
+
+    if (deactivateOthersError) {
+      console.warn(
+        '[FINALIZE] Failed to deactivate other connections (continuing):',
+        deactivateOthersError,
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
