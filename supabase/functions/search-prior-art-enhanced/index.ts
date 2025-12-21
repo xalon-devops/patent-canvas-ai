@@ -41,7 +41,6 @@ serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle();
 
-    // Admin is ONLY determined by user_roles table - no email bypass
     const isAdmin = !!adminRole;
 
     if (isAdmin) {
@@ -127,128 +126,64 @@ serve(async (req) => {
 
     console.log('[ENHANCED SEARCH] Context length:', contextText.length);
 
-    // Extract keywords - always use fallback first, then enhance with AI
+    // Extract keywords for fallback searches
+    const searchKeywords = extractKeywords(contextText);
+    console.log('[ENHANCED SEARCH] Keywords:', searchKeywords.slice(0, 5));
+
+    // Search multiple sources in parallel - prioritize Perplexity for best results
+    const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    let searchKeywords: string[] = extractKeywords(contextText); // Always start with basic extraction
-    let queryEmbedding: number[] | null = null;
-    
-    console.log('[ENHANCED SEARCH] Basic keywords:', searchKeywords.slice(0, 5));
 
-    if (OPENAI_API_KEY && searchKeywords.length < 3) {
-      // Only use AI if basic extraction failed
-      console.log('[ENHANCED SEARCH] Enhancing keywords with AI');
-      try {
-        const keywordResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { 
-                role: 'system', 
-                content: 'Extract 5-8 specific technical keywords for patent search. Return ONLY a JSON array like ["keyword1","keyword2"]. No explanation.' 
-              },
-              { role: 'user', content: contextText.substring(0, 2000) }
-            ],
-            temperature: 0.2,
-          }),
-        });
-        
-        if (keywordResponse.ok) {
-          const keywordData = await keywordResponse.json();
-          const keywordText = keywordData.choices?.[0]?.message?.content || '';
-          console.log('[ENHANCED SEARCH] AI response:', keywordText.substring(0, 100));
-          
-          // Try to parse JSON from the response
-          const jsonMatch = keywordText.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              searchKeywords = parsed.filter((k: any) => typeof k === 'string' && k.length > 2);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[ENHANCED SEARCH] AI keyword extraction failed:', e);
-      }
-    }
+    console.log('[ENHANCED SEARCH] Available APIs:', {
+      perplexity: !!PERPLEXITY_API_KEY,
+      firecrawl: !!FIRECRAWL_API_KEY,
+      lens: !!LENS_API_KEY,
+      openai: !!OPENAI_API_KEY
+    });
 
-    // Ensure we always have keywords
-    if (searchKeywords.length === 0) {
-      searchKeywords = contextText.split(/\s+/).filter(w => w.length > 3).slice(0, 5);
-    }
-    
-    console.log('[ENHANCED SEARCH] Final keywords:', searchKeywords.slice(0, 5));
-
-    // Search multiple sources in parallel
-    const [patentsViewResults, lensResults] = await Promise.all([
-      searchPatentsView(searchKeywords, contextText),
-      searchLensAPI(contextText),
+    // Run all searches in parallel
+    const [perplexityResults, lensResults, googlePatentsResults] = await Promise.all([
+      searchWithPerplexity(contextText, PERPLEXITY_API_KEY),
+      searchLensAPI(contextText, LENS_API_KEY),
+      searchGooglePatents(searchKeywords, contextText, FIRECRAWL_API_KEY),
     ]);
 
-    console.log(`[ENHANCED SEARCH] PatentsView: ${patentsViewResults.length}, Lens: ${lensResults.length}`);
+    console.log(`[ENHANCED SEARCH] Results - Perplexity: ${perplexityResults.length}, Lens: ${lensResults.length}, Google: ${googlePatentsResults.length}`);
 
-    // Combine results
+    // Combine results - prioritize Perplexity as it has best grounded data
     const allResults = [
-      ...patentsViewResults.map(r => ({ ...r, source: 'USPTO' })),
-      ...lensResults.map(r => ({ ...r, source: 'Lens.org' }))
+      ...perplexityResults.map(r => ({ ...r, source: 'Perplexity AI' })),
+      ...lensResults.map(r => ({ ...r, source: 'Lens.org' })),
+      ...googlePatentsResults.map(r => ({ ...r, source: 'Google Patents' })),
     ];
 
-    // Deduplicate by patent number
+    // Deduplicate by patent number or title
     const seen = new Set<string>();
     const uniqueResults = allResults.filter(r => {
-      const key = r.publication_number?.toLowerCase() || r.title?.toLowerCase();
-      if (seen.has(key)) return false;
+      const key = (r.publication_number || r.title || '').toLowerCase().replace(/\s+/g, '');
+      if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    // Score and rank results
+    // Score and analyze results
     const rankedResults = [];
     for (const result of uniqueResults.slice(0, 20)) {
-      let semanticScore = 0;
       let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
-
-      // Calculate semantic similarity if we have embeddings
-      if (queryEmbedding && OPENAI_API_KEY) {
-        try {
-          const resultText = `${result.title} ${result.summary}`.substring(0, 8000);
-          const resultEmbResponse = await fetch('https://api.openai.com/v1/embeddings', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'text-embedding-3-small',
-              input: resultText,
-            }),
-          });
-
-          const resultEmbData = await resultEmbResponse.json();
-          const resultEmbedding = resultEmbData.data?.[0]?.embedding;
-
-          if (resultEmbedding) {
-            semanticScore = cosineSimilarity(queryEmbedding, resultEmbedding);
-          }
-        } catch (e) {
-          console.error('[ENHANCED SEARCH] Result embedding failed:', e);
-        }
+      
+      // Boost Perplexity results as they're more relevant
+      if (result.source === 'Perplexity AI') {
+        keywordScore = Math.min(keywordScore * 1.2, 0.95);
       }
 
-      // Combined score: semantic (70%) + keyword (30%)
-      const finalScore = semanticScore > 0 
-        ? (semanticScore * 0.7) + (keywordScore * 0.3)
-        : keywordScore;
+      // Generate overlap/difference analysis
+      let overlapClaims: string[] = result.overlap_claims || [];
+      let differenceClaims: string[] = result.difference_claims || [];
 
-      // Generate AI analysis for overlap/differences
-      let overlapClaims: string[] = [];
-      let differenceClaims: string[] = [];
-
-      if (OPENAI_API_KEY && finalScore > 0.3) {
+      // Use OpenAI for detailed analysis if available and score is high
+      if (OPENAI_API_KEY && keywordScore > 0.25 && overlapClaims.length === 0) {
         try {
           const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -261,7 +196,7 @@ serve(async (req) => {
               messages: [
                 { 
                   role: 'system', 
-                  content: `Analyze patent overlap. Return JSON: {"overlaps":["..."],"differences":["..."]}. 2-4 items each. Be specific and technical.`
+                  content: `Analyze patent overlap. Return JSON only: {"overlaps":["specific overlap 1","specific overlap 2"],"differences":["key difference 1","key difference 2"]}. 2-4 items each. Be specific and technical.`
                 },
                 { 
                   role: 'user', 
@@ -272,18 +207,24 @@ serve(async (req) => {
             }),
           });
           
-          const analysisData = await analysisResponse.json();
-          const analysisText = analysisData.choices?.[0]?.message?.content || '{}';
-          try {
-            const parsed = JSON.parse(analysisText.replace(/```json\n?|\n?```/g, ''));
-            overlapClaims = parsed.overlaps || [];
-            differenceClaims = parsed.differences || [];
-          } catch {}
+          if (analysisResponse.ok) {
+            const analysisData = await analysisResponse.json();
+            const analysisText = analysisData.choices?.[0]?.message?.content || '{}';
+            try {
+              const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                overlapClaims = parsed.overlaps || [];
+                differenceClaims = parsed.differences || [];
+              }
+            } catch {}
+          }
         } catch (e) {
           console.error('[ENHANCED SEARCH] Analysis failed:', e);
         }
       }
 
+      // Fallback to generic analysis
       if (overlapClaims.length === 0) {
         overlapClaims = generateGenericOverlaps(result.title, contextText);
       }
@@ -293,8 +234,8 @@ serve(async (req) => {
 
       rankedResults.push({
         ...result,
-        similarity_score: Math.min(finalScore, 0.99),
-        semantic_score: semanticScore,
+        similarity_score: Math.min(keywordScore, 0.99),
+        semantic_score: keywordScore,
         keyword_score: keywordScore,
         overlap_claims: overlapClaims,
         difference_claims: differenceClaims,
@@ -330,13 +271,18 @@ serve(async (req) => {
       await supabaseClient.from('prior_art_results').insert(resultsToStore);
     }
 
+    const sourcesUsed = [];
+    if (perplexityResults.length > 0) sourcesUsed.push('Perplexity AI');
+    if (lensResults.length > 0) sourcesUsed.push('Lens.org');
+    if (googlePatentsResults.length > 0) sourcesUsed.push('Google Patents');
+
     console.log(`[ENHANCED SEARCH] Complete: ${rankedResults.length} results, top score: ${rankedResults[0]?.similarity_score || 0}`);
 
     return new Response(JSON.stringify({
       success: true,
       results: rankedResults.slice(0, 15),
       results_found: rankedResults.length,
-      sources_used: ['USPTO', 'Lens.org'],
+      sources_used: sourcesUsed,
       keywords_used: searchKeywords.slice(0, 5),
       search_credits_remaining: hasActiveSubscription ? 'unlimited' : (credits?.free_searches_remaining - 1)
     }), {
@@ -356,103 +302,225 @@ serve(async (req) => {
   }
 });
 
-// Use Google Patents via Firecrawl for reliable results
-async function searchPatentsView(keywords: string[], context: string): Promise<any[]> {
+// PRIMARY: Perplexity AI for grounded patent search - BEST RESULTS
+async function searchWithPerplexity(context: string, apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) {
+    console.log('[Perplexity] No API key configured, skipping');
+    return [];
+  }
+
   try {
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    const topKeywords = keywords.slice(0, 5);
-    const searchTerms = topKeywords.length > 0 ? topKeywords.join('+') : context.split(' ').slice(0, 3).join('+');
+    console.log('[Perplexity] Searching for prior art...');
     
-    console.log('[Google Patents] Searching:', searchTerms.substring(0, 50));
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a patent search expert. Find real, existing patents that are similar to the user's invention idea. 
 
-    if (FIRECRAWL_API_KEY) {
-      // Use Firecrawl to search Google Patents
-      const googlePatentsUrl = `https://patents.google.com/?q=${encodeURIComponent(searchTerms)}&oq=${encodeURIComponent(searchTerms)}`;
-      
-      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: googlePatentsUrl,
-          formats: ['markdown'],
-          waitFor: 3000,
-        }),
-      });
+Return ONLY a JSON array of patents in this exact format:
+[
+  {
+    "title": "Exact patent title",
+    "publication_number": "US patent number like US10123456B2 or US2020/0123456A1",
+    "summary": "Brief description of what the patent covers",
+    "assignee": "Company or person who owns the patent",
+    "patent_date": "Publication date YYYY-MM-DD format if known",
+    "url": "Link to Google Patents or USPTO",
+    "overlap_claims": ["Specific way this patent overlaps with the invention"],
+    "difference_claims": ["Key difference from the user's invention"]
+  }
+]
 
-      if (response.ok) {
-        const data = await response.json();
-        const markdown = data.data?.markdown || '';
-        
-        // Parse patent results from markdown
-        const patents = parseGooglePatentsMarkdown(markdown, searchTerms);
-        console.log('[Google Patents] Parsed:', patents.length, 'results');
-        
-        if (patents.length > 0) return patents;
-      } else {
-        console.error('[Google Patents] Firecrawl error:', response.status);
-      }
+Search USPTO, Google Patents, and other patent databases. Return 5-10 REAL patents. Only include patents that actually exist - never make up patent numbers.`
+          },
+          {
+            role: 'user',
+            content: `Find existing patents similar to this invention:\n\n${context.substring(0, 3000)}`
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Perplexity] API error:', response.status);
+      return [];
     }
 
-    // NO MOCK DATA - Return empty array if real search fails
-    // Users must get real patent data, never fabricated results
-    console.log('[Google Patents] No API available, returning empty results');
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    console.log('[Perplexity] Raw response length:', content.length);
+
+    // Extract JSON array from response
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const patents = JSON.parse(jsonMatch[0]);
+        console.log('[Perplexity] Parsed patents:', patents.length);
+        
+        return patents.filter((p: any) => p.title && (p.publication_number || p.url)).map((p: any) => ({
+          title: p.title,
+          publication_number: p.publication_number || extractPatentNumber(p.url) || 'Unknown',
+          summary: p.summary || p.abstract || 'No summary available',
+          assignee: p.assignee || 'Unknown',
+          patent_date: p.patent_date || null,
+          url: p.url || `https://patents.google.com/patent/${p.publication_number}`,
+          overlap_claims: p.overlap_claims || [],
+          difference_claims: p.difference_claims || [],
+        }));
+      }
+    } catch (e) {
+      console.error('[Perplexity] JSON parse error:', e);
+    }
+
+    // Try to extract patents from natural language response
+    const patentNumbers = content.match(/US\d{7,}[A-Z]?\d?|US\s*\d{4}\/\d{7}[A-Z]\d?|US\d{4,}\s*[A-Z]\d?/gi) || [];
+    if (patentNumbers.length > 0) {
+      console.log('[Perplexity] Extracted patent numbers:', patentNumbers.length);
+      return [...new Set(patentNumbers)].slice(0, 10).map(num => ({
+        title: `Patent ${num}`,
+        publication_number: num.replace(/\s+/g, ''),
+        summary: 'Found via Perplexity AI search. View patent for full details.',
+        assignee: 'Unknown',
+        patent_date: null,
+        url: `https://patents.google.com/patent/${num.replace(/\s+/g, '')}`,
+        overlap_claims: [],
+        difference_claims: [],
+      }));
+    }
+
     return [];
+  } catch (error) {
+    console.error('[Perplexity] Error:', error);
+    return [];
+  }
+}
+
+function extractPatentNumber(url: string | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/US\d{7,}[A-Z]?\d?|US\d{4}\/\d{7}/i);
+  return match ? match[0] : null;
+}
+
+// SECONDARY: Google Patents via Firecrawl
+async function searchGooglePatents(keywords: string[], context: string, apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) {
+    console.log('[Google Patents] No Firecrawl API key, skipping');
+    return [];
+  }
+
+  try {
+    const searchTerms = keywords.slice(0, 5).join(' ');
+    console.log('[Google Patents] Searching:', searchTerms.substring(0, 50));
+
+    const googlePatentsUrl = `https://patents.google.com/?q=${encodeURIComponent(searchTerms)}&oq=${encodeURIComponent(searchTerms)}`;
+    
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: googlePatentsUrl,
+        formats: ['markdown'],
+        waitFor: 5000, // Wait longer for JS to render
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Google Patents] Firecrawl error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const markdown = data.data?.markdown || '';
+    
+    // Parse patent results from markdown
+    const patents = parseGooglePatentsMarkdown(markdown, searchTerms);
+    console.log('[Google Patents] Parsed:', patents.length, 'results');
+    
+    return patents;
   } catch (error) {
     console.error('[Google Patents] Error:', error);
     return [];
   }
 }
 
-// Parse Google Patents search results from markdown
 function parseGooglePatentsMarkdown(markdown: string, query: string): any[] {
   const results: any[] = [];
   
-  // Look for patent patterns in the markdown
-  const patentPattern = /US\d{7,}[A-Z]?\d?|US\s*\d{4}\/\d{7}/gi;
+  // Look for patent patterns
+  const patentPattern = /US\d{7,}[A-Z]?\d?|US\s*\d{4}\/\d{7}[A-Z]?\d?/gi;
   const matches = markdown.match(patentPattern) || [];
   
-  // Also look for title patterns
-  const titlePattern = /#+\s*(.+?)(?:\n|$)/g;
-  let titleMatch;
-  const titles: string[] = [];
-  while ((titleMatch = titlePattern.exec(markdown)) !== null) {
-    titles.push(titleMatch[1].trim());
+  // Look for titles near patent numbers
+  const lines = markdown.split('\n');
+  const patentLines: {number: string, title: string}[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const patentMatch = line.match(/US\d{7,}[A-Z]?\d?|US\s*\d{4}\/\d{7}[A-Z]?\d?/gi);
+    if (patentMatch) {
+      // Look for title in surrounding lines
+      let title = '';
+      for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j++) {
+        const nearbyLine = lines[j].replace(/[#*\[\]]/g, '').trim();
+        if (nearbyLine.length > 20 && nearbyLine.length < 200 && !nearbyLine.match(/US\d{7}/)) {
+          title = nearbyLine;
+          break;
+        }
+      }
+      patentLines.push({ number: patentMatch[0], title });
+    }
   }
 
-  // Create results from found patents
-  const uniquePatents = [...new Set(matches)].slice(0, 10);
-  for (let i = 0; i < uniquePatents.length; i++) {
-    const patentNum = uniquePatents[i].replace(/\s+/g, '');
+  // Create results
+  const seen = new Set<string>();
+  for (const { number, title } of patentLines) {
+    const cleanNum = number.replace(/\s+/g, '');
+    if (seen.has(cleanNum)) continue;
+    seen.add(cleanNum);
+    
     results.push({
-      title: titles[i] || `Patent related to ${query}`,
-      publication_number: patentNum,
-      summary: `Patent ${patentNum} found in search for "${query}". View on Google Patents for full details.`,
-      url: `https://patents.google.com/patent/${patentNum}`,
+      title: title || `Patent related to ${query}`,
+      publication_number: cleanNum,
+      summary: `Patent ${cleanNum} found in search. View on Google Patents for full details.`,
+      url: `https://patents.google.com/patent/${cleanNum}`,
       patent_date: null,
-      assignee: 'Unknown'
+      assignee: 'Unknown',
+      overlap_claims: [],
+      difference_claims: [],
     });
   }
 
-  return results;
+  return results.slice(0, 10);
 }
 
-// Lens.org API (optional - needs LENS_API_KEY)
-async function searchLensAPI(query: string): Promise<any[]> {
-  const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
-  
-  if (!LENS_API_KEY) {
+// TERTIARY: Lens.org API
+async function searchLensAPI(query: string, apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) {
     console.log('[Lens] No API key configured, skipping');
     return [];
   }
 
   try {
+    console.log('[Lens] Searching...');
+    
     const response = await fetch('https://api.lens.org/patent/search', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LENS_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -465,7 +533,7 @@ async function searchLensAPI(query: string): Promise<any[]> {
     });
 
     if (!response.ok) {
-      console.error('[Lens] API error:', response.status, '- skipping');
+      console.error('[Lens] API error:', response.status);
       return [];
     }
 
@@ -474,11 +542,13 @@ async function searchLensAPI(query: string): Promise<any[]> {
     
     return (data.data || []).map((p: any) => ({
       title: p.title || 'Untitled Patent',
-      publication_number: p.lens_id || p.publication_number || 'Unknown',
+      publication_number: p.publication_number || p.lens_id || 'Unknown',
       summary: p.abstract || 'No abstract available',
-      url: `https://lens.org/lens/patent/${p.lens_id}`,
+      url: p.lens_id ? `https://lens.org/lens/patent/${p.lens_id}` : null,
       patent_date: p.date_published,
-      assignee: p.applicants?.[0]?.extracted_name || 'Unknown'
+      assignee: p.applicants?.[0]?.extracted_name || 'Unknown',
+      overlap_claims: [],
+      difference_claims: [],
     }));
   } catch (error) {
     console.error('[Lens] Error:', error);
@@ -493,73 +563,58 @@ function extractKeywords(text: string): string[] {
     'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then',
     'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each',
     'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
-    'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just',
-    'should', 'now', 'also', 'which', 'what', 'this', 'that', 'these', 'those',
-    'using', 'system', 'method', 'device', 'apparatus', 'process', 'based'
+    'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'can', 'will',
+    'should', 'now', 'also', 'like', 'would', 'could', 'this', 'that', 'these',
+    'those', 'which', 'what', 'who', 'whom', 'whose', 'have', 'has', 'had',
+    'been', 'being', 'was', 'were', 'are', 'is', 'am', 'do', 'does', 'did',
+    'done', 'doing', 'make', 'made', 'get', 'got', 'use', 'used', 'using',
+    'invention', 'patent', 'method', 'system', 'device', 'apparatus', 'means',
+    'comprising', 'includes', 'including', 'having', 'wherein'
   ]);
-  
+
   const words = text.toLowerCase()
-    .replace(/[^\w\s-]/g, ' ')
+    .replace(/[^a-z0-9\s-]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 3 && !stopWords.has(w));
-  
-  // Count frequency and get unique technical terms
-  const freq: { [key: string]: number } = {};
-  words.forEach(w => freq[w] = (freq[w] || 0) + 1);
-  
+    .filter(word => word.length > 3 && !stopWords.has(word));
+
+  // Count frequency
+  const freq: Record<string, number> = {};
+  for (const word of words) {
+    freq[word] = (freq[word] || 0) + 1;
+  }
+
+  // Return top keywords by frequency
   return Object.entries(freq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .map(e => e[0]);
+    .map(([word]) => word);
 }
 
 function calculateKeywordMatch(query: string, text: string): number {
-  const queryKeywords = new Set(extractKeywords(query).slice(0, 15));
+  const queryKeywords = new Set(extractKeywords(query));
   const textKeywords = new Set(extractKeywords(text));
   
+  if (queryKeywords.size === 0) return 0;
+  
   let matches = 0;
-  queryKeywords.forEach(k => {
-    if (textKeywords.has(k)) matches++;
-  });
-  
-  return queryKeywords.size > 0 ? matches / queryKeywords.size : 0;
-}
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (!a || !b || a.length !== b.length) return 0;
-  
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+  for (const kw of queryKeywords) {
+    if (textKeywords.has(kw)) matches++;
   }
   
-  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-  return denominator > 0 ? dotProduct / denominator : 0;
+  return matches / queryKeywords.size;
 }
 
-function generateGenericOverlaps(patentTitle: string, userContext: string): string[] {
-  const titleWords = patentTitle.toLowerCase().split(/\s+/);
-  const contextWords = userContext.toLowerCase().split(/\s+/);
-  const common = titleWords.filter(w => w.length > 4 && contextWords.includes(w));
-  
-  if (common.length > 0) {
-    return [
-      `Both address ${common[0]} technology`,
-      `Similar application domain`
-    ];
-  }
-  return ['General technology overlap'];
-}
-
-function generateGenericDifferences(patentTitle: string, userContext: string): string[] {
+function generateGenericOverlaps(patentTitle: string, context: string): string[] {
+  const keywords = extractKeywords(context).slice(0, 3);
   return [
-    'Your invention may have novel implementation approach',
-    'Specific technical implementation may differ',
-    'Target use case differentiation possible'
+    `Both involve ${keywords[0] || 'similar technology'} concepts`,
+    `Related approach to ${keywords[1] || 'the problem domain'}`,
+  ];
+}
+
+function generateGenericDifferences(patentTitle: string, context: string): string[] {
+  return [
+    `Your invention may have a unique implementation approach`,
+    `Different specific application or use case`,
   ];
 }
