@@ -5,36 +5,59 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transform-gpu",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
-        destructive: "bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
-        outline: "border border-input bg-background/50 backdrop-blur-sm shadow-sm hover:bg-accent hover:text-accent-foreground hover:scale-[1.02] active:scale-[0.98]",
-        secondary: "bg-secondary text-secondary-foreground shadow-md hover:bg-secondary/80 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
-        ghost: "hover:bg-accent hover:text-accent-foreground hover:scale-[1.02] active:scale-[0.98]",
-        link: "text-primary underline-offset-4 hover:underline hover:scale-[1.02] active:scale-[0.98] hover:text-xalon-cyan-light transition-fast",
+        /* Default - Solid primary */
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         
-        /* XALON Premium Brand Variants */
-        gradient: "bg-gradient-primary text-white shadow-elegant hover:shadow-glow hover:scale-105 active:scale-95 transition-all duration-300 font-semibold",
-        "gradient-secondary": "bg-gradient-secondary text-white shadow-elegant hover:shadow-accent hover:scale-105 active:scale-95 transition-all duration-300 font-semibold",
-        xalon: "bg-xalon-cyan text-xalon-dark shadow-md hover:bg-xalon-cyan-light hover:shadow-primary hover:scale-105 active:scale-95 transition-all duration-200 font-semibold",
-        "xalon-outline": "border-2 border-xalon-cyan text-xalon-cyan bg-transparent backdrop-blur-sm hover:bg-xalon-cyan hover:text-xalon-dark hover:shadow-primary hover:scale-105 active:scale-95 transition-all duration-200 font-semibold",
-        "xalon-ghost": "text-xalon-cyan hover:bg-xalon-cyan/10 hover:text-xalon-cyan-light hover:scale-[1.02] active:scale-[0.98] transition-all duration-200",
-        glow: "bg-gradient-glow text-white shadow-glow hover:shadow-glow/80 hover:scale-105 active:scale-95 transition-all duration-300 border-0 font-semibold animate-pulse-glow",
+        /* Destructive */
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         
-        /* Professional variants */
-        professional: "glass text-foreground hover:bg-white/10 hover:shadow-glow/20 hover:scale-[1.02] active:scale-[0.98] font-medium transition-all duration-200",
-        patent: "bg-primary/10 backdrop-blur-sm text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground hover:shadow-elegant hover:scale-[1.02] active:scale-[0.98] transition-all duration-200",
-        premium: "bg-gradient-card text-white shadow-glow hover:shadow-glow/80 hover:scale-105 active:scale-95 font-semibold border border-white/10 backdrop-blur-sm transition-all duration-300",
+        /* Outline - Subtle border */
+        outline: "border border-border bg-transparent text-foreground hover:bg-muted hover:border-border",
+        
+        /* Secondary - Muted background */
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        
+        /* Ghost - No background */
+        ghost: "text-foreground/70 hover:text-foreground hover:bg-muted",
+        
+        /* Link - Underline style */
+        link: "text-foreground/70 underline-offset-4 hover:underline hover:text-foreground p-0 h-auto",
+        
+        /* === INSTITUTIONAL VARIANTS === */
+        
+        /* Primary action - Clean, confident */
+        gradient: "bg-primary text-primary-foreground font-medium hover:bg-primary/90",
+        
+        /* Secondary gradient */
+        "gradient-secondary": "bg-gradient-to-r from-primary to-accent text-primary-foreground font-medium hover:opacity-90",
+        
+        /* Brand variants - Refined */
+        xalon: "bg-primary text-primary-foreground font-medium hover:bg-primary/90",
+        "xalon-outline": "border border-primary/30 text-primary bg-transparent hover:bg-primary/10 hover:border-primary/50 font-medium",
+        "xalon-ghost": "text-primary hover:bg-primary/10 font-medium",
+        
+        /* Premium glow - Subtle */
+        glow: "bg-primary text-primary-foreground font-medium hover:bg-primary/90 shadow-glow",
+        
+        /* Professional - Clean glass */
+        professional: "bg-muted/50 text-foreground border border-border/50 hover:bg-muted hover:border-border font-medium",
+        
+        /* Patent specific */
+        patent: "bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground font-medium",
+        
+        /* Premium - Subtle elevation */
+        premium: "bg-card text-foreground border border-border hover:bg-muted font-medium shadow-card",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-12 rounded-2xl px-8 text-base font-semibold",
-        xl: "h-14 rounded-2xl px-10 text-lg font-semibold",
-        icon: "h-10 w-10 rounded-xl",
+        sm: "h-9 rounded-md px-3 text-xs",
+        lg: "h-12 rounded-lg px-6 text-base",
+        xl: "h-14 rounded-lg px-8 text-base",
+        icon: "h-10 w-10 rounded-lg",
       },
     },
     defaultVariants: {

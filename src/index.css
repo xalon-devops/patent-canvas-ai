@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-First: Prevent horizontal scrolling like native iOS app */
+/* Mobile-First: Prevent horizontal scrolling */
 html {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -12,29 +12,22 @@ body {
   overflow-x: hidden;
   max-width: 100vw;
   min-height: 100vh;
-  min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  min-height: 100dvh;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Ensure all containers respect viewport width */
 * {
   box-sizing: border-box;
   max-width: 100%;
 }
 
-/* Prevent images and media from causing horizontal overflow */
 img, video, iframe, embed, object {
   max-width: 100%;
   height: auto;
 }
 
-/* Prevent text overflow on mobile */
-.truncate-mobile {
-  @apply truncate sm:whitespace-normal;
-}
-
-/* Mobile-friendly touch targets (44px minimum per Apple HIG) */
+/* Mobile touch targets (44px minimum) */
 @media (max-width: 640px) {
   button, 
   a, 
@@ -44,93 +37,96 @@ img, video, iframe, embed, object {
     min-height: 44px;
   }
   
-  /* Improve tap targets for links */
   a {
     padding: 0.25rem 0;
   }
 }
 
-/* Prevent horizontal scroll from any element */
 .safe-container {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
 }
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* =============================================================================
+   INSTITUTIONAL DESIGN SYSTEM
+   Premium, capital-grade aesthetic inspired by Stripe, OpenAI, Apple
+============================================================================= */
 
 @layer base {
   :root {
-    /* XALON Brand Dark Theme - Primary Base */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Background - Pure, clean foundations */
+    --background: 220 20% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 98%;
+    /* Card surfaces - Subtle elevation */
+    --card: 220 16% 6%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 240 8% 6%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 16% 6%;
+    --popover-foreground: 0 0% 96%;
 
-    /* XALON Primary - Electric Cyan */
-    --primary: 187 100% 50%;
-    --primary-foreground: 240 10% 3.9%;
-    --primary-glow: 187 100% 65%;
-    --primary-variant: 187 85% 45%;
+    /* Primary - Refined blue, not electric */
+    --primary: 215 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 215 70% 65%;
+    --primary-variant: 215 60% 45%;
 
-    /* XALON Secondary - Darker cards and elements */
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary - Warm gray for depth */
+    --secondary: 220 10% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    /* Muted - Sophisticated gray spectrum */
+    --muted: 220 10% 14%;
+    --muted-foreground: 220 8% 55%;
 
-    /* XALON Accent - Bright Electric Blue */
-    --accent: 220 100% 60%;
-    --accent-foreground: 240 10% 3.9%;
-    --accent-glow: 220 100% 70%;
+    /* Accent - Warm, inviting */
+    --accent: 220 12% 16%;
+    --accent-foreground: 0 0% 96%;
+    --accent-glow: 215 60% 60%;
 
-    --destructive: 0 62.8% 50%;
-    --destructive-foreground: 0 0% 98%;
+    /* Destructive */
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 187 100% 50%;
+    /* Borders - Barely visible, sophisticated */
+    --border: 220 10% 15%;
+    --input: 220 10% 15%;
+    --ring: 215 60% 55%;
 
-    /* XALON Brand Theme Colors */
-    --xalon-cyan: 187 100% 50%;
-    --xalon-cyan-light: 187 100% 65%;
-    --xalon-cyan-dark: 187 85% 45%;
-    --xalon-blue: 220 100% 60%;
-    --xalon-blue-light: 220 100% 70%;
-    --xalon-dark: 240 10% 3.9%;
-    --xalon-dark-card: 240 8% 6%;
-    --xalon-dark-muted: 240 3.7% 15.9%;
+    /* Brand tokens - Institutional blue */
+    --xalon-cyan: 215 80% 55%;
+    --xalon-cyan-light: 215 70% 65%;
+    --xalon-cyan-dark: 215 60% 45%;
+    --xalon-blue: 225 70% 55%;
+    --xalon-blue-light: 225 60% 65%;
+    --xalon-dark: 220 20% 4%;
+    --xalon-dark-card: 220 16% 6%;
+    --xalon-dark-muted: 220 10% 12%;
     
-    /* XALON Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(187 100% 50%), hsl(220 100% 60%));
-    --gradient-secondary: linear-gradient(135deg, hsl(220 100% 60%), hsl(187 100% 65%));
-    --gradient-subtle: linear-gradient(180deg, hsl(240 10% 3.9%), hsl(240 8% 6%));
-    --gradient-card: linear-gradient(145deg, hsl(240 8% 6% / 0.8), hsl(240 3.7% 15.9% / 0.6));
-    --gradient-glow: linear-gradient(135deg, hsl(187 100% 65%), hsl(220 100% 70%));
+    /* Gradients - Subtle, professional */
+    --gradient-primary: linear-gradient(135deg, hsl(215 80% 55%), hsl(225 70% 55%));
+    --gradient-secondary: linear-gradient(135deg, hsl(220 10% 14%), hsl(220 16% 6%));
+    --gradient-subtle: linear-gradient(180deg, hsl(220 20% 4%), hsl(220 16% 6%));
+    --gradient-card: linear-gradient(145deg, hsl(220 16% 7% / 0.9), hsl(220 10% 12% / 0.7));
+    --gradient-glow: linear-gradient(135deg, hsl(215 70% 65%), hsl(225 60% 65%));
     
-    /* XALON Shadows with brand colors */
-    --shadow-primary: 0 10px 30px -10px hsl(187 100% 50% / 0.3);
-    --shadow-glow: 0 0 40px hsl(187 100% 65% / 0.4);
-    --shadow-card: 0 8px 32px -8px hsl(240 10% 3.9% / 0.8);
-    --shadow-elegant: 0 20px 60px -10px hsl(187 100% 50% / 0.2);
-    --shadow-accent: 0 0 20px hsl(220 100% 60% / 0.3);
+    /* Shadows - Refined, not dramatic */
+    --shadow-primary: 0 1px 2px hsl(220 20% 4% / 0.3);
+    --shadow-glow: 0 0 30px hsl(215 80% 55% / 0.15);
+    --shadow-card: 0 1px 3px hsl(220 20% 4% / 0.4);
+    --shadow-elegant: 0 4px 20px hsl(220 20% 4% / 0.5);
+    --shadow-accent: 0 0 20px hsl(215 60% 55% / 0.1);
     
-    /* Smooth transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* Transitions - Smooth, not bouncy */
+    --transition-smooth: all 0.2s ease;
+    --transition-fast: all 0.15s ease;
+    --transition-subtle: all 0.3s ease;
 
-    /* Glassmorphism */
-    --glass-bg: 240 8% 6% / 0.8;
-    --glass-border: 255 255 255 / 0.1;
-    --glass-blur: blur(16px);
+    /* Glassmorphism - Barely there */
+    --glass-bg: 220 16% 6% / 0.85;
+    --glass-border: 255 255 255 / 0.06;
+    --glass-blur: blur(20px);
 
     /* Premium spacing */
     --space-xs: 0.25rem;
@@ -139,60 +135,61 @@ All colors MUST be HSL.
     --space-lg: 1.5rem;
     --space-xl: 2rem;
     --space-2xl: 3rem;
+    --space-3xl: 4rem;
+    --space-4xl: 6rem;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    /* Sidebar using XALON colors */
-    --sidebar-background: 240 8% 6%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 187 100% 50%;
-    --sidebar-primary-foreground: 240 10% 3.9%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 187 100% 50%;
+    /* Sidebar */
+    --sidebar-background: 220 16% 6%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 215 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 10% 14%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 220 10% 15%;
+    --sidebar-ring: 215 60% 55%;
   }
 
   .dark {
-    /* Same as root - XALON uses consistent dark theme */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 220 20% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 16% 6%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 240 8% 6%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 16% 6%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 187 100% 50%;
-    --primary-foreground: 240 10% 3.9%;
-    --primary-glow: 187 100% 65%;
+    --primary: 215 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 215 70% 65%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 10% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 220 10% 14%;
+    --muted-foreground: 220 8% 55%;
 
-    --accent: 220 100% 60%;
-    --accent-foreground: 240 10% 3.9%;
-    --accent-glow: 220 100% 70%;
+    --accent: 220 12% 16%;
+    --accent-foreground: 0 0% 96%;
+    --accent-glow: 215 60% 60%;
 
-    --destructive: 0 62.8% 50%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 187 100% 50%;
+    --border: 220 10% 15%;
+    --input: 220 10% 15%;
+    --ring: 215 60% 55%;
 
-    --sidebar-background: 240 8% 6%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 187 100% 50%;
-    --sidebar-primary-foreground: 240 10% 3.9%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 187 100% 50%;
+    --sidebar-background: 220 16% 6%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 215 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 10% 14%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 220 10% 15%;
+    --sidebar-ring: 215 60% 55%;
   }
 }
 
@@ -202,32 +199,47 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    line-height: 1.6;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
   }
 
-  /* Premium scroll styling */
+  /* Editorial headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.025em;
+    font-weight: 500;
+  }
+
+  /* Serif accents for emphasis */
+  .font-serif {
+    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    letter-spacing: 0;
+  }
+
+  /* Refined scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-muted/30;
-    border-radius: 4px;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-primary/30;
-    border-radius: 4px;
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-primary/50;
+    background: hsl(var(--muted-foreground) / 0.3);
   }
 }
 
 @layer components {
-  /* Glassmorphism utilities */
+  /* Glass - Subtle, institutional */
   .glass {
     background: hsl(var(--glass-bg));
     backdrop-filter: var(--glass-blur);
@@ -235,89 +247,109 @@ All colors MUST be HSL.
   }
 
   .glass-strong {
-    background: hsl(240 8% 6% / 0.95);
-    backdrop-filter: blur(24px);
-    border: 1px solid hsl(255 255 255 / 0.15);
+    background: hsl(220 16% 6% / 0.95);
+    backdrop-filter: blur(30px);
+    border: 1px solid hsl(255 255 255 / 0.08);
   }
 
-  /* Premium card variants */
+  /* Premium cards - Clean, not flashy */
   .card-premium {
-    @apply bg-card/80 backdrop-blur-sm border-0 shadow-elegant rounded-2xl;
-    background: linear-gradient(145deg, hsl(240 8% 6% / 0.8), hsl(240 3.7% 15.9% / 0.6));
+    @apply bg-card border border-border/50 rounded-xl;
+    box-shadow: var(--shadow-card);
   }
 
   .card-glass {
-    @apply glass rounded-2xl shadow-glow/20;
+    @apply glass rounded-xl;
+    box-shadow: var(--shadow-card);
   }
 
-  /* Interactive elements */
+  /* Institutional card hover - Subtle */
+  .card-hover {
+    @apply transition-all duration-200;
+  }
+
+  .card-hover:hover {
+    @apply border-border;
+    box-shadow: var(--shadow-elegant);
+    transform: translateY(-1px);
+  }
+
+  /* Interactive elements - No scale, just subtle */
   .interactive {
-    @apply transition-all duration-200 ease-in-out transform-gpu;
+    @apply transition-all duration-200;
   }
 
   .interactive:hover {
-    @apply scale-[1.02];
-    box-shadow: var(--shadow-glow);
-    opacity: 0.3;
+    opacity: 0.85;
   }
 
-  .interactive:active {
-    @apply scale-[0.98];
-  }
-
-  /* Button variants */
+  /* Premium buttons - Refined */
   .btn-premium {
-    @apply bg-gradient-primary text-primary-foreground shadow-elegant rounded-xl px-6 py-3 font-medium;
-    @apply hover:shadow-glow transition-all duration-300 transform-gpu;
-  }
-
-  .btn-premium:hover {
-    @apply scale-105 shadow-glow;
+    @apply bg-primary text-primary-foreground rounded-lg px-5 py-2.5 font-medium;
+    @apply hover:bg-primary/90 transition-all duration-200;
+    box-shadow: var(--shadow-primary);
   }
 
   .btn-glass {
-    @apply glass rounded-xl px-6 py-3 font-medium text-foreground;
-    @apply hover:bg-white/10 transition-all duration-200;
+    @apply glass rounded-lg px-5 py-2.5 font-medium text-foreground;
+    @apply hover:bg-foreground/5 transition-all duration-200;
   }
 
-  /* Layout utilities */
+  /* Section layouts - Editorial spacing */
+  .section-spacing {
+    @apply py-20 sm:py-28 lg:py-32;
+  }
+
+  .section-spacing-sm {
+    @apply py-12 sm:py-16 lg:py-20;
+  }
+
+  /* Container utilities */
   .safe-area {
-    @apply px-4 sm:px-6 lg:px-8;
+    @apply px-5 sm:px-8 lg:px-12;
   }
 
   .content-width {
-    @apply max-w-7xl mx-auto;
+    @apply max-w-6xl mx-auto;
   }
 
-  /* Animation utilities */
+  .content-width-narrow {
+    @apply max-w-4xl mx-auto;
+  }
+
+  /* Typography utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Dividers - Subtle */
+  .divider {
+    @apply border-t border-border/30;
+  }
+
+  /* Animations - Subtle only */
   .fade-in {
-    animation: fadeIn 0.6s ease-out forwards;
+    animation: fadeIn 0.4s ease forwards;
   }
 
   .slide-up {
-    animation: slideUp 0.6s ease-out forwards;
-  }
-
-  .stagger {
-    animation-delay: calc(var(--stagger) * 100ms);
+    animation: slideUp 0.5s ease forwards;
   }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(40px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -325,18 +357,48 @@ All colors MUST be HSL.
   }
 }
 
-/* Skeleton loader */
+/* Subtle shimmer for loading states */
 @keyframes shimmer {
   0% {
-    background-position: -468px 0;
+    background-position: -400px 0;
   }
   100% {
-    background-position: 468px 0;
+    background-position: 400px 0;
   }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.1) 50%, hsl(var(--muted)) 75%);
-  background-size: 400% 100%;
-  animation: shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.05) 50%, hsl(var(--muted)) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Link style - Refined underline */
+.link-subtle {
+  @apply text-foreground/70 hover:text-foreground transition-colors duration-200;
+  text-decoration: none;
+}
+
+.link-subtle:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Gradient text - Used sparingly */
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Institutional badge */
+.badge-institutional {
+  @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+  @apply bg-muted text-muted-foreground border border-border/50;
+}
+
+/* Focus states - Accessible but subtle */
+.focus-ring {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
