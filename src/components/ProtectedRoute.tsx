@@ -61,11 +61,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return;
     }
 
+    // Auth-only routes: no DB checks needed
+    if (!requiresAdmin && !requiresPremium) {
+      setHasAccess(true);
+      setAccessType(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    // Defer access check to avoid deadlocks in auth listeners
-    setTimeout(() => {
-      checkUserAccess(user.id);
-    }, 0);
+    void checkUserAccess(user.id);
   }, [authChecked, user?.id, requiresPremium, requiresAdmin, navigate]);
 
   const checkUserAccess = async (userId: string) => {
