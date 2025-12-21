@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSEO } from '@/components/SEO';
+import { formatDate, formatDateTime } from '@/lib/dateUtils';
 
 const Drafts = () => {
   const navigate = useNavigate();
@@ -219,14 +220,11 @@ const Drafts = () => {
                               <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{new Date(draft.created_at).toLocaleDateString()}</span>
+                                  <span className="truncate">{formatDate(draft.created_at)}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3 flex-shrink-0" />
-                                  <span>{new Date(draft.created_at).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}</span>
+                                  <span>{formatDateTime(draft.created_at).split(' ').slice(-2).join(' ')}</span>
                                 </div>
                                 {draft.patentability_score && (
                                   <div className="flex items-center gap-1">

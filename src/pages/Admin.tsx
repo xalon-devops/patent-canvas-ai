@@ -26,7 +26,7 @@ import {
   DollarSign,
   TrendingUp
 } from 'lucide-react';
-import { formatDateAdmin } from '@/lib/dateUtils';
+import { formatDateAdmin, getCurrentISOString } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
 
 // PatentBot AI Price IDs (Stripe) - ONLY track revenue from these
@@ -240,8 +240,8 @@ const Admin = () => {
       const kronosPresent = !!sessionId;
       
       // Check last activity times
-      const nexusLastSeen = localStorage.getItem("nexus_cid") ? new Date().toISOString() : undefined;
-      const kronosLastSeen = sessionId ? new Date().toISOString() : undefined;
+      const nexusLastSeen = localStorage.getItem("nexus_cid") ? getCurrentISOString() : undefined;
+      const kronosLastSeen = sessionId ? getCurrentISOString() : undefined;
       
       setTrackingStatus({
         nexus: nexusPresent,

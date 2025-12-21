@@ -17,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { getCurrentYear } from '@/lib/dateUtils';
 
 const Pricing = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -346,6 +347,15 @@ const Pricing = () => {
           </div>
         )}
       </main>
+      
+      {/* Footer */}
+      <footer className="py-8 border-t bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-muted-foreground">
+            © {getCurrentYear()} PatentBot AI™. Professional patent drafting with AI assistance.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };

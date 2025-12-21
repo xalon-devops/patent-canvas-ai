@@ -23,7 +23,6 @@ import {
   Clock,
   Wand2
 } from 'lucide-react';
-import { format } from 'date-fns';
 import { formatDate, formatDateTime } from '@/lib/dateUtils';
 import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import SystemMessage from '@/components/SystemMessage';
