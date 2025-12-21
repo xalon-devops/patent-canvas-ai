@@ -23,7 +23,6 @@ import { formatDate, formatDateShort } from '@/lib/dateUtils';
 import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 import { PageSEO } from '@/components/SEO';
-import { PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
 
 const Ideas = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -131,7 +130,7 @@ const Ideas = () => {
               className="gap-2 px-6 py-3 bg-gradient-primary hover:scale-105 transition-transform shadow-glow"
             >
               <Lightbulb className="w-5 h-5" />
-              Full Patent Draft — {PATENT_APPLICATION_PRICE_DISPLAY}
+              Draft Full Patent
             </Button>
           </div>
 
@@ -158,7 +157,7 @@ const Ideas = () => {
               </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-500/10 rounded-lg">
@@ -172,7 +171,7 @@ const Ideas = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg">
@@ -186,7 +185,7 @@ const Ideas = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-orange-500/10 rounded-lg">
@@ -203,7 +202,7 @@ const Ideas = () => {
 
         {/* Recent Alerts */}
         {alerts.length > 0 && (
-          <Card className="mb-8 bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="mb-8 bg-card/80 border-border/20 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
@@ -234,7 +233,7 @@ const Ideas = () => {
 
         {/* Ideas Grid */}
         {ideas.length === 0 ? (
-          <Card className="bg-white/60 border-white/20 backdrop-blur-sm">
+          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <Lightbulb className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Ideas Yet</h3>
@@ -250,7 +249,7 @@ const Ideas = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {ideas.map((idea) => (
-              <Card key={idea.id} className="bg-white/60 border-white/20 backdrop-blur-sm hover:shadow-lg transition-shadow">
+              <Card key={idea.id} className="bg-card/80 border-border/20 backdrop-blur-sm hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
