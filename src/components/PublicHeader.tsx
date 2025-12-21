@@ -34,19 +34,16 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
     <header className={`sticky top-0 z-50 ${transparent ? 'bg-transparent' : 'bg-background/80 backdrop-blur-xl border-b border-border/50'}`}>
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo - Text based, institutional */}
+          {/* Logo */}
           <div 
-            className="flex items-center gap-3 cursor-pointer group" 
+            className="cursor-pointer" 
             onClick={() => navigate('/')}
           >
             <img 
               src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
               alt="PatentBot AI" 
-              className="h-8 w-auto opacity-90 group-hover:opacity-100 transition-opacity"
+              className="h-10 w-auto opacity-90 hover:opacity-100 transition-opacity"
             />
-            <span className="text-foreground font-medium text-lg tracking-tight hidden sm:block">
-              PatentBot AI
-            </span>
           </div>
 
           {/* Navigation - Minimal */}
