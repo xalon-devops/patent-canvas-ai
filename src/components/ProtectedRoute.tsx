@@ -28,24 +28,45 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   useEffect(() => {
     let isMounted = true;
 
+    const timeoutId = window.setTimeout(() => {
+      if (!isMounted) return;
+      console.warn('[ProtectedRoute] Auth session check timed out');
+      setSession(null);
+      setUser(null);
+      setAuthChecked(true);
+    }, 8000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isMounted) return;
       // IMPORTANT: only sync state updates here (no Supabase calls)
+      window.clearTimeout(timeoutId);
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setAuthChecked(true);
     });
 
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      if (!isMounted) return;
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      setAuthChecked(true);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (!isMounted) return;
+        window.clearTimeout(timeoutId);
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        setAuthChecked(true);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        window.clearTimeout(timeoutId);
+        console.error('[ProtectedRoute] getSession failed:', err);
+        setSession(null);
+        setUser(null);
+        setAuthChecked(true);
+      });
 
     return () => {
       isMounted = false;
+      window.clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
