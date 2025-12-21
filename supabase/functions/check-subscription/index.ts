@@ -49,11 +49,9 @@ serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    const adminEmail = 'nash@kronoscapital.us';
-    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
-
-    if (adminRole || isAdminEmail) {
-      logStep("Admin user detected, granting full access", { viaEmail: isAdminEmail });
+    // Admin is ONLY determined by user_roles table - no email bypass
+    if (adminRole) {
+      logStep("Admin user detected, granting full access");
       await supabaseClient.from("subscriptions").upsert({
         user_id: user.id,
         status: "active",

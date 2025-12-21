@@ -36,12 +36,11 @@ serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle();
 
-    const adminEmail = 'nash@kronoscapital.us';
-    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
-    const isAdmin = !!adminRole || isAdminEmail;
+    // Admin is ONLY determined by user_roles table - no email bypass
+    const isAdmin = !!adminRole;
 
     if (isAdmin) {
-      console.log('Admin user detected - granting unlimited searches', { viaEmail: isAdminEmail });
+      console.log('Admin user detected - granting unlimited searches');
       return new Response(JSON.stringify({
         success: true,
         has_subscription: true,

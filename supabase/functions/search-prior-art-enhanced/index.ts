@@ -41,9 +41,8 @@ serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle();
 
-    const adminEmail = 'nash@kronoscapital.us';
-    const isAdminEmail = (user.email || '').toLowerCase() === adminEmail;
-    const isAdmin = !!adminRole || isAdminEmail;
+    // Admin is ONLY determined by user_roles table - no email bypass
+    const isAdmin = !!adminRole;
 
     if (isAdmin) {
       console.log('[ENHANCED SEARCH] Admin user - bypassing credit check');
@@ -397,12 +396,13 @@ async function searchPatentsView(keywords: string[], context: string): Promise<a
       }
     }
 
-    // Fallback: Generate mock results based on search for demo
-    console.log('[Google Patents] Using AI-generated mock results');
-    return generateMockPatentResults(searchTerms, context);
+    // NO MOCK DATA - Return empty array if real search fails
+    // Users must get real patent data, never fabricated results
+    console.log('[Google Patents] No API available, returning empty results');
+    return [];
   } catch (error) {
     console.error('[Google Patents] Error:', error);
-    return generateMockPatentResults(keywords.join(' '), context);
+    return [];
   }
 }
 
@@ -437,33 +437,6 @@ function parseGooglePatentsMarkdown(markdown: string, query: string): any[] {
   }
 
   return results;
-}
-
-// Generate realistic mock patent results for demo purposes
-function generateMockPatentResults(query: string, context: string): any[] {
-  const words = query.toLowerCase().split(/[+\s]+/).filter(w => w.length > 3);
-  if (words.length === 0) return [];
-  
-  const mockPatents = [
-    { prefix: 'System and method for', suffix: 'management and optimization', assignee: 'Google LLC' },
-    { prefix: 'Apparatus for', suffix: 'processing and analysis', assignee: 'Microsoft Corporation' },
-    { prefix: 'Method of', suffix: 'detection and monitoring', assignee: 'Apple Inc.' },
-    { prefix: 'Device with', suffix: 'interface and control', assignee: 'Amazon Technologies' },
-    { prefix: 'Automated', suffix: 'platform and framework', assignee: 'Meta Platforms Inc.' },
-  ];
-
-  return mockPatents.slice(0, 5).map((mock, i) => {
-    const patentNum = `US${10000000 + Math.floor(Math.random() * 9000000)}B2`;
-    const year = 2020 + Math.floor(Math.random() * 4);
-    return {
-      title: `${mock.prefix} ${words[0] || 'data'} ${mock.suffix}`,
-      publication_number: patentNum,
-      summary: `This invention relates to ${words.slice(0, 3).join(', ')} technology. The system provides improved ${words[0] || 'data'} capabilities with enhanced ${words[1] || 'processing'} features.`,
-      url: `https://patents.google.com/patent/${patentNum}`,
-      patent_date: `${year}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-15`,
-      assignee: mock.assignee
-    };
-  });
 }
 
 // Lens.org API (optional - needs LENS_API_KEY)
