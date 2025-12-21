@@ -716,18 +716,21 @@ export type Database = {
           email: string | null
           email_preferences: Json | null
           id: string
+          onboarding_completed_at: string | null
         }
         Insert: {
           created_at?: string | null
           email?: string | null
           email_preferences?: Json | null
           id?: string
+          onboarding_completed_at?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string | null
           email_preferences?: Json | null
           id?: string
+          onboarding_completed_at?: string | null
         }
         Relationships: []
       }

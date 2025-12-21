@@ -71,12 +71,35 @@ const Dashboard = () => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (!session?.user) {
           navigate('/auth');
         }
       }
     );
+
+    const loadOnboardingState = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('onboarding_completed_at')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (error) {
+          // Fallback to local state if profile fetch fails
+          const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
+          setShowWelcome(!dismissed);
+          return;
+        }
+
+        // Show onboarding until user explicitly dismisses it (persisted in DB)
+        setShowWelcome(!data?.onboarding_completed_at);
+      } catch {
+        const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
+        setShowWelcome(!dismissed);
+      }
+    };
 
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
@@ -89,11 +112,11 @@ const Dashboard = () => {
     }, 10000); // 10 second timeout
 
     supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
+      .then(async ({ data: { session }, error }) => {
         clearTimeout(timeout);
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (error) {
           console.error('Session error:', error);
           toast({
@@ -104,17 +127,14 @@ const Dashboard = () => {
           setLoading(false);
           return;
         }
-        
+
         if (!session?.user) {
           navigate('/auth');
-        } else {
-          // Check if this is a new user (show welcome if not dismissed)
-          const welcomeDismissed = localStorage.getItem('patentbot_welcome_dismissed');
-          if (!welcomeDismissed) {
-            setShowWelcome(true);
-          }
-          setLoading(false);
+          return;
         }
+
+        await loadOnboardingState(session.user.id);
+        setLoading(false);
       })
       .catch((error) => {
         clearTimeout(timeout);
