@@ -157,30 +157,54 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [user?.id, profile?.avatar_url, updateProfile]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-        setLoading(false);
-      }
-    );
+    let isMounted = true;
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      // IMPORTANT: do not call Supabase or async logic inside this callback
       setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+    // Initial session check (can be async)
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!isMounted) return;
+        setUser(session?.user ?? null);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('UserProfileProvider getSession error:', err);
+        setUser(null);
+      });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!user?.id) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      await fetchProfile(user.id);
+      if (!cancelled) setLoading(false);
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, fetchProfile]);
 
   return (
     <UserProfileContext.Provider
