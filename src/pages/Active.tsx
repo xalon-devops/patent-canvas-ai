@@ -23,6 +23,7 @@ import {
 import { addYears } from 'date-fns';
 import { formatDate, formatDateShort, formatMonthYear, calculateYearsRemaining } from '@/lib/dateUtils';
 import { usePatentData, PatentSession, InfringementAlert } from '@/hooks/usePatentData';
+import { PATENT_VALUE_ESTIMATE, MAINTENANCE_DUE_SOON_MONTHS, formatDollars } from '@/lib/pricingConstants';
 import { PageSEO } from '@/components/SEO';
 
 interface ActivePatent extends PatentSession {
@@ -129,7 +130,7 @@ const Active = () => {
     const monthsUntilDue = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30);
     
     if (monthsUntilDue < 0) return { status: 'overdue', color: 'text-destructive' };
-    if (monthsUntilDue < 6) return { status: 'due soon', color: 'text-warning' };
+    if (monthsUntilDue < MAINTENANCE_DUE_SOON_MONTHS) return { status: 'due soon', color: 'text-warning' };
     return { status: 'current', color: 'text-success' };
   };
 
@@ -348,7 +349,7 @@ const Active = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Estimated Value</p>
-                        <p className="font-medium">${(125000).toLocaleString()}</p>
+                        <p className="font-medium">{formatDollars(PATENT_VALUE_ESTIMATE)}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Years Remaining</p>

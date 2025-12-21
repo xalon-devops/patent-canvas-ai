@@ -12,6 +12,7 @@ import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PageSEO } from '@/components/SEO';
+import { STRIPE_CHECK_AND_SEE_PRICE_ID, FREE_SEARCHES_LIMIT, CHECK_AND_SEE_PRICE } from '@/lib/pricingConstants';
 
 const Check = () => {
   // Use centralized data hook - single source of truth
@@ -35,7 +36,7 @@ const Check = () => {
 
   // Derived state from centralized hook
   const hasSubscription = subscription?.status === 'active';
-  const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? 3;
+  const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? FREE_SEARCHES_LIMIT;
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -167,7 +168,7 @@ const Check = () => {
                 <CardTitle className="text-2xl text-foreground">Check & See Plan</CardTitle>
                 <CardDescription>Unlimited prior patent searches</CardDescription>
                 <div className="text-4xl font-bold mt-4 text-primary">
-                  $9.99
+                  ${CHECK_AND_SEE_PRICE}
                   <span className="text-base font-normal text-muted-foreground block mt-1">per month</span>
                 </div>
               </CardHeader>
@@ -195,7 +196,7 @@ const Check = () => {
                   onClick={() => setShowCheckout(true)}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Subscribe Now - $9.99/month
+                  Subscribe Now - ${CHECK_AND_SEE_PRICE}/month
                 </Button>
               </CardContent>
             </Card>
@@ -214,7 +215,7 @@ const Check = () => {
                       <div>
                         <h3 className="font-semibold">Free Trial Active 🎉</h3>
                         <p className="text-sm text-muted-foreground">
-                          {freeSearchesRemaining} of 3 free searches remaining
+                          {freeSearchesRemaining} of {FREE_SEARCHES_LIMIT} free searches remaining
                         </p>
                       </div>
                     </div>
@@ -319,7 +320,7 @@ const Check = () => {
             <DialogTitle>Subscribe to Check & See</DialogTitle>
           </DialogHeader>
           <EmbeddedStripeCheckout
-            priceId="price_1RdXHaKFoovQj4C2Vx8MmN3P"
+            priceId={STRIPE_CHECK_AND_SEE_PRICE_ID}
             planType="check_and_see"
             mode="subscription"
             onSuccess={() => {
