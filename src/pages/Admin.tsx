@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { formatDateAdmin, getCurrentISOString } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
-import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY } from '@/lib/pricingConstants';
+import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY, SUPABASE_QUERY_LIMIT } from '@/lib/pricingConstants';
 
 // PatentBot AI Price IDs (Stripe) - ONLY track revenue from these
 const PATENTBOT_PRICE_IDS = {
@@ -158,14 +158,15 @@ const Admin = () => {
 
   const fetchAllSessions = async () => {
     try {
-      // Fetch all patent sessions with user email
+      // Fetch all patent sessions with user email (high limit for popular app)
       const { data, error } = await supabase
         .from('patent_sessions')
         .select(`
           *,
           users!patent_sessions_user_id_fkey(email)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(SUPABASE_QUERY_LIMIT);
 
       if (error) throw error;
       
@@ -191,34 +192,39 @@ const Admin = () => {
   // Fetch real PatentBot AI revenue from our database (only our price_ids)
   const fetchRevenueStats = async () => {
     try {
-      // Fetch completed payment transactions (subscriptions)
+      // Fetch completed payment transactions (subscriptions) - high limit for scale
       const { data: transactions, error: txError } = await supabase
         .from('payment_transactions')
         .select('amount, status, payment_type, metadata, created_at')
-        .eq('status', 'completed');
+        .eq('status', 'completed')
+        .limit(SUPABASE_QUERY_LIMIT);
 
       // Fetch completed application payments (one-time $1,000)
       const { data: appPayments, error: appError } = await supabase
         .from('application_payments')
         .select('amount, status, created_at')
-        .eq('status', 'completed');
+        .eq('status', 'completed')
+        .limit(SUPABASE_QUERY_LIMIT);
 
       // Fetch active subscriptions
       const { data: activeSubs, error: subError } = await supabase
         .from('subscriptions')
         .select('id, status, plan')
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .limit(SUPABASE_QUERY_LIMIT);
 
       // Fetch pending payments
       const { data: pendingTx } = await supabase
         .from('payment_transactions')
         .select('id')
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .limit(SUPABASE_QUERY_LIMIT);
 
       const { data: pendingApp } = await supabase
         .from('application_payments')
         .select('id')
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .limit(SUPABASE_QUERY_LIMIT);
 
       // Calculate revenue (amounts are in cents)
       const subscriptionRevenue = (transactions || [])
