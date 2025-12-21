@@ -1,6 +1,6 @@
 # PatentBot AI - Robots.txt
 # Domain: patentbot-ai.com
-# Last updated: 2025-12-20
+# Last updated: 2025-12-21
 
 # Allow all search engines to crawl public pages
 User-agent: *
@@ -33,7 +33,7 @@ Crawl-delay: 1
 Sitemap: https://patentbot-ai.com/sitemap.xml
 
 # ============================================
-# AI Training Crawler Blocking (Optional)
+# AI Training Crawler Blocking
 # Keeps content exclusive to search engines
 # ============================================
 
@@ -64,11 +64,21 @@ Disallow: /
 User-agent: Amazonbot
 Disallow: /
 
-User-agent: FacebookBot
+# Allow social media bots for link previews
+User-agent: facebookexternalhit
 Allow: /
 
 User-agent: Twitterbot
 Allow: /
 
 User-agent: LinkedInBot
+Allow: /
+
+User-agent: Pinterest
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: WhatsApp
 Allow: /
