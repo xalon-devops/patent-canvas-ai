@@ -162,8 +162,23 @@ const Dashboard = () => {
   }, [navigate, toast]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+        toast({
+          title: "Sign out failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      navigate('/auth');
+    } catch (error: any) {
+      console.error('Sign out exception:', error);
+      // Force navigate to auth even if signOut fails
+      navigate('/auth');
+    }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
