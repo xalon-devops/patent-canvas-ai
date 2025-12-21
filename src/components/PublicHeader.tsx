@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { LogIn, UserPlus, LayoutDashboard } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 interface PublicHeaderProps {
   transparent?: boolean;
@@ -31,34 +31,37 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
   }, []);
 
   return (
-    <header className={`sticky top-0 z-50 border-b ${transparent ? 'bg-transparent border-transparent' : 'bg-card/90 backdrop-blur-xl shadow-card'}`}>
-      <div className="container mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between py-3 sm:py-4">
-          {/* Logo */}
+    <header className={`sticky top-0 z-50 ${transparent ? 'bg-transparent' : 'bg-background/80 backdrop-blur-xl border-b border-border/50'}`}>
+      <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo - Text based, institutional */}
           <div 
-            className="flex items-center gap-2 cursor-pointer" 
+            className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => navigate('/')}
           >
             <img 
               src="https://i.ibb.co/wrhwtf5P/Patent-Bot-AI-Logo-Transparent.png" 
-              alt="PatentBot AI Logo" 
-              className="h-10 sm:h-12 w-auto"
+              alt="PatentBot AI" 
+              className="h-8 w-auto opacity-90 group-hover:opacity-100 transition-opacity"
             />
+            <span className="text-foreground font-medium text-lg tracking-tight hidden sm:block">
+              PatentBot AI
+            </span>
           </div>
 
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Navigation - Minimal */}
+          <nav className="flex items-center gap-6">
             {loading ? (
-              <div className="w-20 h-9 bg-muted/50 rounded animate-pulse" />
+              <div className="w-20 h-9 bg-muted/30 rounded-lg animate-pulse" />
             ) : user ? (
               <Button 
-                variant="gradient" 
+                variant="ghost"
                 size="sm"
                 onClick={() => navigate('/dashboard')}
-                className="text-sm"
+                className="text-foreground/70 hover:text-foreground"
               >
-                <LayoutDashboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Dashboard</span>
+                Dashboard
+                <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             ) : (
               <>
@@ -66,23 +69,20 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
                   variant="ghost" 
                   size="sm"
                   onClick={() => navigate('/auth?tab=signin')}
-                  className="text-sm"
+                  className="text-foreground/70 hover:text-foreground"
                 >
-                  <LogIn className="h-4 w-4" />
-                  <span className="hidden sm:inline">Log In</span>
+                  Sign in
                 </Button>
                 <Button 
-                  variant="gradient" 
+                  variant="default" 
                   size="sm"
                   onClick={() => navigate('/auth?tab=signup')}
-                  className="text-sm"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign Up</span>
+                  Get Started
                 </Button>
               </>
             )}
-          </div>
+          </nav>
         </div>
       </div>
     </header>
