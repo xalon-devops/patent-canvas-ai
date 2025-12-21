@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { session_id, ideaTitle, ideaDescription } = await req.json();
+    const { session_id, ideaTitle, ideaDescription, search_query } = await req.json();
     
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -98,9 +98,10 @@ serve(async (req) => {
         .eq('user_id', user.id);
     }
 
-    // Build context
-    let contextText = '';
-    if (session_id) {
+    // Build context - prefer search_query if provided, otherwise build from session/idea
+    let contextText = search_query?.trim() || '';
+    
+    if (!contextText && session_id) {
       const { data: sessionData } = await supabaseClient
         .from('patent_sessions')
         .select('*, ai_questions(*)')
@@ -113,7 +114,9 @@ serve(async (req) => {
           if (q.answer) contextText += ` ${q.question} ${q.answer}`;
         });
       }
-    } else {
+    }
+    
+    if (!contextText) {
       contextText = `${ideaTitle || ''} ${ideaDescription || ''}`;
     }
 
