@@ -9,6 +9,11 @@ import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles, Play, E
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
 import PublicHeader from '@/components/PublicHeader';
+import { 
+  PATENT_APPLICATION_PRICE_DISPLAY, 
+  CHECK_AND_SEE_PRICE_DISPLAY, 
+  CHECK_AND_SEE_PRICE_DISPLAY_MO 
+} from '@/lib/pricingConstants';
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -298,7 +303,7 @@ const Index = () => {
               </CardHeader>
               <CardContent className="text-center">
                 <div className="mb-6">
-                  <span className="text-5xl font-bold">$1,000</span>
+                  <span className="text-5xl font-bold">{PATENT_APPLICATION_PRICE_DISPLAY}</span>
                   <span className="text-muted-foreground ml-2">one-time</span>
                 </div>
                 <ul className="text-left space-y-3 mb-6">
@@ -343,7 +348,7 @@ const Index = () => {
               </CardHeader>
               <CardContent className="text-center">
                 <div className="mb-6">
-                  <span className="text-5xl font-bold">$9.99</span>
+                  <span className="text-5xl font-bold">{CHECK_AND_SEE_PRICE_DISPLAY}</span>
                   <span className="text-muted-foreground ml-2">/month</span>
                 </div>
                 <ul className="text-left space-y-3 mb-6">
@@ -468,7 +473,7 @@ const Index = () => {
               className="text-lg h-14 px-8 bg-white text-primary hover:bg-white/90 hover:shadow-glow transition-smooth"
             >
               <Sparkles className="h-5 w-5" />
-              {user ? 'Go to Dashboard' : 'Start Patent Application — $1,000'}
+              {user ? 'Go to Dashboard' : `Start Patent Application — ${PATENT_APPLICATION_PRICE_DISPLAY}`}
               <ArrowRight className="h-5 w-5" />
             </Button>
             <Button 
@@ -477,7 +482,7 @@ const Index = () => {
               onClick={() => handleAuthNav('signup')}
               className="text-lg h-14 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20 transition-smooth"
             >
-              {user ? 'Check & See' : 'Try Check & See — $9.99/mo'}
+              {user ? 'Check & See' : `Try Check & See — ${CHECK_AND_SEE_PRICE_DISPLAY_MO}`}
             </Button>
           </div>
         </div>

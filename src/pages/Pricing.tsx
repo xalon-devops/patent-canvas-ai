@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
+import { 
+  PATENT_APPLICATION_PRICE_DISPLAY, 
+  CHECK_AND_SEE_PRICE_DISPLAY, 
+  STRIPE_CHECK_AND_SEE_PRICE_ID 
+} from '@/lib/pricingConstants';
 
 const Pricing = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -78,7 +83,7 @@ const Pricing = () => {
       // Create Stripe checkout session
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
-          priceId: 'price_1RdXHaKFoovQj4C2Vx8MmN3P', // Check & See subscription price
+          priceId: STRIPE_CHECK_AND_SEE_PRICE_ID,
           planType: 'premium'
         }
       });
@@ -185,7 +190,7 @@ const Pricing = () => {
                 Complete AI-guided patent filing
               </CardDescription>
               <div className="text-4xl font-bold mt-4 text-white">
-                $1,000
+                {PATENT_APPLICATION_PRICE_DISPLAY}
                 <span className="text-base font-normal text-primary-foreground/80 block mt-1">One-time payment</span>
               </div>
             </CardHeader>
@@ -242,7 +247,7 @@ const Pricing = () => {
                 Unlimited prior patent searches
               </CardDescription>
               <div className="text-4xl font-bold mt-4 text-secondary">
-                $9.99
+                {CHECK_AND_SEE_PRICE_DISPLAY}
                 <span className="text-base font-normal text-muted-foreground block mt-1">per month</span>
               </div>
             </CardHeader>

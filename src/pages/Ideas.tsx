@@ -23,6 +23,7 @@ import { formatDate, formatDateShort } from '@/lib/dateUtils';
 import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 import { PageSEO } from '@/components/SEO';
+import { PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
 
 const Ideas = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -130,7 +131,7 @@ const Ideas = () => {
               className="gap-2 px-6 py-3 bg-gradient-primary hover:scale-105 transition-transform shadow-glow"
             >
               <Lightbulb className="w-5 h-5" />
-              Full Patent Draft — $1,000
+              Full Patent Draft — {PATENT_APPLICATION_PRICE_DISPLAY}
             </Button>
           </div>
 
