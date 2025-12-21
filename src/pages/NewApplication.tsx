@@ -28,6 +28,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
 import AIQuestionInterface from '@/components/AIQuestionInterface';
 import PriorArtAnalysis from '@/components/PriorArtAnalysis';
 import PatentabilityAssessment from '@/components/PatentabilityAssessment';
@@ -1058,7 +1059,7 @@ const NewApplication = () => {
                   Creating Session...
                 </>
               ) : (
-                'Proceed to Drafting ($1,000)'
+                `Proceed to Drafting (${PATENT_APPLICATION_PRICE_DISPLAY})`
               )}
             </Button>
           </CardContent>

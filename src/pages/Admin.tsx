@@ -28,11 +28,12 @@ import {
 } from 'lucide-react';
 import { formatDateAdmin, getCurrentISOString } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
+import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY } from '@/lib/pricingConstants';
 
 // PatentBot AI Price IDs (Stripe) - ONLY track revenue from these
 const PATENTBOT_PRICE_IDS = {
-  CHECK_AND_SEE: 'price_1RdXHaKFoovQj4C2Vx8MmN3P', // $9.99/mo subscription
-  PATENT_APPLICATION: 'patent_application', // $1,000 one-time (metadata identifier)
+  CHECK_AND_SEE: STRIPE_CHECK_AND_SEE_PRICE_ID,
+  PATENT_APPLICATION: 'patent_application', // metadata identifier for one-time payments
 };
 
 interface AdminPatentSession {
@@ -525,13 +526,13 @@ const Admin = () => {
                 <div className="text-2xl font-bold text-primary">
                   ${(revenueStats.patentRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Patent Apps ($1,000)</div>
+                <div className="text-xs text-muted-foreground mt-1">Patent Apps ({PATENT_APPLICATION_PRICE_DISPLAY})</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
                 <div className="text-2xl font-bold text-secondary">
                   ${(revenueStats.subscriptionRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Subscriptions ($9.99)</div>
+                <div className="text-xs text-muted-foreground mt-1">Subscriptions ({CHECK_AND_SEE_PRICE_DISPLAY})</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
                 <div className="text-2xl font-bold text-foreground">
@@ -554,7 +555,7 @@ const Admin = () => {
             </div>
             <div className="mt-4 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                Tracking: Check & See (price_1RdXHaKFoovQj4C2Vx8MmN3P) + Patent Applications
+                Tracking: Check & See ({STRIPE_CHECK_AND_SEE_PRICE_ID}) + Patent Applications
               </p>
               <Button variant="outline" size="sm" onClick={fetchRevenueStats}>
                 <RefreshCw className="h-4 w-4 mr-2" />
