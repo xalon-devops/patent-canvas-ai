@@ -54,6 +54,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   const checkUserAccess = async (userId: string) => {
     try {
+      // If no special access is required, just allow authenticated users
+      if (!requiresAdmin && !requiresPremium) {
+        setHasAccess(true);
+        setAccessType(null);
+        setLoading(false);
+        return;
+      }
+
       let userHasAccess = true;
       let userAccessType: 'premium' | 'admin' | null = null;
 
@@ -64,28 +72,30 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           .select('role')
           .eq('user_id', userId)
           .eq('role', 'admin')
-          .single();
+          .maybeSingle();
 
-        if (adminError && adminError.code !== 'PGRST116') throw adminError;
-        
-        if (adminData) {
+        if (adminError) {
+          console.error('Error checking admin role:', adminError);
+          userHasAccess = false;
+        } else if (adminData) {
           userHasAccess = true;
           userAccessType = 'admin';
         } else {
           userHasAccess = false;
         }
       } 
-      // Check premium access if required and not admin
+      // Check premium access if required
       else if (requiresPremium) {
         const { data: subscriptionData, error: subscriptionError } = await supabase
           .from('subscriptions')
           .select('status, plan')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
-        if (subscriptionError && subscriptionError.code !== 'PGRST116') throw subscriptionError;
-        
-        if (subscriptionData?.status === 'active' && subscriptionData?.plan !== 'free') {
+        if (subscriptionError) {
+          console.error('Error checking subscription:', subscriptionError);
+          userHasAccess = false;
+        } else if (subscriptionData?.status === 'active' && subscriptionData?.plan !== 'free') {
           userHasAccess = true;
           userAccessType = 'premium';
         } else {
