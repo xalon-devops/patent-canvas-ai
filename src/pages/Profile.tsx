@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { ArrowLeft, Camera, Loader2, User, Building, FileText, Save, X } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { formatDatePatent } from '@/lib/dateUtils';
 
 const Profile = () => {
   const { user, profile, loading, updateProfile, uploadAvatar } = useUserProfile();
@@ -326,14 +327,7 @@ const Profile = () => {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Account Created</Label>
                 <p className="font-medium">
-                  {profile?.created_at 
-                    ? new Date(profile.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })
-                    : 'N/A'
-                  }
+                  {formatDatePatent(profile?.created_at)}
                 </p>
               </div>
             </CardContent>
