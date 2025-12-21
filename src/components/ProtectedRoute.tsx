@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, Crown, Loader2 } from 'lucide-react';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,150 +12,95 @@ interface ProtectedRouteProps {
   requiresAdmin?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiresPremium = false, 
-  requiresAdmin = false 
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requiresPremium = false,
+  requiresAdmin = false,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useUserProfile();
+
+  const [accessLoading, setAccessLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [accessType, setAccessType] = useState<'premium' | 'admin' | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
 
-    const timeoutId = window.setTimeout(() => {
-      if (!isMounted) return;
-      console.warn('[ProtectedRoute] Auth session check timed out');
-      setSession(null);
-      setUser(null);
-      setAuthChecked(true);
-    }, 8000);
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!isMounted) return;
-      // IMPORTANT: only sync state updates here (no Supabase calls)
-      window.clearTimeout(timeoutId);
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
-      setAuthChecked(true);
-    });
-
-    // Initial session check
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: initialSession } }) => {
-        if (!isMounted) return;
-        window.clearTimeout(timeoutId);
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-        setAuthChecked(true);
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        window.clearTimeout(timeoutId);
-        console.error('[ProtectedRoute] getSession failed:', err);
-        setSession(null);
-        setUser(null);
-        setAuthChecked(true);
-      });
-
-    return () => {
-      isMounted = false;
-      window.clearTimeout(timeoutId);
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!authChecked) return;
-
-    if (!user) {
-      setHasAccess(false);
-      setAccessType(null);
-      setLoading(false);
-      navigate('/auth');
-      return;
-    }
-
-    // Auth-only routes: no DB checks needed
-    if (!requiresAdmin && !requiresPremium) {
-      setHasAccess(true);
-      setAccessType(null);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    void checkUserAccess(user.id);
-  }, [authChecked, user?.id, requiresPremium, requiresAdmin, navigate]);
-
-  const checkUserAccess = async (userId: string) => {
-    try {
-      // If no special access is required, just allow authenticated users
-      if (!requiresAdmin && !requiresPremium) {
-        setHasAccess(true);
-        setAccessType(null);
-        setLoading(false);
+    const run = async () => {
+      if (authLoading) {
+        setAccessLoading(true);
         return;
       }
 
-      let userHasAccess = true;
-      let userAccessType: 'premium' | 'admin' | null = null;
-
-      // Check admin access if required
-      if (requiresAdmin) {
-        const { data: adminData, error: adminError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('role', 'admin')
-          .maybeSingle();
-
-        if (adminError) {
-          console.error('Error checking admin role:', adminError);
-          userHasAccess = false;
-        } else if (adminData) {
-          userHasAccess = true;
-          userAccessType = 'admin';
-        } else {
-          userHasAccess = false;
-        }
-      } 
-      // Check premium access if required
-      else if (requiresPremium) {
-        const { data: subscriptionData, error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .select('status, plan')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (subscriptionError) {
-          console.error('Error checking subscription:', subscriptionError);
-          userHasAccess = false;
-        } else if (subscriptionData?.status === 'active' && subscriptionData?.plan !== 'free') {
-          userHasAccess = true;
-          userAccessType = 'premium';
-        } else {
-          userHasAccess = false;
-        }
+      if (!user) {
+        setHasAccess(false);
+        setAccessType(null);
+        setAccessLoading(false);
+        navigate('/auth');
+        return;
       }
 
-      setHasAccess(userHasAccess);
-      setAccessType(userAccessType);
-    } catch (error: any) {
-      console.error('Error checking user access:', error);
-      setHasAccess(false);
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Auth-only routes: no DB checks needed
+      if (!requiresAdmin && !requiresPremium) {
+        setHasAccess(true);
+        setAccessType(null);
+        setAccessLoading(false);
+        return;
+      }
 
-  if (loading) {
+      setAccessLoading(true);
+
+      try {
+        let allowed = false;
+        let type: 'premium' | 'admin' | null = null;
+
+        if (requiresAdmin) {
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+
+          if (!error && data) {
+            allowed = true;
+            type = 'admin';
+          }
+        } else if (requiresPremium) {
+          const { data, error } = await supabase
+            .from('subscriptions')
+            .select('status, plan')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (!error && data?.status === 'active' && data?.plan !== 'free') {
+            allowed = true;
+            type = 'premium';
+          }
+        }
+
+        if (cancelled) return;
+        setHasAccess(allowed);
+        setAccessType(type);
+      } catch (e) {
+        if (cancelled) return;
+        setHasAccess(false);
+        setAccessType(null);
+      } finally {
+        if (cancelled) return;
+        setAccessLoading(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, requiresAdmin, requiresPremium, navigate]);
+
+  if (authLoading || accessLoading) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
         <div className="text-center">
@@ -173,12 +118,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <CardContent className="p-8 text-center">
             <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-            <p className="text-muted-foreground mb-4">
-              Please sign in to access this page.
-            </p>
-            <Button onClick={() => navigate('/auth')}>
-              Sign In
-            </Button>
+            <p className="text-muted-foreground mb-4">Please sign in to access this page.</p>
+            <Button onClick={() => navigate('/auth')}>Sign In</Button>
           </CardContent>
         </Card>
       </div>
@@ -196,9 +137,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               <p className="text-muted-foreground mb-4">
                 You need administrator privileges to access this page.
               </p>
-              <Button onClick={() => navigate('/dashboard')}>
-                Return to Dashboard
-              </Button>
+              <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
             </CardContent>
           </Card>
         </div>

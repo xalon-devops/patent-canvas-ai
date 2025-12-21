@@ -5,14 +5,19 @@ function generateFingerprint(): string {
   return btoa(navigator.userAgent + window.innerWidth + window.innerHeight).slice(0, 12);
 }
 
-// Get or create session ID from localStorage
+// Get or create session ID from storage (safe in restrictive environments)
 function getSessionId(): string {
-  let sessionId = localStorage.getItem("conversion_session_id");
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem("conversion_session_id", sessionId);
+  try {
+    let sessionId = localStorage.getItem("conversion_session_id");
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      localStorage.setItem("conversion_session_id", sessionId);
+    }
+    return sessionId;
+  } catch {
+    // Fallback: per-page-load session id
+    return crypto.randomUUID();
   }
-  return sessionId;
 }
 
 /**
