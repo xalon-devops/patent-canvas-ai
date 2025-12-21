@@ -76,6 +76,7 @@ const SelectSupabaseProject = () => {
         throw new Error('Not authenticated');
       }
 
+      // Look for ANY recent connection (pending, active, or inactive) - the latest one has the fresh token
       const { data: connCheck } = await supabase
         .from('supabase_connections')
         .select('id, connection_status, created_at, access_token')
@@ -87,13 +88,16 @@ const SelectSupabaseProject = () => {
       console.log('[SELECT-PROJECT] Connection check:', connCheck);
       
       if (!connCheck) {
-        throw new Error('No Supabase connection found. Please restart the OAuth flow.');
+        throw new Error('No Supabase connection found. Please connect via OAuth first.');
       }
       
-      // Accept both 'pending' and 'active' connections - allow changing project
-      if (connCheck.connection_status !== 'pending' && connCheck.connection_status !== 'active') {
-        throw new Error(`Connection status is ${connCheck.connection_status}. Please restart the OAuth flow.`);
+      // If status is inactive or error, the token may be stale - prompt re-auth
+      if (connCheck.connection_status === 'error') {
+        throw new Error('Previous connection failed. Please restart the OAuth flow.');
       }
+      
+      // Accept pending, active, or inactive (user may be switching projects)
+      // The access_token should still be valid if within expiry window
 
       // Store the connection ID for later
       setConnectionId(connCheck.id);
