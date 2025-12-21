@@ -62,7 +62,7 @@ const Pricing = () => {
 
   const handleUpgrade = async () => {
     if (!user) {
-      navigate('/auth');
+      navigate('/auth?tab=signup');
       return;
     }
 
@@ -222,7 +222,7 @@ const Pricing = () => {
               <Button 
                 variant="secondary" 
                 className="w-full mt-6 bg-white/20 text-white border-white/30 hover:bg-white/30 hover:shadow-glow transition-smooth"
-                onClick={() => user ? navigate('/new-application') : navigate('/auth')}
+                onClick={() => user ? navigate('/new-application') : navigate('/auth?tab=signup')}
               >
                 <Sparkles className="h-4 w-4 mr-2" />
                 {user ? 'Start New Application' : 'Get Started'}
@@ -285,7 +285,7 @@ const Pricing = () => {
                 <Button 
                   variant="outline" 
                   className="w-full mt-6 border-secondary/50 hover:bg-secondary/10"
-                  onClick={() => user ? navigate('/check') : navigate('/auth')}
+                  onClick={() => user ? navigate('/check') : navigate('/auth?tab=signup')}
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   {user ? 'Start Searching' : 'Get Started'}
@@ -337,7 +337,7 @@ const Pricing = () => {
                 <Button 
                   variant="gradient" 
                   size="lg"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => navigate('/auth?tab=signup')}
                 >
                   Get Started Free
                 </Button>

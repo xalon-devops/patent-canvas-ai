@@ -8,6 +8,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain, Zap, CheckCircle, ArrowRight, Sparkles, Play, Eye } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
+import PublicHeader from '@/components/PublicHeader';
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -20,25 +21,27 @@ const Index = () => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          navigate('/dashboard');
-        }
+        setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        navigate('/dashboard');
-      }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
+
+  // Helper function for navigation - respects logged-in state
+  const handleAuthNav = (defaultTab: 'signin' | 'signup' = 'signup') => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate(`/auth?tab=${defaultTab}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -54,7 +57,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Home />
-      {/* Hero Section - Mobile Optimized */}
+      <PublicHeader />
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-primary opacity-5"></div>
         <div className="w-full px-4 sm:px-6 py-12 sm:py-16 lg:py-20 relative">
@@ -89,11 +92,11 @@ const Index = () => {
               <Button 
                 variant="gradient" 
                 size="lg"
-                onClick={() => navigate('/auth')}
+                onClick={() => handleAuthNav('signup')}
                 className="text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 w-full sm:w-auto"
               >
                 <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="truncate">Start Your Patent Journey</span>
+                <span className="truncate">{user ? 'Go to Dashboard' : 'Start Your Patent Journey'}</span>
                 <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
               <Button 
@@ -323,10 +326,10 @@ const Index = () => {
                 <Button 
                   variant="gradient" 
                   size="lg"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => handleAuthNav('signup')}
                   className="w-full text-lg h-12"
                 >
-                  Start Patent Application
+                  {user ? 'Go to Dashboard' : 'Start Patent Application'}
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
               </CardContent>
@@ -368,10 +371,10 @@ const Index = () => {
                 <Button 
                   variant="outline" 
                   size="lg"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => handleAuthNav('signup')}
                   className="w-full text-lg h-12"
                 >
-                  Start Searching
+                  {user ? 'Go to Dashboard' : 'Start Searching'}
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
               </CardContent>
@@ -461,20 +464,20 @@ const Index = () => {
             <Button 
               variant="secondary"
               size="lg"
-              onClick={() => navigate('/auth')}
+              onClick={() => handleAuthNav('signup')}
               className="text-lg h-14 px-8 bg-white text-primary hover:bg-white/90 hover:shadow-glow transition-smooth"
             >
               <Sparkles className="h-5 w-5" />
-              Start Patent Application — $1,000
+              {user ? 'Go to Dashboard' : 'Start Patent Application — $1,000'}
               <ArrowRight className="h-5 w-5" />
             </Button>
             <Button 
               variant="secondary"
               size="lg"
-              onClick={() => navigate('/auth')}
+              onClick={() => handleAuthNav('signup')}
               className="text-lg h-14 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20 transition-smooth"
             >
-              Try Check & See — $9.99/mo
+              {user ? 'Check & See' : 'Try Check & See — $9.99/mo'}
             </Button>
           </div>
         </div>

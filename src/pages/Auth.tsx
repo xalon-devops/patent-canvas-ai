@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,10 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Scale, FileText, Brain } from 'lucide-react';
+import { Scale, FileText, Brain, ArrowLeft } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
+  
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,6 +124,17 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
       <PageSEO.Auth />
       <div className="w-full max-w-md">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/')}
+          className="mb-4 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Home
+        </Button>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -158,7 +172,7 @@ const Auth = () => {
           </CardHeader>
           
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs defaultValue={initialTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
