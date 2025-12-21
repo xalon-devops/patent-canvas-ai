@@ -464,7 +464,7 @@ const Dashboard = () => {
                 className="w-full bg-secondary hover:bg-secondary/90"
               >
                 <Search className="h-6 w-6" />
-                Start Searching ($9.99/month)
+                Start Searching ({CHECK_AND_SEE_PRICE_DISPLAY}/month)
               </Button>
             </Card>
           </div>

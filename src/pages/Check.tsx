@@ -70,7 +70,7 @@ const Check = () => {
         if (error.message?.includes('subscription')) {
           toast({
             title: "Subscription Required",
-            description: "You've used all 3 free searches. Subscribe to continue!",
+            description: `You've used all ${FREE_SEARCHES_LIMIT} free searches. Subscribe to continue!`,
             variant: "destructive",
           });
           setShowCheckout(true);
