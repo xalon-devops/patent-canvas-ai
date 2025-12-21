@@ -396,25 +396,13 @@ const Active = () => {
                         disabled={scanningInfringement === patent.id}
                         className="gap-1"
                       >
-                        {scanningInfringement === patent.id ? (
+                      {scanningInfringement === patent.id ? (
                           <TrendingUp className="w-4 h-4 animate-pulse" />
                         ) : (
                           <Search className="w-4 h-4" />
                         )}
                         Scan for Infringement
                       </Button>
-
-                      {patentAlerts.length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/patent/${patent.id}/alerts`)}
-                          className="gap-1"
-                        >
-                          <AlertTriangle className="w-4 h-4" />
-                          View Alerts ({unreadAlerts})
-                        </Button>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
