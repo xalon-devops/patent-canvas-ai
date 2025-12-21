@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PATENT_VALUE_ESTIMATE, HIGH_SIMILARITY_THRESHOLD } from '@/lib/pricingConstants';
 
 // ===== TYPE DEFINITIONS =====
 export interface PatentSession {
@@ -268,12 +269,12 @@ export function usePatentData(userId: string | undefined) {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Real-time subscription updates for payment status changes
+  // Real-time subscription updates for all critical data changes
   useEffect(() => {
     if (!userId) return;
 
     const channel = supabase
-      .channel('subscription-changes')
+      .channel('patent-data-changes')
       .on(
         'postgres_changes',
         {
@@ -300,30 +301,81 @@ export function usePatentData(userId: string | undefined) {
           fetchAllData();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'patent_sessions',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[PatentData] Patent session changed, refetching sessions...');
+          fetchSessions();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'patent_ideas',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[PatentData] Patent idea changed, refetching ideas...');
+          fetchIdeas();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'infringement_alerts',
+        },
+        () => {
+          console.log('[PatentData] New infringement alert, refetching alerts...');
+          fetchAlerts(sessions.map(s => s.id), ideas.map(i => i.id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_search_credits',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[PatentData] Search credits changed, refetching...');
+          fetchSearchCredits();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, fetchSubscription, fetchAllData]);
+  }, [userId, fetchSubscription, fetchAllData, fetchSessions, fetchIdeas, fetchAlerts, fetchSearchCredits, sessions, ideas]);
 
   // Computed stats - single source of truth for all portfolio metrics
   const stats: PortfolioStats = {
     totalApplications: sessions.length,
     completedApplications: sessions.filter(s => s.status === 'completed').length,
     inProgressApplications: sessions.filter(s => s.status === 'in_progress').length,
-    activePatents: sessions.filter(s => s.status === 'completed').length, // Completed sessions = active patents
+    activePatents: sessions.filter(s => s.status === 'completed').length,
     totalIdeas: ideas.length,
     monitoringIdeas: ideas.filter(i => i.status === 'monitoring').length,
     draftedIdeas: ideas.filter(i => i.status === 'drafted').length,
     highSimilarityCount: Object.values(priorArtBySession)
       .flat()
-      .filter(r => (r.similarity_score || 0) > 0.7).length,
+      .filter(r => (r.similarity_score || 0) > HIGH_SIMILARITY_THRESHOLD).length,
     unreadAlerts: [
       ...Object.values(alertsBySession).flat(),
       ...Object.values(alertsByIdea).flat(),
     ].filter(a => !a.is_read).length,
-    portfolioValue: sessions.filter(s => s.status === 'completed').length * 125000,
+    portfolioValue: sessions.filter(s => s.status === 'completed').length * PATENT_VALUE_ESTIMATE,
     maintenanceDue: 0, // Calculated in Active page based on dates
   };
 
