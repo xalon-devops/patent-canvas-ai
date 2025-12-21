@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
 import { Lock, FileText, DollarSign, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { PATENT_APPLICATION_PRICE_DISPLAY, PATENT_APPLICATION_PRICE } from '@/lib/pricingConstants';
 
 interface PaymentGateDialogProps {
   open: boolean;
@@ -47,7 +48,7 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
                 Payment Required to Export
               </DialogTitle>
               <DialogDescription className="text-center text-base">
-                Complete your $1,000 patent application payment to download your USPTO-ready documents
+                Complete your {PATENT_APPLICATION_PRICE_DISPLAY} patent application payment to download your USPTO-ready documents
               </DialogDescription>
             </DialogHeader>
 
@@ -102,7 +103,7 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
               <div className="border-2 border-primary rounded-lg p-6 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <DollarSign className="h-8 w-8 text-primary" />
-                  <span className="text-5xl font-bold text-primary">1,000</span>
+                  <span className="text-5xl font-bold text-primary">{PATENT_APPLICATION_PRICE.toLocaleString()}</span>
                 </div>
                 <div className="text-muted-foreground mb-4">
                   One-time payment • No recurring fees

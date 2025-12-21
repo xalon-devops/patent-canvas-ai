@@ -6,6 +6,10 @@ import PatentCanvas from '@/components/PatentCanvas';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
+import { 
+  PATENT_APPLICATION_PRICE_DISPLAY, 
+  CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY 
+} from '@/lib/pricingConstants';
 
 const Demo = () => {
   const [currentPhase, setCurrentPhase] = useState<'intro' | 'demo' | 'outro'>('intro');
@@ -278,7 +282,7 @@ const Demo = () => {
                           <Search className="h-8 w-8 mb-3 text-primary" />
                           <h3 className="text-xl font-semibold mb-2">Check & See</h3>
                           <p className="text-sm text-muted-foreground mb-4">Search existing patents</p>
-                          <div className="text-sm text-primary">$9.99/month</div>
+                          <div className="text-sm text-primary">{CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY}</div>
                         </div>
                       </div>
                       
@@ -656,7 +660,7 @@ const Demo = () => {
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <Button className="bg-white text-primary hover:bg-white/90 gap-2">
                             <Shield className="h-4 w-4" />
-                            File with USPTO ($1,000)
+                            File with USPTO ({PATENT_APPLICATION_PRICE_DISPLAY})
                           </Button>
                           <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 gap-2">
                             <FileText className="h-4 w-4" />
@@ -735,7 +739,7 @@ const Demo = () => {
                       </div>
                     </div>
                     <p className="text-white/90 text-sm italic">
-                      "PatentBot AI helped me file my first patent in just 2 hours. What would have taken months with a law firm cost me $1,000 and was done the same day."
+                      {`"PatentBot AI helped me file my first patent in just 2 hours. What would have taken months with a law firm cost me ${PATENT_APPLICATION_PRICE_DISPLAY} and was done the same day."`}
                     </p>
                   </div>
                   
@@ -752,7 +756,7 @@ const Demo = () => {
                   
                   <div className="text-white/70 text-sm space-y-1">
                     <p className="font-medium">✨ Get started in under 60 seconds</p>
-                    <p>💳 Only pay $1,000 when you're ready to file</p>
+                    <p>💳 Only pay {PATENT_APPLICATION_PRICE_DISPLAY} when you're ready to file</p>
                   </div>
                 </div>
               )}

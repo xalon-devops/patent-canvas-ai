@@ -21,8 +21,25 @@ export const CHECK_AND_SEE_PRICE = 9.99;
 
 // ===== STRIPE PRICE IDs =====
 
+/** Stripe Price ID for Patent Application one-time payment */
+export const STRIPE_PATENT_APPLICATION_PRICE_ID = 'price_1RdXGjKFoovQj4C2M0KxKh8B';
+
 /** Stripe Price ID for Check & See subscription */
 export const STRIPE_CHECK_AND_SEE_PRICE_ID = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
+
+// ===== FORMATTED DISPLAY STRINGS =====
+
+/** Formatted patent application price for display */
+export const PATENT_APPLICATION_PRICE_DISPLAY = '$1,000';
+
+/** Formatted Check & See price for display */
+export const CHECK_AND_SEE_PRICE_DISPLAY = '$9.99';
+
+/** Formatted Check & See price with period */
+export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$9.99/month';
+
+/** Formatted Check & See price with short period */
+export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$9.99/mo';
 
 // ===== PATENT VALUATION =====
 

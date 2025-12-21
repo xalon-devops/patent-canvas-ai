@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, FileText, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY } from '@/lib/pricingConstants';
 
 type PaymentStatus = 'verifying' | 'success' | 'error' | 'processing';
 type PaymentType = 'payment' | 'subscription' | null;
@@ -128,8 +129,8 @@ export default function PaymentReturn() {
               <CardTitle className="text-2xl">Payment Successful!</CardTitle>
               <CardDescription>
                 {paymentType === 'payment' 
-                  ? 'Your $1,000 patent application payment has been processed.'
-                  : 'Your $9.99/month Check & See subscription is now active.'}
+                  ? `Your ${PATENT_APPLICATION_PRICE_DISPLAY} patent application payment has been processed.`
+                  : `Your ${CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY} Check & See subscription is now active.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

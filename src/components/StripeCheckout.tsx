@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { CHECK_AND_SEE_PRICE_CENTS } from '@/lib/pricingConstants';
 
 interface StripeCheckoutProps {
   priceId?: string;
@@ -18,7 +19,7 @@ export const StripeCheckout: React.FC<StripeCheckoutProps> = ({
   priceId,
   planType = 'premium',
   applicationId,
-  amount = 999,
+  amount = CHECK_AND_SEE_PRICE_CENTS,
   mode = 'subscription',
   className,
   children

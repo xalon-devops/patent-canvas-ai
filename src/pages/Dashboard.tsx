@@ -16,6 +16,10 @@ import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useUserProfile } from '@/contexts/UserProfileContext';
+import { 
+  PATENT_APPLICATION_PRICE_DISPLAY, 
+  CHECK_AND_SEE_PRICE_DISPLAY 
+} from '@/lib/pricingConstants';
 
 // Admin button - only shows for users with admin role
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -409,7 +413,7 @@ const Dashboard = () => {
                   <CheckCircle className="h-4 w-4 text-primary" />
                   <span>Export to DOCX/PDF</span>
                 </div>
-                <div className="text-2xl font-bold text-primary mb-2">$1,000</div>
+                <div className="text-2xl font-bold text-primary mb-2">{PATENT_APPLICATION_PRICE_DISPLAY}</div>
                 <div className="text-sm text-muted-foreground mb-4">One-time payment per application</div>
               </div>
               <div className="space-y-3">
@@ -417,7 +421,7 @@ const Dashboard = () => {
                   onClick={createNewSession} 
                   className="w-full bg-primary hover:bg-primary/90"
                 >
-                  Start New Patent ($1,000)
+                  Start New Patent ({PATENT_APPLICATION_PRICE_DISPLAY})
                 </Button>
                 <Button 
                   onClick={() => navigate('/drafts')} 
@@ -452,7 +456,7 @@ const Dashboard = () => {
                   <CheckCircle className="h-4 w-4 text-secondary" />
                   <span>Unlimited searches with subscription</span>
                 </div>
-                <div className="text-2xl font-bold text-secondary mb-2">$9.99</div>
+                <div className="text-2xl font-bold text-secondary mb-2">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
                 <div className="text-sm text-muted-foreground mb-4">Monthly subscription</div>
               </div>
               <Button 

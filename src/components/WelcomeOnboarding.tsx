@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Search, Lightbulb, ArrowRight, CheckCircle, Sparkles } from 'lucide-react';
+import { 
+  PATENT_APPLICATION_PRICE_DISPLAY, 
+  FREE_SEARCHES_LIMIT 
+} from '@/lib/pricingConstants';
 
 interface WelcomeOnboardingProps {
   onDismiss: () => void;
@@ -72,7 +76,7 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
               className="w-full bg-primary hover:bg-primary/90"
               onClick={() => handleAction('/new-application')}
             >
-              Start Patent ($1,000)
+              Start Patent ({PATENT_APPLICATION_PRICE_DISPLAY})
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
@@ -91,7 +95,7 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
             <div className="space-y-2 mb-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CheckCircle className="h-3 w-3 text-secondary" />
-                <span>3 free searches to start</span>
+                <span>{FREE_SEARCHES_LIMIT} free searches to start</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CheckCircle className="h-3 w-3 text-secondary" />
