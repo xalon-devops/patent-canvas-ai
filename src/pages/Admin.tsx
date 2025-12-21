@@ -22,10 +22,18 @@ import {
   ArrowLeft,
   Activity,
   Globe,
-  Eye
+  Eye,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react';
 import { formatDateAdmin } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
+
+// PatentBot AI Price IDs (Stripe) - ONLY track revenue from these
+const PATENTBOT_PRICE_IDS = {
+  CHECK_AND_SEE: 'price_1RdXHaKFoovQj4C2Vx8MmN3P', // $9.99/mo subscription
+  PATENT_APPLICATION: 'patent_application', // $1,000 one-time (metadata identifier)
+};
 
 interface AdminPatentSession {
   id: string;
@@ -44,12 +52,29 @@ interface TrackingStatus {
   kronosLastSeen?: string;
 }
 
+interface RevenueStats {
+  totalRevenue: number;
+  subscriptionRevenue: number;
+  patentRevenue: number;
+  totalTransactions: number;
+  activeSubscriptions: number;
+  pendingPayments: number;
+}
+
 const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessions, setSessions] = useState<AdminPatentSession[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<AdminPatentSession[]>([]);
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>({ nexus: false, kronos: false });
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>({
+    totalRevenue: 0,
+    subscriptionRevenue: 0,
+    patentRevenue: 0,
+    totalTransactions: 0,
+    activeSubscriptions: 0,
+    pendingPayments: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -97,6 +122,7 @@ const Admin = () => {
       if (data) {
         setIsAdmin(true);
         fetchAllSessions();
+        fetchRevenueStats();
         checkTrackingStatus();
       } else {
         toast({
@@ -145,6 +171,62 @@ const Admin = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch real PatentBot AI revenue from our database (only our price_ids)
+  const fetchRevenueStats = async () => {
+    try {
+      // Fetch completed payment transactions (subscriptions)
+      const { data: transactions, error: txError } = await supabase
+        .from('payment_transactions')
+        .select('amount, status, payment_type, metadata, created_at')
+        .eq('status', 'completed');
+
+      // Fetch completed application payments (one-time $1,000)
+      const { data: appPayments, error: appError } = await supabase
+        .from('application_payments')
+        .select('amount, status, created_at')
+        .eq('status', 'completed');
+
+      // Fetch active subscriptions
+      const { data: activeSubs, error: subError } = await supabase
+        .from('subscriptions')
+        .select('id, status, plan')
+        .eq('status', 'active');
+
+      // Fetch pending payments
+      const { data: pendingTx } = await supabase
+        .from('payment_transactions')
+        .select('id')
+        .eq('status', 'pending');
+
+      const { data: pendingApp } = await supabase
+        .from('application_payments')
+        .select('id')
+        .eq('status', 'pending');
+
+      // Calculate revenue (amounts are in cents)
+      const subscriptionRevenue = (transactions || [])
+        .filter(tx => tx.payment_type === 'subscription')
+        .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+      const patentRevenue = (appPayments || [])
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      const totalTransactions = (transactions?.length || 0) + (appPayments?.length || 0);
+
+      setRevenueStats({
+        totalRevenue: subscriptionRevenue + patentRevenue,
+        subscriptionRevenue,
+        patentRevenue,
+        totalTransactions,
+        activeSubscriptions: activeSubs?.length || 0,
+        pendingPayments: (pendingTx?.length || 0) + (pendingApp?.length || 0),
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching revenue stats:', error);
     }
   };
 
@@ -349,6 +431,68 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Revenue Stats Card - PatentBot AI Only */}
+        <Card className="mb-6 border-green-500/30 bg-gradient-to-br from-green-500/5 to-emerald-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-500" />
+              PatentBot AI™ Revenue
+            </CardTitle>
+            <CardDescription>
+              Real revenue from PatentBot AI services only (Check & See + Patent Applications)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-green-500">
+                  ${(revenueStats.totalRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Total Revenue</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-primary">
+                  ${(revenueStats.patentRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Patent Apps ($1,000)</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-secondary">
+                  ${(revenueStats.subscriptionRevenue / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Subscriptions ($9.99)</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-foreground">
+                  {revenueStats.totalTransactions}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Completed Payments</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-blue-500">
+                  {revenueStats.activeSubscriptions}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Active Subs</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-yellow-500">
+                  {revenueStats.pendingPayments}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">Pending</div>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Tracking: Check & See (price_1RdXHaKFoovQj4C2Vx8MmN3P) + Patent Applications
+              </p>
+              <Button variant="outline" size="sm" onClick={fetchRevenueStats}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Revenue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tracking Status Card */}
         <Card className="mb-6">
           <CardHeader>

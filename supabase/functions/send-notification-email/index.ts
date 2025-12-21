@@ -47,7 +47,7 @@ serve(async (req) => {
     const emailContent = generateEmailContent(type, {
       session_id,
       payment_amount,
-      base_url: Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovable.app') || ''
+      base_url: 'https://patentbot-ai.com'
     });
 
     // Send email
