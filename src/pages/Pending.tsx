@@ -55,7 +55,7 @@ const Pending = () => {
     setSearchingPriorArt(sessionId);
     
     try {
-      const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art', {
+      const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: { session_id: sessionId }
       });
 

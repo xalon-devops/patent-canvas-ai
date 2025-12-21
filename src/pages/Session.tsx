@@ -406,10 +406,10 @@ const Session = () => {
     setSearchingPriorArt(true);
     
     try {
-      console.log('Calling search-prior-art edge function...');
+      console.log('Calling search-prior-art-enhanced edge function...');
       
-      // Call the search-prior-art edge function
-      const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art', {
+      // Call the enhanced search-prior-art edge function with real patent databases
+      const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: { session_id: id }
       });
 
