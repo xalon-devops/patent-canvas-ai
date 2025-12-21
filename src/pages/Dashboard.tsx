@@ -5,15 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon } from 'lucide-react';
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
+import { UserAvatar } from '@/components/UserAvatar';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 // Admin button - only shows for users with admin role
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -251,12 +253,16 @@ const Dashboard = () => {
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                      <Settings className="h-4 w-4" />
-                      <MoreVertical className="h-3 w-3 ml-1" />
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground hover:text-foreground p-1">
+                      <UserAvatar size="sm" />
+                      <MoreVertical className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glass border-white/10">
+                  <DropdownMenuContent align="end" className="glass border-white/10 min-w-[180px]">
+                    <DropdownMenuItem onClick={() => navigate('/profile')}>
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <Settings className="h-4 w-4 mr-2" />
                       Settings
@@ -265,7 +271,8 @@ const Dashboard = () => {
                       <Key className="h-4 w-4 mr-2" />
                       Change Password
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleSignOut}>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
                       <LogOut className="h-4 w-4 mr-2" />
                       Sign Out
                     </DropdownMenuItem>

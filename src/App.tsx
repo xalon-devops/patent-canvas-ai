@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import { useEffect } from "react";
 import { logEvent } from "@/lib/conversionTracker";
 import { initTrackIt } from "@/lib/trackitAnalytics";
@@ -27,6 +28,7 @@ import IdeaDetail from "./pages/IdeaDetail";
 import PaymentReturn from "./pages/PaymentReturn";
 import SelectSupabaseProject from "./pages/SelectSupabaseProject";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -47,12 +49,13 @@ const RouteTracker = () => {
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <ScrollToTop />
-          <RouteTracker />
+      <UserProfileProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <ScrollToTop />
+            <RouteTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/demo" element={<Demo />} />
@@ -138,6 +141,14 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/idea/:id" 
               element={
@@ -168,6 +179,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </UserProfileProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );

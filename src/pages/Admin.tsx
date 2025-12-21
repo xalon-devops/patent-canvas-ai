@@ -61,6 +61,12 @@ interface RevenueStats {
   pendingPayments: number;
 }
 
+interface UserStats {
+  totalUsers: number;
+  usersWithProfiles: number;
+  usersWithoutProfiles: number;
+}
+
 const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -75,6 +81,12 @@ const Admin = () => {
     activeSubscriptions: 0,
     pendingPayments: 0,
   });
+  const [userStats, setUserStats] = useState<UserStats>({
+    totalUsers: 0,
+    usersWithProfiles: 0,
+    usersWithoutProfiles: 0,
+  });
+  const [backfillLoading, setBackfillLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -124,6 +136,7 @@ const Admin = () => {
         fetchAllSessions();
         fetchRevenueStats();
         checkTrackingStatus();
+        fetchUserStats();
       } else {
         toast({
           title: "Access Denied",
@@ -251,6 +264,64 @@ const Admin = () => {
       });
     } catch (error) {
       console.error('Error checking tracking status:', error);
+    }
+  };
+
+  const fetchUserStats = async () => {
+    try {
+      // Get total users from users table
+      const { count: totalUsers } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+      // Get users with profiles
+      const { count: usersWithProfiles } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      setUserStats({
+        totalUsers: totalUsers || 0,
+        usersWithProfiles: usersWithProfiles || 0,
+        usersWithoutProfiles: (totalUsers || 0) - (usersWithProfiles || 0),
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
+
+  const backfillProfiles = async () => {
+    setBackfillLoading(true);
+    try {
+      // Get all users without profiles
+      const { data: allUsers } = await supabase.from('users').select('id, email');
+      const { data: existingProfiles } = await supabase.from('profiles').select('user_id');
+      
+      const existingUserIds = new Set(existingProfiles?.map(p => p.user_id) || []);
+      const usersWithoutProfiles = allUsers?.filter(u => !existingUserIds.has(u.id)) || [];
+
+      if (usersWithoutProfiles.length === 0) {
+        toast({ title: "All users have profiles", description: "No backfill needed." });
+        return;
+      }
+
+      // Create profiles for users without them
+      const profilesToInsert = usersWithoutProfiles.map(u => ({
+        user_id: u.id,
+        display_name: u.email?.split('@')[0] || 'User',
+      }));
+
+      const { error } = await supabase.from('profiles').insert(profilesToInsert);
+      if (error) throw error;
+
+      toast({
+        title: "Backfill Complete",
+        description: `Created ${profilesToInsert.length} profile(s).`,
+      });
+      fetchUserStats();
+    } catch (error: any) {
+      toast({ title: "Backfill Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setBackfillLoading(false);
     }
   };
 
@@ -488,6 +559,48 @@ const Admin = () => {
               <Button variant="outline" size="sm" onClick={fetchRevenueStats}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh Revenue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* User Management & Backfill Card */}
+        <Card className="mb-6 border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-indigo-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-500" />
+              User Management
+            </CardTitle>
+            <CardDescription>Manage user profiles and run backfill operations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold">{userStats.totalUsers}</div>
+                <div className="text-xs text-muted-foreground">Total Users</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-green-500">{userStats.usersWithProfiles}</div>
+                <div className="text-xs text-muted-foreground">With Profiles</div>
+              </div>
+              <div className="p-4 bg-card rounded-lg border text-center">
+                <div className="text-2xl font-bold text-orange-500">{userStats.usersWithoutProfiles}</div>
+                <div className="text-xs text-muted-foreground">Missing Profiles</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={fetchUserStats}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Stats
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={backfillProfiles}
+                disabled={backfillLoading || userStats.usersWithoutProfiles === 0}
+              >
+                {backfillLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Users className="h-4 w-4 mr-2" />}
+                {backfillLoading ? 'Backfilling...' : `Backfill ${userStats.usersWithoutProfiles} Profile(s)`}
               </Button>
             </div>
           </CardContent>
