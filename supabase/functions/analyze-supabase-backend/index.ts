@@ -109,64 +109,104 @@ serve(async (req) => {
         console.log('[SUPABASE SCANNER] Got anon key for REST queries');
       }
 
-      // Fetch tables from information_schema via REST API
+      // First try custom RPC function for schema (most reliable)
       if (anonKey) {
-        const tablesResponse = await fetch(
-          `${targetUrl}/rest/v1/tables?select=table_name,table_schema&table_schema=eq.public`,
+        console.log('[SUPABASE SCANNER] Trying get_database_schema RPC...');
+        const schemaRpcResponse = await fetch(
+          `${targetUrl}/rest/v1/rpc/get_database_schema`,
           {
+            method: 'POST',
             headers: {
               'apikey': anonKey,
               'Authorization': `Bearer ${anonKey}`,
-              'Accept': 'application/json',
-              'Accept-Profile': 'information_schema',
+              'Content-Type': 'application/json',
             },
+            body: '{}',
           }
         );
 
-        if (tablesResponse.ok) {
-          const tablesData = await tablesResponse.json();
-          console.log('[SUPABASE SCANNER] Found tables:', tablesData.length);
+        if (schemaRpcResponse.ok) {
+          const schemaData = await schemaRpcResponse.json();
+          console.log('[SUPABASE SCANNER] Got schema via RPC:', schemaData?.tables?.length || 0, 'tables');
           
-          // Get columns for each table
-          const tablesWithColumns = await Promise.all(
-            tablesData.map(async (t: any) => {
-              const columnsResponse = await fetch(
-                `${targetUrl}/rest/v1/columns?select=column_name,data_type,is_nullable,column_default,table_name&table_name=eq.${t.table_name}&table_schema=eq.public`,
-                {
-                  headers: {
-                    'apikey': anonKey,
-                    'Authorization': `Bearer ${anonKey}`,
-                    'Accept': 'application/json',
-                    'Accept-Profile': 'information_schema',
-                  },
-                }
-              );
-              
-              let columns: any[] = [];
-              if (columnsResponse.ok) {
-                columns = await columnsResponse.json();
-              }
-              
-              return {
-                name: t.table_name,
-                schema: t.table_schema,
-                columns: columns.map((c: any) => ({
-                  name: c.column_name,
-                  type: c.data_type,
-                  nullable: c.is_nullable === 'YES',
-                  default: c.column_default,
-                }))
-              };
-            })
-          );
+          // Transform to expected format
+          const tables = (schemaData?.tables || []).map((t: any) => ({
+            name: t.table_name,
+            schema: 'public',
+            columns: (t.columns || []).map((c: any) => ({
+              name: c.column_name,
+              type: c.data_type,
+              nullable: c.is_nullable === 'YES',
+              default: c.column_default,
+            }))
+          }));
 
           schema = {
-            tables: tablesWithColumns,
-            total_columns: tablesWithColumns.reduce((acc: number, t: any) => acc + t.columns.length, 0)
+            tables,
+            total_columns: tables.reduce((acc: number, t: any) => acc + t.columns.length, 0),
+            rls_info: schemaData?.rls_enabled || []
           };
         } else {
-          console.log('[SUPABASE SCANNER] Tables fetch failed:', tablesResponse.status);
-          schema = { tables: [], error: 'Failed to fetch schema via REST API' };
+          console.log('[SUPABASE SCANNER] RPC not available, falling back to REST API...');
+          
+          // Fallback: Fetch tables from information_schema via REST API
+          const tablesResponse = await fetch(
+            `${targetUrl}/rest/v1/tables?select=table_name,table_schema&table_schema=eq.public`,
+            {
+              headers: {
+                'apikey': anonKey,
+                'Authorization': `Bearer ${anonKey}`,
+                'Accept': 'application/json',
+                'Accept-Profile': 'information_schema',
+              },
+            }
+          );
+
+          if (tablesResponse.ok) {
+            const tablesData = await tablesResponse.json();
+            console.log('[SUPABASE SCANNER] Found tables via REST:', tablesData.length);
+            
+            // Get columns for each table
+            const tablesWithColumns = await Promise.all(
+              tablesData.map(async (t: any) => {
+                const columnsResponse = await fetch(
+                  `${targetUrl}/rest/v1/columns?select=column_name,data_type,is_nullable,column_default,table_name&table_name=eq.${t.table_name}&table_schema=eq.public`,
+                  {
+                    headers: {
+                      'apikey': anonKey,
+                      'Authorization': `Bearer ${anonKey}`,
+                      'Accept': 'application/json',
+                      'Accept-Profile': 'information_schema',
+                    },
+                  }
+                );
+                
+                let columns: any[] = [];
+                if (columnsResponse.ok) {
+                  columns = await columnsResponse.json();
+                }
+                
+                return {
+                  name: t.table_name,
+                  schema: t.table_schema,
+                  columns: columns.map((c: any) => ({
+                    name: c.column_name,
+                    type: c.data_type,
+                    nullable: c.is_nullable === 'YES',
+                    default: c.column_default,
+                  }))
+                };
+              })
+            );
+
+            schema = {
+              tables: tablesWithColumns,
+              total_columns: tablesWithColumns.reduce((acc: number, t: any) => acc + t.columns.length, 0)
+            };
+          } else {
+            console.log('[SUPABASE SCANNER] Tables fetch failed:', tablesResponse.status);
+            schema = { tables: [], error: 'Failed to fetch schema. Add get_database_schema() RPC function to target project.' };
+          }
         }
       } else {
         schema = { tables: [], error: 'Could not retrieve API key for schema queries' };
