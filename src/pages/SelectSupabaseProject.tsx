@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Database, Building2, MapPin } from 'lucide-react';
+import { Loader2, Database, Building2, MapPin, Unlink } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -35,6 +35,7 @@ const SelectSupabaseProject = () => {
   
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>('');
@@ -217,6 +218,42 @@ const SelectSupabaseProject = () => {
     }
   };
 
+  const handleRevoke = async () => {
+    if (!confirm('This will disconnect your Supabase account. You can reconnect anytime.')) {
+      return;
+    }
+
+    setRevoking(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Not authenticated');
+
+      // Delete all connections for this user
+      const { error } = await supabase
+        .from('supabase_connections')
+        .delete()
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Connection Revoked',
+        description: 'You can now reconnect with fresh permissions.',
+      });
+      
+      navigate('/new-application');
+    } catch (error: any) {
+      console.error('Error revoking connection:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setRevoking(false);
+    }
+  };
+
   if (loading && organizations.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -306,14 +343,14 @@ const SelectSupabaseProject = () => {
               <Button
                 variant="outline"
                 onClick={() => navigate('/new-application')}
-                disabled={finalizing}
+                disabled={finalizing || revoking}
                 className="flex-1"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleFinalize}
-                disabled={!selectedOrg || !selectedProject || finalizing}
+                disabled={!selectedOrg || !selectedProject || finalizing || revoking}
                 className="flex-1"
               >
                 {finalizing ? (
@@ -325,6 +362,27 @@ const SelectSupabaseProject = () => {
                   'Connect Project'
                 )}
               </Button>
+            </div>
+
+            {/* Revoke Connection */}
+            <div className="pt-4 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRevoke}
+                disabled={revoking || finalizing}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {revoking ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Unlink className="mr-2 h-4 w-4" />
+                )}
+                Revoke Connection
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1">
+                Disconnect and reconnect to get updated permissions
+              </p>
             </div>
           </CardContent>
         </Card>
