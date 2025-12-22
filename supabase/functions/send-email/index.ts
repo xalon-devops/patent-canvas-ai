@@ -102,15 +102,33 @@ serve(async (req) => {
           .eq('id', sessionId)
           .single();
 
-        // Clean the idea prompt for display (remove markdown artifacts)
-        const cleanTitle = (sessionData?.idea_prompt || 'your innovation')
-          .replace(/```[a-z]*\s*/gi, '')
-          .replace(/```/g, '')
-          .substring(0, 100)
-          .trim();
+        // Extract a clean, short title for display (idea_prompt may contain scraped/markdown-heavy content)
+        const extractDisplayTitle = (raw: string | null | undefined) => {
+          const base = (raw || 'your innovation')
+            .replace(/```[a-z]*\s*/gi, '')
+            .replace(/```/g, '')
+            // strip HTML tags if any
+            .replace(/<[^>]*>/g, ' ')
+            // convert markdown links [text](url) -> text
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+            // remove markdown headings and emphasis tokens
+            .replace(/(^|\s)#{1,6}(\s+)/g, ' ')
+            .replace(/[*_`~]/g, '')
+            // collapse whitespace/newlines
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        // Use the actual app URL
-        const appBaseUrl = "https://jdkogqskjsmwlhigaecb.lovableproject.com";
+          // Prefer a short segment before pipe separators if present
+          const primary = base.includes('|') ? base.split('|')[0].trim() : base;
+
+          // Final hard cap (avoid emails with giant titles)
+          return primary.length > 80 ? `${primary.slice(0, 77).trim()}...` : primary;
+        };
+
+        const cleanTitle = extractDisplayTitle(sessionData?.idea_prompt);
+
+        // Use the actual app URL (override via Supabase secret PUBLIC_APP_URL)
+        const appBaseUrl = Deno.env.get("PUBLIC_APP_URL") || "https://jdkogqskjsmwlhigaecb.lovableproject.com";
         const applicationUrl = `${appBaseUrl}/session/${sessionId}`;
 
         emailData = {
