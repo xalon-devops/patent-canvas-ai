@@ -29,7 +29,8 @@ import {
   Send,
   Loader2,
   Eye,
-  Edit
+  Edit,
+  Unlink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import supabaseLogo from '@/assets/supabase-logo.png';
@@ -73,6 +74,7 @@ const NewApplication = () => {
   const [supabaseKey, setSupabaseKey] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [scanningSupabase, setScanningSupabase] = useState(false);
   const [supabaseAnalysis, setSupabaseAnalysis] = useState<any>(null);
   const [existingIdea, setExistingIdea] = useState<PatentIdea | null>(null);
@@ -259,6 +261,31 @@ const NewApplication = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setUploadedFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleDisconnectSupabase = async () => {
+    setDisconnecting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Not authenticated');
+
+      await supabase
+        .from('supabase_connections')
+        .delete()
+        .eq('user_id', session.user.id);
+
+      setConnectedProject(null);
+      setSupabaseAnalysis(null);
+    } catch (error: any) {
+      console.error('Error disconnecting:', error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setDisconnecting(false);
     }
   };
 
@@ -1001,15 +1028,26 @@ const NewApplication = () => {
                         <p className="text-sm text-muted-foreground">{connectedProject.name}</p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSupabaseOAuth}
-                      disabled={loading}
-                      className="hover:bg-[#3ECF8E]/10"
-                    >
-                      Change Project
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSupabaseOAuth}
+                        disabled={loading || disconnecting}
+                        className="hover:bg-[#3ECF8E]/10"
+                      >
+                        Change
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDisconnectSupabase}
+                        disabled={loading || disconnecting}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        {disconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
