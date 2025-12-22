@@ -38,6 +38,18 @@ interface PatentDrafterProps {
   onComplete: () => void;
 }
 
+// Clean patent content by removing markdown artifacts and ensuring proper paragraph formatting
+const cleanPatentContent = (content: string): string => {
+  if (!content) return '';
+  
+  return content
+    // Remove markdown code blocks (```html, ```, etc.)
+    .replace(/```(?:html|markdown|text)?\s*/gi, '')
+    .replace(/```\s*/g, '')
+    // Trim whitespace
+    .trim();
+};
+
 const PatentDrafter: React.FC<PatentDrafterProps> = ({ 
   sessionId, 
   onComplete 
@@ -646,9 +658,9 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                                 className="w-full border rounded-lg"
                               />
                               <div 
-                                className="text-sm text-muted-foreground"
+                                className="text-sm text-muted-foreground [&>p]:mb-3 [&>p:last-child]:mb-0"
                                 dangerouslySetInnerHTML={{ 
-                                  __html: DOMPurify.sanitize(diagram.description || '') 
+                                  __html: DOMPurify.sanitize(cleanPatentContent(diagram.description || '')) 
                                 }}
                               />
                             </div>
@@ -660,9 +672,9 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                     </div>
                   ) : (
                     <div 
-                      className="prose prose-sm max-w-none leading-relaxed"
+                      className="prose prose-sm max-w-none leading-relaxed [&>p]:mb-4 [&>p:last-child]:mb-0"
                       dangerouslySetInnerHTML={{ 
-                        __html: DOMPurify.sanitize(section.content, {
+                        __html: DOMPurify.sanitize(cleanPatentContent(section.content || ''), {
                           ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'div', 'span', 'br'],
                           ALLOWED_ATTR: ['class']
                         })
