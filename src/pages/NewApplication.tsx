@@ -1239,7 +1239,7 @@ const NewApplication = () => {
             <Button 
               variant="outline" 
               onClick={handleSaveAsIdea} 
-              className="w-full border-accent text-accent hover:bg-accent/10 hover:text-accent"
+              className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground font-medium"
               disabled={loading}
             >
               {loading ? (
