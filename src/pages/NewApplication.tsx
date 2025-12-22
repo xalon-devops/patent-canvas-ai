@@ -760,6 +760,63 @@ const NewApplication = () => {
     </motion.div>
   );
 
+  const [scrapingUrl, setScrapingUrl] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState('');
+
+  const handleScrapeUrl = async () => {
+    if (!websiteUrl.trim()) {
+      toast({
+        title: "URL Required",
+        description: "Please enter a URL to scrape.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setScrapingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('crawl-url-content', {
+        body: { url: websiteUrl },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success && data?.content) {
+        // Extract title from content - look for first heading or use domain
+        const urlObj = new URL(websiteUrl);
+        let extractedTitle = urlObj.hostname.replace('www.', '');
+        
+        // Try to find a title in the content (first line or heading)
+        const lines = data.content.split('\n').filter((line: string) => line.trim());
+        if (lines.length > 0) {
+          const firstLine = lines[0].trim();
+          if (firstLine.length > 5 && firstLine.length < 100) {
+            extractedTitle = firstLine;
+          }
+        }
+
+        setIdeaTitle(extractedTitle);
+        setIdeaDescription(data.content.substring(0, 3000));
+        
+        toast({
+          title: "URL Scraped!",
+          description: "Content has been extracted and filled in. Feel free to edit.",
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to scrape URL');
+      }
+    } catch (error: any) {
+      console.error('Scrape error:', error);
+      toast({
+        title: "Scrape Failed",
+        description: error.message || "Could not extract content from URL.",
+        variant: "destructive",
+      });
+    } finally {
+      setScrapingUrl(false);
+    }
+  };
+
   const renderStep2 = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -775,6 +832,44 @@ const NewApplication = () => {
       </div>
 
       <div className="space-y-6">
+        {/* URL Scraper */}
+        <div className="p-4 border border-dashed border-primary/30 rounded-lg bg-primary/5">
+          <Label htmlFor="websiteUrl" className="flex items-center gap-2 mb-2">
+            <Zap className="w-4 h-4 text-primary" />
+            Quick Fill from URL (Optional)
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              id="websiteUrl"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://your-product-website.com"
+              className="flex-1"
+            />
+            <Button 
+              type="button"
+              variant="secondary" 
+              onClick={handleScrapeUrl}
+              disabled={scrapingUrl || !websiteUrl.trim()}
+            >
+              {scrapingUrl ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Scraping...
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Scrape
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Enter your product or project URL to auto-fill the title and description
+          </p>
+        </div>
+
         <div>
           <Label htmlFor="title">Invention Title</Label>
           <Input
