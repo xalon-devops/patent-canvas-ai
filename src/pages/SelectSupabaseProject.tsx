@@ -203,11 +203,7 @@ const SelectSupabaseProject = () => {
 
       if (error) throw error;
 
-      toast({
-        title: '✅ Supabase Connected!',
-        description: `Successfully connected to ${selectedProjectData?.name}`,
-      });
-
+      // Navigate back - the connected state will show in the UI
       navigate('/new-application');
     } catch (error: any) {
       console.error('Error finalizing connection:', error);
