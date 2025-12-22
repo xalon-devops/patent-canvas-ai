@@ -88,128 +88,101 @@ serve(async (req) => {
     let schema, storageBuckets, rlsPolicies, functions;
 
     if (managementApiToken) {
-      // Use Management API with REST endpoint for schema
-      console.log('[SUPABASE SCANNER] Using Management API with REST endpoint...');
+      // Use Management API SQL endpoint directly - no RPC needed!
+      console.log('[SUPABASE SCANNER] Using Management API SQL endpoint...');
       
-      // First, get the anon key from Management API
-      const configResponse = await fetch(
-        `https://api.supabase.com/v1/projects/${projectRef}/api-keys`,
+      // Fetch schema via Management API SQL query
+      const schemaQuery = `
+        SELECT 
+          t.table_name,
+          json_agg(
+            json_build_object(
+              'column_name', c.column_name,
+              'data_type', c.data_type,
+              'is_nullable', c.is_nullable,
+              'column_default', c.column_default
+            ) ORDER BY c.ordinal_position
+          ) as columns
+        FROM information_schema.tables t
+        LEFT JOIN information_schema.columns c 
+          ON t.table_name = c.table_name AND t.table_schema = c.table_schema
+        WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+        GROUP BY t.table_name
+        ORDER BY t.table_name;
+      `;
+
+      const schemaResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
         {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${managementApiToken}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ query: schemaQuery }),
         }
       );
 
-      let anonKey = '';
-      if (configResponse.ok) {
-        const apiKeys = await configResponse.json();
-        const anonKeyObj = apiKeys.find((k: any) => k.name === 'anon' || k.name === 'anon key');
-        anonKey = anonKeyObj?.api_key || '';
-        console.log('[SUPABASE SCANNER] Got anon key for REST queries');
+      if (schemaResponse.ok) {
+        const schemaData = await schemaResponse.json();
+        console.log('[SUPABASE SCANNER] Got schema via Management API:', schemaData?.length || 0, 'tables');
+        
+        const tables = (schemaData || []).map((t: any) => ({
+          name: t.table_name,
+          schema: 'public',
+          columns: (t.columns || []).map((c: any) => ({
+            name: c.column_name,
+            type: c.data_type,
+            nullable: c.is_nullable === 'YES',
+            default: c.column_default,
+          }))
+        }));
+
+        schema = {
+          tables,
+          total_columns: tables.reduce((acc: number, t: any) => acc + t.columns.length, 0)
+        };
+      } else {
+        const errorText = await schemaResponse.text();
+        console.log('[SUPABASE SCANNER] Schema query failed:', schemaResponse.status, errorText);
+        schema = { tables: [], error: `Failed to fetch schema: ${schemaResponse.status}` };
       }
 
-      // First try custom RPC function for schema (most reliable)
-      if (anonKey) {
-        console.log('[SUPABASE SCANNER] Trying get_database_schema RPC...');
-        const schemaRpcResponse = await fetch(
-          `${targetUrl}/rest/v1/rpc/get_database_schema`,
-          {
-            method: 'POST',
-            headers: {
-              'apikey': anonKey,
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: '{}',
-          }
-        );
+      // Fetch RLS info via Management API
+      const rlsQuery = `
+        SELECT 
+          schemaname,
+          tablename,
+          policyname,
+          permissive,
+          roles,
+          cmd,
+          qual,
+          with_check
+        FROM pg_policies
+        WHERE schemaname = 'public'
+        ORDER BY tablename, policyname;
+      `;
 
-        if (schemaRpcResponse.ok) {
-          const schemaData = await schemaRpcResponse.json();
-          console.log('[SUPABASE SCANNER] Got schema via RPC:', schemaData?.tables?.length || 0, 'tables');
-          
-          // Transform to expected format
-          const tables = (schemaData?.tables || []).map((t: any) => ({
-            name: t.table_name,
-            schema: 'public',
-            columns: (t.columns || []).map((c: any) => ({
-              name: c.column_name,
-              type: c.data_type,
-              nullable: c.is_nullable === 'YES',
-              default: c.column_default,
-            }))
-          }));
-
-          schema = {
-            tables,
-            total_columns: tables.reduce((acc: number, t: any) => acc + t.columns.length, 0),
-            rls_info: schemaData?.rls_enabled || []
-          };
-        } else {
-          console.log('[SUPABASE SCANNER] RPC not available, falling back to REST API...');
-          
-          // Fallback: Fetch tables from information_schema via REST API
-          const tablesResponse = await fetch(
-            `${targetUrl}/rest/v1/tables?select=table_name,table_schema&table_schema=eq.public`,
-            {
-              headers: {
-                'apikey': anonKey,
-                'Authorization': `Bearer ${anonKey}`,
-                'Accept': 'application/json',
-                'Accept-Profile': 'information_schema',
-              },
-            }
-          );
-
-          if (tablesResponse.ok) {
-            const tablesData = await tablesResponse.json();
-            console.log('[SUPABASE SCANNER] Found tables via REST:', tablesData.length);
-            
-            // Get columns for each table
-            const tablesWithColumns = await Promise.all(
-              tablesData.map(async (t: any) => {
-                const columnsResponse = await fetch(
-                  `${targetUrl}/rest/v1/columns?select=column_name,data_type,is_nullable,column_default,table_name&table_name=eq.${t.table_name}&table_schema=eq.public`,
-                  {
-                    headers: {
-                      'apikey': anonKey,
-                      'Authorization': `Bearer ${anonKey}`,
-                      'Accept': 'application/json',
-                      'Accept-Profile': 'information_schema',
-                    },
-                  }
-                );
-                
-                let columns: any[] = [];
-                if (columnsResponse.ok) {
-                  columns = await columnsResponse.json();
-                }
-                
-                return {
-                  name: t.table_name,
-                  schema: t.table_schema,
-                  columns: columns.map((c: any) => ({
-                    name: c.column_name,
-                    type: c.data_type,
-                    nullable: c.is_nullable === 'YES',
-                    default: c.column_default,
-                  }))
-                };
-              })
-            );
-
-            schema = {
-              tables: tablesWithColumns,
-              total_columns: tablesWithColumns.reduce((acc: number, t: any) => acc + t.columns.length, 0)
-            };
-          } else {
-            console.log('[SUPABASE SCANNER] Tables fetch failed:', tablesResponse.status);
-            schema = { tables: [], error: 'Failed to fetch schema. Add get_database_schema() RPC function to target project.' };
-          }
+      const rlsResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${managementApiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: rlsQuery }),
         }
+      );
+
+      if (rlsResponse.ok) {
+        const rlsData = await rlsResponse.json();
+        console.log('[SUPABASE SCANNER] Got RLS policies:', rlsData?.length || 0);
+        rlsPolicies = { policies: rlsData || [] };
       } else {
-        schema = { tables: [], error: 'Could not retrieve API key for schema queries' };
+        console.log('[SUPABASE SCANNER] RLS query failed:', rlsResponse.status);
+        rlsPolicies = { policies: [] };
       }
 
       // Fetch storage buckets via Management API
@@ -256,30 +229,6 @@ serve(async (req) => {
         functions = { functions: [] };
       }
 
-      // RLS policies - try via REST API
-      if (anonKey) {
-        const policiesResponse = await fetch(
-          `${targetUrl}/rest/v1/rpc/get_rls_policies`,
-          {
-            method: 'POST',
-            headers: {
-              'apikey': anonKey,
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: '{}',
-          }
-        );
-
-        if (policiesResponse.ok) {
-          const policies = await policiesResponse.json();
-          rlsPolicies = { policies };
-        } else {
-          rlsPolicies = { policies: [], note: 'RLS policies require custom RPC function' };
-        }
-      } else {
-        rlsPolicies = { policies: [], note: 'No API key available' };
-      }
 
     } else {
       // Use service role key method
