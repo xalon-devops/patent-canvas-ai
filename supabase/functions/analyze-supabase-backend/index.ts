@@ -88,12 +88,12 @@ serve(async (req) => {
     let schema, storageBuckets, rlsPolicies, functions;
 
     if (managementApiToken) {
-      // Use Management API
-      console.log('[SUPABASE SCANNER] Using Management API...');
+      // Use Management API with REST endpoint for schema
+      console.log('[SUPABASE SCANNER] Using Management API with REST endpoint...');
       
-      // Fetch database schema
-      const schemaResponse = await fetch(
-        `https://api.supabase.com/v1/projects/${projectRef}/database/tables`,
+      // First, get the anon key from Management API
+      const configResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/api-keys`,
         {
           headers: {
             'Authorization': `Bearer ${managementApiToken}`,
@@ -101,21 +101,76 @@ serve(async (req) => {
         }
       );
 
-      if (schemaResponse.ok) {
-        const tables = await schemaResponse.json();
-        schema = {
-          tables: tables.map((t: any) => ({
-            name: t.name,
-            schema: t.schema,
-            columns: t.columns || []
-          })),
-          total_columns: tables.reduce((acc: number, t: any) => acc + (t.columns?.length || 0), 0)
-        };
-      } else {
-        schema = { tables: [], error: 'Failed to fetch schema via Management API' };
+      let anonKey = '';
+      if (configResponse.ok) {
+        const apiKeys = await configResponse.json();
+        const anonKeyObj = apiKeys.find((k: any) => k.name === 'anon' || k.name === 'anon key');
+        anonKey = anonKeyObj?.api_key || '';
+        console.log('[SUPABASE SCANNER] Got anon key for REST queries');
       }
 
-      // Fetch storage buckets
+      // Fetch tables from information_schema via REST API
+      if (anonKey) {
+        const tablesResponse = await fetch(
+          `${targetUrl}/rest/v1/tables?select=table_name,table_schema&table_schema=eq.public`,
+          {
+            headers: {
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+              'accept-profile': 'information_schema',
+            },
+          }
+        );
+
+        if (tablesResponse.ok) {
+          const tablesData = await tablesResponse.json();
+          console.log('[SUPABASE SCANNER] Found tables:', tablesData.length);
+          
+          // Get columns for each table
+          const tablesWithColumns = await Promise.all(
+            tablesData.map(async (t: any) => {
+              const columnsResponse = await fetch(
+                `${targetUrl}/rest/v1/columns?select=column_name,data_type,is_nullable,column_default,table_name&table_name=eq.${t.table_name}&table_schema=eq.public`,
+                {
+                  headers: {
+                    'apikey': anonKey,
+                    'Authorization': `Bearer ${anonKey}`,
+                    'accept-profile': 'information_schema',
+                  },
+                }
+              );
+              
+              let columns: any[] = [];
+              if (columnsResponse.ok) {
+                columns = await columnsResponse.json();
+              }
+              
+              return {
+                name: t.table_name,
+                schema: t.table_schema,
+                columns: columns.map((c: any) => ({
+                  name: c.column_name,
+                  type: c.data_type,
+                  nullable: c.is_nullable === 'YES',
+                  default: c.column_default,
+                }))
+              };
+            })
+          );
+
+          schema = {
+            tables: tablesWithColumns,
+            total_columns: tablesWithColumns.reduce((acc: number, t: any) => acc + t.columns.length, 0)
+          };
+        } else {
+          console.log('[SUPABASE SCANNER] Tables fetch failed:', tablesResponse.status);
+          schema = { tables: [], error: 'Failed to fetch schema via REST API' };
+        }
+      } else {
+        schema = { tables: [], error: 'Could not retrieve API key for schema queries' };
+      }
+
+      // Fetch storage buckets via Management API
       const storageResponse = await fetch(
         `https://api.supabase.com/v1/projects/${projectRef}/storage/buckets`,
         {
@@ -132,9 +187,57 @@ serve(async (req) => {
         storageBuckets = { buckets: [] };
       }
 
-      // RLS policies and functions may require additional API calls
-      rlsPolicies = { policies: [], note: 'Management API access for policies limited' };
-      functions = { functions: [], note: 'Edge functions list not available via Management API' };
+      // Fetch edge functions via Management API
+      const functionsResponse = await fetch(
+        `https://api.supabase.com/v1/projects/${projectRef}/functions`,
+        {
+          headers: {
+            'Authorization': `Bearer ${managementApiToken}`,
+          },
+        }
+      );
+
+      if (functionsResponse.ok) {
+        const funcs = await functionsResponse.json();
+        functions = { 
+          functions: funcs.map((f: any) => ({
+            name: f.name,
+            slug: f.slug,
+            status: f.status,
+            version: f.version,
+            created_at: f.created_at,
+            updated_at: f.updated_at
+          }))
+        };
+        console.log('[SUPABASE SCANNER] Found functions:', funcs.length);
+      } else {
+        functions = { functions: [] };
+      }
+
+      // RLS policies - try via REST API
+      if (anonKey) {
+        const policiesResponse = await fetch(
+          `${targetUrl}/rest/v1/rpc/get_rls_policies`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: '{}',
+          }
+        );
+
+        if (policiesResponse.ok) {
+          const policies = await policiesResponse.json();
+          rlsPolicies = { policies };
+        } else {
+          rlsPolicies = { policies: [], note: 'RLS policies require custom RPC function' };
+        }
+      } else {
+        rlsPolicies = { policies: [], note: 'No API key available' };
+      }
 
     } else {
       // Use service role key method
