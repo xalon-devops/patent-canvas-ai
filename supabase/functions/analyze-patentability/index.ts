@@ -128,85 +128,30 @@ serve(async (req) => {
     `).join('\n\n')}
     `;
 
-    const systemPrompt = `You are an expert patent attorney AI that performs comprehensive patentability assessments based on USPTO criteria.
+    const systemPrompt = `You are a patent attorney AI. Analyze this invention for patentability.
 
-You have been provided with DETAILED PRIOR ART ANALYSIS including:
-- Complete lists of OVERLAPPING CLAIMS (features shared with existing patents)
-- Complete lists of DIFFERENTIATING CLAIMS (unique features of this invention)
+SCORING RULES:
+- If prior art >80% similarity exists: Novelty score MUST be <70
+- If prior art 60-80% similarity exists: Novelty score 70-80
+- Be realistic and evidence-based
 
-Analyze the invention against these four key criteria:
-
-1. NOVELTY (35 U.S.C. § 102): Is this invention new?
-   - Examine ALL overlapping claims across prior art patents
-   - If high-risk prior art exists (>80% similarity), Novelty score MUST be below 70
-   - If medium-risk prior art exists (60-80% similarity), Novelty score should be 70-80
-   - Consider the NUMBER and SIGNIFICANCE of overlapping vs differentiating claims
-
-2. NON-OBVIOUSNESS (35 U.S.C. § 103): Would this be obvious to a person of ordinary skill?
-   - Analyze if differentiating claims represent true innovation or obvious combinations
-   - Consider if overlapping claims from multiple patents could be combined by PHOSITA
-   - Evaluate technical sophistication of unique features
-
-3. UTILITY (35 U.S.C. § 101): Does this have a useful purpose?
-   - Consider technical implementation details from backend analysis
-   - Evaluate practical applications based on Q&A responses
-
-4. PATENT ELIGIBILITY (35 U.S.C. § 101): Is this statutory subject matter?
-   - Software patents MUST show technical improvements, not just abstract ideas
-   - If backend shows only basic CRUD operations, scores should reflect limited innovation
-   - Evaluate if differentiating claims represent technical solutions to technical problems
-
-CRITICAL ANALYSIS REQUIREMENTS:
-- Reference SPECIFIC overlapping claims when discussing prior art conflicts
-- Reference SPECIFIC differentiating claims when discussing novelty
-- Provide claim-by-claim reasoning for scoring decisions
-- Be realistic and evidence-based - don't inflate scores without clear justification
-
-Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
+Return ONLY valid JSON (no markdown):
 {
-  "overall_score": 85,
+  "overall_score": 75,
   "criteria": [
-    {
-      "name": "Novelty",
-      "score": 85,
-      "maxScore": 100,
-      "description": "How new and original is your invention?",
-      "analysis": "Detailed analysis referencing SPECIFIC overlapping and differentiating claims from prior art. Example: 'Patent US123456 overlaps on [claim X] but invention differs via [claim Y]...'",
-      "icon": "Lightbulb"
-    },
-    {
-      "name": "Non-obviousness", 
-      "score": 78,
-      "maxScore": 100,
-      "description": "Would the invention be obvious to someone skilled in the field?",
-      "analysis": "Analysis of whether differentiating claims are obvious combinations. Reference specific overlapping claims and explain why unique features are non-obvious...",
-      "icon": "Target"
-    },
-    {
-      "name": "Utility",
-      "score": 95,
-      "maxScore": 100,
-      "description": "Does your invention have a useful purpose?",
-      "analysis": "Analysis of practical utility based on backend implementation and use cases...",
-      "icon": "Zap"
-    },
-    {
-      "name": "Patent Eligibility",
-      "score": 88,
-      "maxScore": 100,
-      "description": "Is this statutory subject matter?",
-      "analysis": "Analysis under Alice/Mayo framework for software, technical improvements emphasized...",
-      "icon": "Award"
-    }
+    {"name": "Novelty", "score": 75, "maxScore": 100, "description": "How new is the invention?", "analysis": "Brief analysis of overlaps vs differences with cited prior art.", "icon": "Lightbulb"},
+    {"name": "Non-obviousness", "score": 70, "maxScore": 100, "description": "Is it obvious to experts?", "analysis": "Brief analysis of whether unique features are obvious combinations.", "icon": "Target"},
+    {"name": "Utility", "score": 90, "maxScore": 100, "description": "Does it have useful purpose?", "analysis": "Brief analysis of practical applications.", "icon": "Zap"},
+    {"name": "Patent Eligibility", "score": 80, "maxScore": 100, "description": "Is it patentable subject matter?", "analysis": "Brief analysis under Alice/Mayo for software.", "icon": "Award"}
   ],
-  "summary": "Comprehensive summary analyzing the balance between overlapping and differentiating claims. Reference specific patents and their claim conflicts...",
-  "recommendation": "proceed",
-  "key_strengths": ["Specific differentiating claim 1 from prior art analysis", "Unique technical approach 2"],
-  "areas_for_improvement": ["Address overlap with Patent US123456 on claim X", "Emphasize technical advantage Y over Patent US789012"],
-  "risk_factors": ["Prior art US123456 overlaps on claims A, B, C", "Patent US789012 shares features X, Y", "Need to demonstrate technical improvement over prior art"]
+  "summary": "2-3 sentence summary of patentability prospects.",
+  "recommendation": "proceed|refine|reconsider",
+  "key_strengths": ["strength1", "strength2"],
+  "areas_for_improvement": ["area1", "area2"],
+  "risk_factors": ["risk1", "risk2"]
 }
 
-Be REALISTIC - don't give high scores without justification from the provided data.`;
+Keep each analysis field under 150 words. Be concise.`;
 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
@@ -225,8 +170,7 @@ Be REALISTIC - don't give high scores without justification from the provided da
           { role: 'system', content: systemPrompt },
           { role: 'user', content: inventionContext }
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
 
