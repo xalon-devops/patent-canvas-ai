@@ -809,10 +809,11 @@ const NewApplication = () => {
 
         setIdeaTitle(extractedTitle);
         setIdeaDescription(markdown.substring(0, 3000));
+        setShowDescriptionPreview(true); // Auto-show formatted preview
         
         toast({
           title: "URL Scraped!",
-          description: "Content has been extracted and filled in. Feel free to edit.",
+          description: "Content extracted. Click 'Edit' to modify.",
         });
       } else {
         throw new Error(data?.error || 'Failed to scrape URL');
