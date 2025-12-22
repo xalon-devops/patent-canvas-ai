@@ -120,11 +120,7 @@ const NewApplication = () => {
         setSupabaseUrl(state.supabaseUrl || '');
         setSupabaseKey(state.supabaseKey || '');
         sessionStorage.removeItem('patent_flow_state');
-        
-        toast({
-          title: '✅ Supabase Connected!',
-          description: 'Your Supabase project has been connected successfully.',
-        });
+        // State restored silently - no toast needed
         return;
       }
 
@@ -133,11 +129,7 @@ const NewApplication = () => {
       const error = searchParams.get('error');
       
       if (supabaseConnected === 'true') {
-        toast({
-          title: '✅ Supabase Connected!',
-          description: 'Your Supabase project has been connected successfully.',
-        });
-        // Clear the query param
+        // Clear the query param silently
         navigate('/new-application', { replace: true });
       } else if (error) {
         toast({
@@ -309,6 +301,16 @@ const NewApplication = () => {
           throw new Error('Popup blocked. Please allow popups for this site.');
         }
 
+        // Track if we've already handled the connection to prevent duplicate toasts
+        let connectionHandled = false;
+        
+        const handleConnectionSuccess = async () => {
+          if (connectionHandled) return;
+          connectionHandled = true;
+          setLoading(false);
+          navigate('/select-supabase-project');
+        };
+
         // Listen for messages from the popup
         const handleMessage = (event: MessageEvent) => {
           const allowed = event.origin === window.location.origin || event.origin.includes('supabase.co');
@@ -316,12 +318,7 @@ const NewApplication = () => {
           
           if (event.data.type === 'supabase-oauth-success') {
             window.removeEventListener('message', handleMessage);
-            setLoading(false);
-            toast({
-              title: '✅ Supabase Connected!',
-              description: 'Now select your project...',
-            });
-            navigate('/select-supabase-project');
+            handleConnectionSuccess();
           } else if (event.data.type === 'supabase-oauth-error') {
             window.removeEventListener('message', handleMessage);
             setLoading(false);
@@ -338,6 +335,10 @@ const NewApplication = () => {
         // Proactive polling for connection (works even if postMessage target origin mismatches)
         const pollStart = Date.now();
         const pollConn = setInterval(async () => {
+          if (connectionHandled) {
+            clearInterval(pollConn);
+            return;
+          }
           try {
             const { data: conn } = await supabase
               .from('supabase_connections')
@@ -354,15 +355,9 @@ const NewApplication = () => {
               clearInterval(checkClosed);
               window.removeEventListener('message', handleMessage);
               try { popup.close(); } catch {}
-              setLoading(false);
-              
-              // Add a small delay before redirecting to ensure DB is fully synced
-              await new Promise(resolve => setTimeout(resolve, 800));
-              
-              toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
-              navigate('/select-supabase-project');
+              await new Promise(resolve => setTimeout(resolve, 400));
+              handleConnectionSuccess();
             } else if (Date.now() - pollStart > 30000) {
-              // Timeout after 30 seconds
               clearInterval(pollConn);
               setLoading(false);
               toast({ 
@@ -378,11 +373,14 @@ const NewApplication = () => {
 
         // Check if popup was closed without completing (fallback)
         const checkClosed = setInterval(async () => {
+          if (connectionHandled) {
+            clearInterval(checkClosed);
+            return;
+          }
           if (popup.closed) {
             clearInterval(checkClosed);
             clearInterval(pollConn);
             window.removeEventListener('message', handleMessage);
-            setLoading(false);
 
             try {
               const { data: conn } = await supabase
@@ -393,17 +391,15 @@ const NewApplication = () => {
                 .limit(1)
                 .maybeSingle();
 
-              // Check for recent connection (created in last 10 seconds)
               if (conn && (Date.now() - new Date(conn.created_at).getTime() < 10000)) {
-                // Add delay to ensure DB sync
-                await new Promise(resolve => setTimeout(resolve, 800));
-                toast({ title: '✅ Supabase Connected!', description: 'Now select your project...' });
-                navigate('/select-supabase-project');
+                await new Promise(resolve => setTimeout(resolve, 400));
+                handleConnectionSuccess();
               } else {
-                toast({ title: 'OAuth window closed', description: 'Connection not completed. Please try again.' });
+                setLoading(false);
               }
             } catch (e: any) {
               console.error('Post-close check error:', e);
+              setLoading(false);
             }
           }
         }, 700);
