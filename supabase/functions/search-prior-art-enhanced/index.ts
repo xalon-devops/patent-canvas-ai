@@ -308,7 +308,10 @@ async function searchWithPerplexity(context: string, apiKey: string | undefined)
   }
 
   try {
-    console.log('[Perplexity] Searching for prior art...');
+    console.log('[Perplexity] Enhanced prior art search starting...');
+    
+    // Extract key technical concepts for focused search
+    const technicalKeywords = extractKeywords(context).slice(0, 8).join(', ');
     
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -317,35 +320,61 @@ async function searchWithPerplexity(context: string, apiKey: string | undefined)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar',
+        model: 'sonar-pro', // Use sonar-pro for better multi-step reasoning and citations
         messages: [
           {
             role: 'system',
-            content: `You are a patent search expert. Find real, existing patents that are similar to the user's invention idea. 
+            content: `You are a world-class patent attorney and prior art search specialist with 20+ years experience at the USPTO. Your task is to find REAL, EXISTING patents that could block or limit the patentability of a new invention.
 
-Return ONLY a JSON array of patents in this exact format:
+CRITICAL SEARCH INSTRUCTIONS:
+1. Search USPTO, Google Patents, EPO Espacenet, and WIPO databases
+2. Look for patents with similar technical approaches, NOT just similar goals
+3. Focus on the HOW (methods, mechanisms, architectures) not just the WHAT
+4. Include both utility patents AND published patent applications (A1 documents)
+5. Consider patents from major tech companies AND individual inventors
+6. Look for patents in adjacent fields that use similar techniques
+
+RELEVANCE CRITERIA (ranked by importance):
+- Same technical mechanism or core algorithm
+- Similar system architecture or data flow
+- Overlapping claims scope
+- Same problem domain with similar solution approach
+- Related enabling technology
+
+OUTPUT FORMAT - Return ONLY a valid JSON array:
 [
   {
-    "title": "Exact patent title",
-    "publication_number": "US patent number like US10123456B2 or US2020/0123456A1",
-    "summary": "Brief description of what the patent covers",
-    "assignee": "Company or person who owns the patent",
-    "patent_date": "Publication date YYYY-MM-DD format if known",
-    "url": "Link to Google Patents or USPTO",
-    "overlap_claims": ["Specific way this patent overlaps with the invention"],
-    "difference_claims": ["Key difference from the user's invention"]
+    "title": "Exact official patent title from USPTO/Google Patents",
+    "publication_number": "Format: US10123456B2, US2020/0123456A1, or WO2020123456A1",
+    "summary": "2-3 sentence technical summary of what the patent actually claims",
+    "assignee": "Patent owner (company or individual)",
+    "patent_date": "YYYY-MM-DD or YYYY if exact date unknown",
+    "url": "https://patents.google.com/patent/USXXXXXXXX",
+    "overlap_claims": ["Specific technical overlap 1", "Specific technical overlap 2"],
+    "difference_claims": ["Key technical difference 1", "Key technical difference 2"]
   }
 ]
 
-Search USPTO, Google Patents, and other patent databases. Return 5-10 REAL patents. Only include patents that actually exist - never make up patent numbers.`
+MANDATORY: Only include patents you can verify exist. Never fabricate patent numbers. Include 8-15 highly relevant patents.`
           },
           {
             role: 'user',
-            content: `Find existing patents similar to this invention:\n\n${context.substring(0, 3000)}`
+            content: `INVENTION TO ANALYZE FOR PRIOR ART:
+
+${context.substring(0, 4000)}
+
+KEY TECHNICAL CONCEPTS: ${technicalKeywords}
+
+Find patents that could pose novelty or obviousness challenges to this invention. Focus on:
+1. Patents with overlapping technical implementations
+2. Patents claiming similar methods or systems
+3. Foundation patents that this invention might depend on
+4. Recent patents (last 5 years) in the same technical space`
           }
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.1,
+        search_recency_filter: 'year', // Focus on recent patents
       }),
     });
 
