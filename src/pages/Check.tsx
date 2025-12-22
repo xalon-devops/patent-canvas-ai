@@ -87,11 +87,6 @@ const Check = () => {
         if (data.search_credits_remaining !== 'unlimited') {
           setLocalFreeSearches(data.search_credits_remaining);
         }
-
-        toast({
-          title: "🎯 AI Analysis Complete",
-          description: `Found ${data.results.length} patents using semantic AI matching across ${data.sources_used?.join(' & ') || 'multiple databases'}.`,
-        });
       }
     } catch (error: any) {
       console.error('Search error:', error);
