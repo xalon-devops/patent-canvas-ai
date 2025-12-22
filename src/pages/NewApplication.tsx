@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,7 +27,9 @@ import {
   Gavel,
   FileCheck,
   Send,
-  Loader2
+  Loader2,
+  Eye,
+  Edit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
@@ -762,6 +766,7 @@ const NewApplication = () => {
 
   const [scrapingUrl, setScrapingUrl] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [showDescriptionPreview, setShowDescriptionPreview] = useState(false);
 
   const handleScrapeUrl = async () => {
     if (!websiteUrl.trim()) {
@@ -888,14 +893,45 @@ const NewApplication = () => {
         </div>
 
         <div>
-          <Label htmlFor="description">Detailed Description</Label>
-          <Textarea
-            id="description"
-            value={ideaDescription}
-            onChange={(e) => setIdeaDescription(e.target.value)}
-            placeholder="Describe your invention in detail. What problem does it solve? How does it work? What makes it unique?"
-            className="mt-2 min-h-[150px]"
-          />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="description">Detailed Description</Label>
+            {ideaDescription && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDescriptionPreview(!showDescriptionPreview)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {showDescriptionPreview ? (
+                  <>
+                    <Edit className="w-4 h-4 mr-1" />
+                    Edit
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+          {showDescriptionPreview ? (
+            <div className="mt-2 min-h-[150px] p-4 border rounded-md bg-muted/30 prose prose-sm dark:prose-invert max-w-none overflow-auto">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {ideaDescription}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <Textarea
+              id="description"
+              value={ideaDescription}
+              onChange={(e) => setIdeaDescription(e.target.value)}
+              placeholder="Describe your invention in detail. What problem does it solve? How does it work? What makes it unique?"
+              className="mt-2 min-h-[150px]"
+            />
+          )}
           <p className="text-sm text-muted-foreground mt-2">
             Minimum 100 characters. Be specific about functionality and benefits.
           </p>
