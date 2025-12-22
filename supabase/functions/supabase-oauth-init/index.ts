@@ -56,7 +56,7 @@ serve(async (req) => {
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', callbackUrl);
     authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'organizations:read projects:read database:read database:write');
+    authUrl.searchParams.set('scope', 'all');
     authUrl.searchParams.set('state', state);
 
     return new Response(
