@@ -117,7 +117,8 @@ serve(async (req) => {
             headers: {
               'apikey': anonKey,
               'Authorization': `Bearer ${anonKey}`,
-              'accept-profile': 'information_schema',
+              'Accept': 'application/json',
+              'Accept-Profile': 'information_schema',
             },
           }
         );
@@ -135,7 +136,8 @@ serve(async (req) => {
                   headers: {
                     'apikey': anonKey,
                     'Authorization': `Bearer ${anonKey}`,
-                    'accept-profile': 'information_schema',
+                    'Accept': 'application/json',
+                    'Accept-Profile': 'information_schema',
                   },
                 }
               );
