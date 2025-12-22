@@ -32,6 +32,7 @@ import {
   Edit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import supabaseLogo from '@/assets/supabase-logo.png';
 import { PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
 import AIQuestionInterface from '@/components/AIQuestionInterface';
 import PriorArtAnalysis from '@/components/PriorArtAnalysis';
@@ -979,26 +980,28 @@ const NewApplication = () => {
             <span>or</span>
           </div>
 
-          <div className="space-y-4 p-6 border-2 border-dashed border-secondary/30 rounded-lg bg-secondary/5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 bg-secondary/10 rounded-lg">
-                <Code className="h-5 w-5 text-secondary" />
+          <div className="space-y-4 p-6 border border-border/50 rounded-xl bg-gradient-to-br from-[#3ECF8E]/5 via-background to-[#3ECF8E]/10 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-[#3ECF8E]/10 rounded-xl border border-[#3ECF8E]/20 shadow-sm">
+                <img src={supabaseLogo} alt="Supabase" className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-semibold">Connect Supabase Backend</h3>
+                <h3 className="font-semibold text-lg">Connect Supabase Backend</h3>
                 <p className="text-sm text-muted-foreground">Scan your database schema, edge functions, and RLS policies</p>
               </div>
             </div>
             
             {connectedProject ? (
-              <Card className="bg-green-500/10 border-green-500/30">
+              <Card className="bg-[#3ECF8E]/10 border-[#3ECF8E]/30 shadow-md">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                      <FileCheck className="h-5 w-5" />
+                    <div className="flex items-center gap-3 text-[#3ECF8E]">
+                      <div className="p-2 bg-[#3ECF8E]/20 rounded-lg">
+                        <FileCheck className="h-5 w-5" />
+                      </div>
                       <div>
-                        <p className="font-semibold">Connected to Supabase</p>
-                        <p className="text-sm">{connectedProject.name}</p>
+                        <p className="font-semibold text-foreground">Connected to Supabase</p>
+                        <p className="text-sm text-muted-foreground">{connectedProject.name}</p>
                       </div>
                     </div>
                     <Button
@@ -1006,6 +1009,7 @@ const NewApplication = () => {
                       size="sm"
                       onClick={handleSupabaseOAuth}
                       disabled={loading}
+                      className="hover:bg-[#3ECF8E]/10"
                     >
                       Change Project
                     </Button>
@@ -1015,17 +1019,16 @@ const NewApplication = () => {
             ) : (
               <Button
                 type="button"
-                variant="outline"
-                className="w-full"
+                className="w-full h-12 bg-[#3ECF8E] hover:bg-[#3ECF8E]/90 text-black font-medium shadow-lg shadow-[#3ECF8E]/20 transition-all hover:shadow-xl hover:shadow-[#3ECF8E]/30"
                 onClick={handleSupabaseOAuth}
                 disabled={loading}
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 ) : (
-                  <Zap className="h-4 w-4 mr-2" />
+                  <img src={supabaseLogo} alt="" className="h-5 w-5 mr-2" />
                 )}
-                Connect with OAuth (Recommended)
+                Connect with Supabase OAuth
               </Button>
             )}
 
