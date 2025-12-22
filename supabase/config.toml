@@ -118,3 +118,6 @@ verify_jwt = true
 
 [functions.get-user-count]
 verify_jwt = false
+
+[functions.firecrawl-scrape]
+verify_jwt = false

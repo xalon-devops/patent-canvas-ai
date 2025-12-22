@@ -775,28 +775,34 @@ const NewApplication = () => {
 
     setScrapingUrl(true);
     try {
-      const { data, error } = await supabase.functions.invoke('crawl-url-content', {
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
         body: { url: websiteUrl },
       });
 
       if (error) throw error;
       
-      if (data?.success && data?.content) {
-        // Extract title from content - look for first heading or use domain
-        const urlObj = new URL(websiteUrl);
-        let extractedTitle = urlObj.hostname.replace('www.', '');
+      // Firecrawl returns data nested in data.data
+      const scrapeData = data?.data || data;
+      const markdown = scrapeData?.markdown;
+      const metadata = scrapeData?.metadata;
+      
+      if (markdown) {
+        // Use metadata title if available, otherwise extract from content
+        let extractedTitle = metadata?.title || '';
         
-        // Try to find a title in the content (first line or heading)
-        const lines = data.content.split('\n').filter((line: string) => line.trim());
-        if (lines.length > 0) {
-          const firstLine = lines[0].trim();
-          if (firstLine.length > 5 && firstLine.length < 100) {
-            extractedTitle = firstLine;
+        if (!extractedTitle) {
+          const urlObj = new URL(websiteUrl);
+          extractedTitle = urlObj.hostname.replace('www.', '');
+          
+          // Try to find a title in the content (first heading)
+          const headingMatch = markdown.match(/^#\s+(.+)$/m);
+          if (headingMatch && headingMatch[1].length < 100) {
+            extractedTitle = headingMatch[1].trim();
           }
         }
 
         setIdeaTitle(extractedTitle);
-        setIdeaDescription(data.content.substring(0, 3000));
+        setIdeaDescription(markdown.substring(0, 3000));
         
         toast({
           title: "URL Scraped!",
