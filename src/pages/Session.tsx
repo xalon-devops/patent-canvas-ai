@@ -146,10 +146,6 @@ const Session = () => {
           console.log('[Session] Payment status updated:', payload);
           if (payload.new && payload.new.status === 'completed') {
             setHasPaid(true);
-            toast({
-              title: "✅ Payment Confirmed",
-              description: "Your payment has been processed. You can now export your patent!",
-            });
           }
         }
       )
@@ -285,33 +281,15 @@ const Session = () => {
                      /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(trimmedMessage);
 
         if (isUrl) {
-          // Show URL processing message
-          toast({
-            title: "Processing URL",
-            description: "Analyzing website content...",
-            variant: "default",
-          });
-
-          // First crawl the URL to show user what we understand
+          // First crawl the URL to extract content
           let actualUrl = message.trim();
           if (!actualUrl.startsWith('http')) {
             actualUrl = 'https://' + actualUrl;
           }
 
-          const { data: crawlData, error: crawlError } = await supabase.functions.invoke('crawl-url-content', {
+          await supabase.functions.invoke('crawl-url-content', {
             body: { url: actualUrl }
           });
-
-          if (crawlData?.success && crawlData.content) {
-            // Show what we understood from the website
-            const summaryContent = crawlData.content.substring(0, 500) + (crawlData.content.length > 500 ? '...' : '');
-            
-            toast({
-              title: "Website Analysis Complete",
-              description: `Found content about: ${summaryContent.split('.')[0]}...`,
-              variant: "default",
-            });
-          }
         }
 
         // Call the ask-followups edge function to generate AI questions
@@ -335,21 +313,6 @@ const Session = () => {
         }
 
         console.log('Follow-up questions generated successfully:', followupData);
-        
-        // Show success message with details
-        if (followupData.url_crawled) {
-          toast({
-            title: "AI Analysis Complete",
-            description: `Generated ${followupData.questions_generated} targeted questions based on website content (${followupData.context_length} chars analyzed)`,
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Questions Generated",
-            description: `Generated ${followupData.questions_generated} follow-up questions`,
-            variant: "default",
-          });
-        }
         
         // Move to questioning phase
         setChatPhase('questioning');
@@ -427,12 +390,6 @@ const Session = () => {
       
       await fetchSessionData();
       
-      toast({
-        title: "Prior Art Search Complete",
-        description: `Found ${searchData.results_found} relevant patents`,
-        variant: "default",
-      });
-      
     } catch (error: any) {
       console.error('Error performing patent search:', error);
       toast({
@@ -473,12 +430,6 @@ const Session = () => {
       setChatPhase('canvas');
       await fetchSessionData();
       
-      toast({
-        title: "🎨 Enhanced Patent Draft Generated",
-        description: `${data.sections_generated} sections created with ${data.iterations_per_section}x AI refinement for maximum quality`,
-        variant: "default",
-      });
-      
     } catch (error: any) {
       console.error('Error generating patent draft:', error);
       toast({
@@ -511,16 +462,6 @@ const Session = () => {
       if (data?.success) {
         console.log('Patent sections updated:', data);
         await fetchSessionData(); // Refresh the sections display
-        
-        // Show live update toast with model info
-        const sectionUpdated = data.section_updated || 'section';
-        const modelInfo = getModelInfoForToast(sectionUpdated);
-        
-        toast({
-          title: `✍️ ${getSectionTitle(sectionUpdated)} Updated`,
-          description: `${modelInfo.icon} ${modelInfo.model} analysis complete`,
-          variant: "default",
-        });
       }
       
     } catch (error: any) {
@@ -654,12 +595,6 @@ const Session = () => {
         }
       }
       
-      toast({
-        title: "Export Complete",
-        description: `Patent application exported with ${data.sections_exported} sections`,
-        variant: "default",
-      });
-      
     } catch (error: any) {
       console.error('Error exporting patent:', error);
       toast({
@@ -700,12 +635,6 @@ const Session = () => {
       console.log('Section regenerated successfully:', data);
       
       await fetchSessionData();
-      
-      toast({
-        title: `✨ ${getSectionTitle(sectionType)} Enhanced`,
-        description: `Generated using ${data.model_used} with ${data.content_length} chars`,
-        variant: "default",
-      });
       
     } catch (error: any) {
       console.error('Error regenerating section:', error);
@@ -763,11 +692,6 @@ const Session = () => {
         window.open(data.download_url, '_blank');
       }
       
-      toast({
-        title: "🎉 Patent Filed Successfully!",
-        description: "Your provisional patent application has been compiled with USPTO forms",
-        variant: "default",
-      });
       
     } catch (error: any) {
       console.error('Error filing patent:', error);
@@ -818,13 +742,6 @@ const Session = () => {
         throw new Error(data?.error || 'GitHub analysis failed');
       }
 
-      console.log('GitHub analysis completed successfully:', data);
-      
-      toast({
-        title: "🔗 GitHub Analysis Complete",
-        description: `Analyzed ${data.files_analyzed} code files and generated ${data.questions_generated} technical questions`,
-        variant: "default",
-      });
 
       // Move to questioning phase and fetch updated data
       setChatPhase('questioning');
