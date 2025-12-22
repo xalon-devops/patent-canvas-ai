@@ -102,50 +102,126 @@ serve(async (req) => {
           .eq('id', sessionId)
           .single();
 
+        // Clean the idea prompt for display (remove markdown artifacts)
+        const cleanTitle = (sessionData?.idea_prompt || 'your innovation')
+          .replace(/```[a-z]*\s*/gi, '')
+          .replace(/```/g, '')
+          .substring(0, 100)
+          .trim();
+
+        // Use the actual app URL
+        const appBaseUrl = "https://jdkogqskjsmwlhigaecb.lovableproject.com";
+        const applicationUrl = `${appBaseUrl}/session/${sessionId}`;
+
         emailData = {
           to: recipientEmail,
-          subject: "Your Patent Application is Ready!",
+          subject: "🎉 Your Patent Application is Ready! - PatentBot AI™",
           html: `
-            <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
-                <p style="color: #666; margin: 10px 0;">Your patent application is complete</p>
-              </div>
-              
-              <h2 style="color: #001F3F;">🎉 Patent Application Complete!</h2>
-              
-              <p>Great news! Your patent application for "${sessionData?.idea_prompt || 'your innovation'}" has been successfully generated and is ready for review.</p>
-              
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #001F3F; margin-top: 0;">What's Next:</h3>
-                <ul style="color: #555;">
-                  <li>Review your complete patent application</li>
-                  <li>Download the USPTO-formatted document</li>
-                  <li>Make any final edits if needed</li>
-                  <li>File with the USPTO when ready</li>
-                </ul>
-              </div>
-              
-              ${sessionData?.download_url ? `
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${sessionData.download_url}" 
-                     style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                    Download Your Patent
-                  </a>
-                </div>
-              ` : ''}
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot-ai.com/session/${sessionId}"
-                   style="background: transparent; color: #001F3F; border: 2px solid #001F3F; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  View Application
-                </a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">
-                Questions about filing? Our team is here to help guide you through the next steps.
-              </p>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7fa;">
+                <tr>
+                  <td style="padding: 40px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #001F3F 0%, #003366 100%); padding: 40px 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">PatentBot AI™</h1>
+                          <p style="margin: 10px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 16px;">Your patent application is complete</p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Content -->
+                      <tr>
+                        <td style="padding: 40px;">
+                          <!-- Success Badge -->
+                          <div style="text-align: center; margin-bottom: 30px;">
+                            <span style="display: inline-block; background-color: #10b981; color: white; padding: 8px 20px; border-radius: 50px; font-size: 14px; font-weight: 600;">
+                              ✓ Patent Application Complete
+                            </span>
+                          </div>
+                          
+                          <h2 style="margin: 0 0 20px; color: #1a1a2e; font-size: 24px; font-weight: 700; text-align: center;">
+                            🎉 Congratulations!
+                          </h2>
+                          
+                          <p style="margin: 0 0 25px; color: #4a5568; font-size: 16px; line-height: 1.6; text-align: center;">
+                            Great news! Your patent application for <strong style="color: #001F3F;">"${cleanTitle}"</strong> has been successfully generated and is ready for your review.
+                          </p>
+                          
+                          <!-- What's Next Card -->
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; margin: 25px 0;">
+                            <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 18px; font-weight: 600;">
+                              📋 What's Next:
+                            </h3>
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                              <tr>
+                                <td style="padding: 8px 0; color: #4a5568; font-size: 15px;">
+                                  <span style="color: #10b981; margin-right: 10px;">✓</span> Review your complete patent application
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 8px 0; color: #4a5568; font-size: 15px;">
+                                  <span style="color: #10b981; margin-right: 10px;">✓</span> Download the USPTO-formatted document
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 8px 0; color: #4a5568; font-size: 15px;">
+                                  <span style="color: #10b981; margin-right: 10px;">✓</span> Make any final edits if needed
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 8px 0; color: #4a5568; font-size: 15px;">
+                                  <span style="color: #10b981; margin-right: 10px;">✓</span> File with the USPTO when ready
+                                </td>
+                              </tr>
+                            </table>
+                          </div>
+                          
+                          <!-- CTA Button -->
+                          <div style="text-align: center; margin: 35px 0;">
+                            <a href="${applicationUrl}" 
+                               style="display: inline-block; background: linear-gradient(135deg, #001F3F 0%, #003366 100%); color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 31, 63, 0.3);">
+                              View Your Application →
+                            </a>
+                          </div>
+                          
+                          ${sessionData?.download_url ? `
+                          <div style="text-align: center; margin: 20px 0;">
+                            <a href="${sessionData.download_url}" 
+                               style="display: inline-block; background-color: transparent; color: #001F3F; border: 2px solid #001F3F; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                              📄 Download Patent Document
+                            </a>
+                          </div>
+                          ` : ''}
+                          
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+                          <p style="margin: 0 0 10px; color: #64748b; font-size: 14px; text-align: center;">
+                            Questions about filing? Our team is here to help guide you through the next steps.
+                          </p>
+                          <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                            © ${new Date().getFullYear()} PatentBot AI™ • All rights reserved
+                          </p>
+                        </td>
+                      </tr>
+                      
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
           `,
           emailType: 'patent_completion'
         };
