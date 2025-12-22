@@ -136,29 +136,25 @@ serve(async (req) => {
     // Search multiple sources in parallel - prioritize Perplexity for best results
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    const LENS_API_KEY = Deno.env.get('LENS_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     console.log('[ENHANCED SEARCH] Available APIs:', {
       perplexity: !!PERPLEXITY_API_KEY,
       firecrawl: !!FIRECRAWL_API_KEY,
-      lens: !!LENS_API_KEY,
       openai: !!OPENAI_API_KEY
     });
 
-    // Run all searches in parallel
-    const [perplexityResults, lensResults, googlePatentsResults] = await Promise.all([
+    // Run searches in parallel (Perplexity + Google Patents only)
+    const [perplexityResults, googlePatentsResults] = await Promise.all([
       searchWithPerplexity(contextText, PERPLEXITY_API_KEY),
-      searchLensAPI(contextText, LENS_API_KEY),
       searchGooglePatents(searchKeywords, contextText, FIRECRAWL_API_KEY),
     ]);
 
-    console.log(`[ENHANCED SEARCH] Results - Perplexity: ${perplexityResults.length}, Lens: ${lensResults.length}, Google: ${googlePatentsResults.length}`);
+    console.log(`[ENHANCED SEARCH] Results - Perplexity: ${perplexityResults.length}, Google: ${googlePatentsResults.length}`);
 
     // Combine results - prioritize Perplexity as it has best grounded data
     const allResults = [
       ...perplexityResults.map(r => ({ ...r, source: 'Perplexity AI' })),
-      ...lensResults.map(r => ({ ...r, source: 'Lens.org' })),
       ...googlePatentsResults.map(r => ({ ...r, source: 'Google Patents' })),
     ];
 
@@ -276,7 +272,6 @@ serve(async (req) => {
 
     const sourcesUsed = [];
     if (perplexityResults.length > 0) sourcesUsed.push('Perplexity AI');
-    if (lensResults.length > 0) sourcesUsed.push('Lens.org');
     if (googlePatentsResults.length > 0) sourcesUsed.push('Google Patents');
 
     console.log(`[ENHANCED SEARCH] Complete: ${rankedResults.length} results, top score: ${rankedResults[0]?.similarity_score || 0}`);
@@ -510,54 +505,6 @@ function parseGooglePatentsMarkdown(markdown: string, query: string): any[] {
   return results.slice(0, 10);
 }
 
-// TERTIARY: Lens.org API
-async function searchLensAPI(query: string, apiKey: string | undefined): Promise<any[]> {
-  if (!apiKey) {
-    console.log('[Lens] No API key configured, skipping');
-    return [];
-  }
-
-  try {
-    console.log('[Lens] Searching...');
-    
-    const response = await fetch('https://api.lens.org/patent/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        query: {
-          match: query.substring(0, 500)
-        },
-        size: 10,
-        sort: [{ date_published: "desc" }]
-      })
-    });
-
-    if (!response.ok) {
-      console.error('[Lens] API error:', response.status);
-      return [];
-    }
-
-    const data = await response.json();
-    console.log('[Lens] Found:', data.data?.length || 0, 'results');
-    
-    return (data.data || []).map((p: any) => ({
-      title: p.title || 'Untitled Patent',
-      publication_number: p.publication_number || p.lens_id || 'Unknown',
-      summary: p.abstract || 'No abstract available',
-      url: p.lens_id ? `https://lens.org/lens/patent/${p.lens_id}` : null,
-      patent_date: p.date_published,
-      assignee: p.applicants?.[0]?.extracted_name || 'Unknown',
-      overlap_claims: [],
-      difference_claims: [],
-    }));
-  } catch (error) {
-    console.error('[Lens] Error:', error);
-    return [];
-  }
-}
 
 function extractKeywords(text: string): string[] {
   const stopWords = new Set([
