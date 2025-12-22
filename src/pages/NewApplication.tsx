@@ -238,11 +238,6 @@ const NewApplication = () => {
       if (session.ai_analysis_complete) resumeStep = 7; // Skip to drafting
 
       setCurrentStep(resumeStep);
-
-      toast({
-        title: "Session resumed",
-        description: "Continuing from where you left off.",
-      });
     } catch (error: any) {
       console.error('Error loading session:', error);
       toast({
@@ -481,10 +476,6 @@ const NewApplication = () => {
       } else if (connection && connection.connection_status !== 'active') {
         setScanningSupabase(false);
         setLoading(false);
-        toast({
-          title: 'Finish connecting Supabase',
-          description: 'Please select your project to finalize the connection.',
-        });
         navigate('/select-supabase-project');
         return;
       }
@@ -506,18 +497,9 @@ const NewApplication = () => {
 
         if (backendError) {
           console.error('Supabase scan error:', backendError);
-          toast({
-            title: "Supabase Scan Warning",
-            description: "Could not fully scan Supabase backend, but proceeding with available data.",
-            variant: "default",
-          });
         } else if (backendData?.success) {
           supabaseData = backendData;
           setSupabaseAnalysis(backendData);
-          toast({
-            title: "🎯 Supabase Backend Scanned!",
-            description: `Found ${backendData.statistics?.tables_found || 0} tables, ${backendData.statistics?.functions_found || 0} functions`,
-          });
         }
         
         setScanningSupabase(false);
@@ -564,13 +546,6 @@ const NewApplication = () => {
         (supabaseData.statistics?.tables_found > 0 || 
          supabaseData.statistics?.functions_found > 0);
       
-      if (hasRichBackendData) {
-        toast({
-          title: "✨ Rich Backend Data Found!",
-          description: "Q&A is optional - you can skip directly to patent generation.",
-        });
-      }
-      
       setCurrentStep(4); // Move to AI Q&A step
     } catch (error: any) {
       console.error('Error in handleStartAIAnalysis:', error);
@@ -596,10 +571,6 @@ const NewApplication = () => {
   };
 
   const handleSkipQA = () => {
-    toast({
-      title: "Q&A Skipped",
-      description: "Proceeding with backend analysis data...",
-    });
     setCurrentStep(5); // Move to prior art analysis
   };
 

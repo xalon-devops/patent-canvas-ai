@@ -235,11 +235,6 @@ const SelectSupabaseProject = () => {
         .eq('user_id', session.user.id);
 
       if (error) throw error;
-
-      toast({
-        title: 'Connection Revoked',
-        description: 'You can now reconnect with fresh permissions.',
-      });
       
       navigate('/new-application');
     } catch (error: any) {
