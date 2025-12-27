@@ -43,11 +43,77 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id, email: user.email });
 
     const { priceId: requestedPriceId, planType = "check_and_see" } = await req.json();
-    // Use default Check & See price if not provided
-    const priceId = requestedPriceId || 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
-    logStep("Request parsed", { priceId, planType });
+    // Default Check & See price id (may vary by Stripe account/mode)
+    const fallbackPriceId = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
+    logStep("Request parsed", { requestedPriceId, planType });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+
+    const resolveSubscriptionPriceId = async () => {
+      // 1) Try the requested price id first (if provided)
+      if (requestedPriceId) {
+        try {
+          const p = await stripe.prices.retrieve(requestedPriceId);
+          if (p?.id) return p.id;
+        } catch (e) {
+          logStep("Requested price not found; will fallback", {
+            requestedPriceId,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+
+      // 2) Try the fallback id (if it exists)
+      try {
+        const p = await stripe.prices.retrieve(fallbackPriceId);
+        if (p?.id) return p.id;
+      } catch (e) {
+        logStep("Fallback price not found; will search/create", {
+          fallbackPriceId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      // 3) Try to find an existing $9.99/mo USD price
+      const prices = await stripe.prices.list({ active: true, limit: 100 });
+      const existing = prices.data.find((p) =>
+        p.currency === 'usd' &&
+        p.unit_amount === 999 &&
+        !!p.recurring &&
+        p.recurring.interval === 'month'
+      );
+      if (existing?.id) {
+        logStep("Found existing $9.99/mo price", { priceId: existing.id });
+        return existing.id;
+      }
+
+      // 4) Create product + price in this Stripe account (so checkout can proceed)
+      const productName = 'PatentBot™ — Check & See';
+      const products = await stripe.products.list({ active: true, limit: 100 });
+      const product =
+        products.data.find((p) => p.name === productName) ??
+        (await stripe.products.create({
+          name: productName,
+          description: 'Unlimited prior patent searches while subscribed.',
+        }));
+
+      const createdPrice = await stripe.prices.create({
+        product: product.id,
+        currency: 'usd',
+        unit_amount: 999,
+        recurring: { interval: 'month' },
+      });
+
+      logStep("Created new $9.99/mo price", {
+        productId: product.id,
+        priceId: createdPrice.id,
+      });
+
+      return createdPrice.id;
+    };
+
+    const priceId = await resolveSubscriptionPriceId();
+    logStep("Resolved subscription price", { priceId, planType });
 
     // Check if customer exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
