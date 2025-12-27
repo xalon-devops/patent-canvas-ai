@@ -52,43 +52,81 @@ serve(async (req) => {
       throw new Error("No recipient email found");
     }
 
+    // App branding constants
+    const APP_NAME = "PatentBot™";
+    const APP_DOMAIN = "https://patentbot-ai.com";
+    const APP_LOGO = "https://patentbot-ai.com/logo.png";
+    const BRAND_COLOR = "#001F3F";
+
     switch (type) {
       case 'welcome':
         emailData = {
           to: recipientEmail,
-          subject: "Welcome to PatentBot AI™!",
+          subject: `Welcome to ${APP_NAME}!`,
           html: `
-            <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
-                <p style="color: #666; margin: 10px 0;">Welcome to the future of patent applications</p>
-              </div>
-              
-              <h2 style="color: #001F3F;">Welcome aboard, ${userName || 'valued user'}!</h2>
-              
-              <p>Thank you for joining PatentBot AI™. You now have access to our powerful patent application platform.</p>
-              
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #001F3F; margin-top: 0;">Getting Started:</h3>
-                <ul style="color: #555;">
-                  <li>Visit your dashboard to start a new patent application</li>
-                  <li>Use our AI-guided process to create professional patent drafts</li>
-                  <li>Search prior art with our advanced tools</li>
-                  <li>Export your completed applications in USPTO format</li>
-                </ul>
-              </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot-ai.com/dashboard"
-                   style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Go to Dashboard
-                </a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">
-                Need help? Reply to this email or visit our support center.
-              </p>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7fa;">
+                <tr>
+                  <td style="padding: 40px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                      
+                      <!-- Header with Logo -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <img src="${APP_LOGO}" alt="${APP_NAME}" style="height: 50px; width: auto; margin-bottom: 10px;" />
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">${APP_NAME}</h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Content -->
+                      <tr>
+                        <td style="padding: 40px;">
+                          <h2 style="margin: 0 0 20px; color: #1a1a2e; font-size: 22px;">Welcome aboard, ${userName || 'valued user'}!</h2>
+                          
+                          <p style="margin: 0 0 20px; color: #4a5568; font-size: 16px; line-height: 1.6;">
+                            Thank you for joining ${APP_NAME}. You now have access to our powerful AI-guided patent application platform.
+                          </p>
+                          
+                          <div style="background-color: #f8fafc; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                            <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 16px; font-weight: 600;">Getting Started:</h3>
+                            <ul style="margin: 0; padding-left: 20px; color: #4a5568; font-size: 14px; line-height: 1.8;">
+                              <li>Start a new patent application from your dashboard</li>
+                              <li>Use our AI-guided process to create professional drafts</li>
+                              <li>Search prior art with our advanced tools</li>
+                              <li>Export your completed applications in USPTO format</li>
+                            </ul>
+                          </div>
+                          
+                          <div style="text-align: center; margin: 30px 0;">
+                            <a href="${APP_DOMAIN}/dashboard"
+                               style="display: inline-block; background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                              Go to Dashboard →
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+                          <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                            © ${new Date().getFullYear()} ${APP_NAME} • <a href="${APP_DOMAIN}" style="color: #94a3b8;">patentbot-ai.com</a>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
           `,
           emailType: 'welcome'
         };
@@ -127,13 +165,12 @@ serve(async (req) => {
 
         const cleanTitle = extractDisplayTitle(sessionData?.idea_prompt);
 
-        // Use the actual app URL (override via Supabase secret PUBLIC_APP_URL)
-        const appBaseUrl = Deno.env.get("PUBLIC_APP_URL") || "https://jdkogqskjsmwlhigaecb.lovableproject.com";
-        const applicationUrl = `${appBaseUrl}/session/${sessionId}`;
+        // Use the actual app URL
+        const applicationUrl = `${APP_DOMAIN}/session/${sessionId}`;
 
         emailData = {
           to: recipientEmail,
-          subject: "🎉 Your Patent Application is Ready! - PatentBot AI™",
+          subject: `🎉 Your Patent Application is Ready! - ${APP_NAME}`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -149,9 +186,10 @@ serve(async (req) => {
                       
                       <!-- Header -->
                       <tr>
-                        <td style="background: linear-gradient(135deg, #001F3F 0%, #003366 100%); padding: 40px 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                          <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">PatentBot AI™</h1>
-                          <p style="margin: 10px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 16px;">Your patent application is complete</p>
+                        <td style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <img src="${APP_LOGO}" alt="${APP_NAME}" style="height: 50px; width: auto; margin-bottom: 10px;" />
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">${APP_NAME}</h1>
+                          <p style="margin: 10px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 14px;">Your patent application is complete</p>
                         </td>
                       </tr>
                       
@@ -170,7 +208,7 @@ serve(async (req) => {
                           </h2>
                           
                           <p style="margin: 0 0 25px; color: #4a5568; font-size: 16px; line-height: 1.6; text-align: center;">
-                            Great news! Your patent application for <strong style="color: #001F3F;">"${cleanTitle}"</strong> has been successfully generated and is ready for your review.
+                            Great news! Your patent application for <strong style="color: ${BRAND_COLOR};">"${cleanTitle}"</strong> has been successfully generated and is ready for your review.
                           </p>
                           
                           <!-- What's Next Card -->
@@ -205,7 +243,7 @@ serve(async (req) => {
                           <!-- CTA Button -->
                           <div style="text-align: center; margin: 35px 0;">
                             <a href="${applicationUrl}" 
-                               style="display: inline-block; background: linear-gradient(135deg, #001F3F 0%, #003366 100%); color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 31, 63, 0.3);">
+                               style="display: inline-block; background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(0, 31, 63, 0.3);">
                               View Your Application →
                             </a>
                           </div>
@@ -213,7 +251,7 @@ serve(async (req) => {
                           ${sessionData?.download_url ? `
                           <div style="text-align: center; margin: 20px 0;">
                             <a href="${sessionData.download_url}" 
-                               style="display: inline-block; background-color: transparent; color: #001F3F; border: 2px solid #001F3F; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                               style="display: inline-block; background-color: transparent; color: ${BRAND_COLOR}; border: 2px solid ${BRAND_COLOR}; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
                               📄 Download Patent Document
                             </a>
                           </div>
@@ -229,7 +267,7 @@ serve(async (req) => {
                             Questions about filing? Our team is here to help guide you through the next steps.
                           </p>
                           <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
-                            © ${new Date().getFullYear()} PatentBot AI™ • All rights reserved
+                            © ${new Date().getFullYear()} ${APP_NAME} • <a href="${APP_DOMAIN}" style="color: #94a3b8;">patentbot-ai.com</a>
                           </p>
                         </td>
                       </tr>
@@ -251,53 +289,60 @@ serve(async (req) => {
         
         emailData = {
           to: recipientEmail,
-          subject: "Payment Received - PatentBot AI™",
+          subject: `Payment Received - ${APP_NAME}`,
           html: `
-            <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
-                <p style="color: #666; margin: 10px 0;">Payment Confirmation</p>
-              </div>
-              
-              <h2 style="color: #001F3F;">✅ Payment Received</h2>
-              
-              <p>Thank you for your payment! Your transaction has been successfully processed.</p>
-              
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #001F3F; margin-top: 0;">Payment Details:</h3>
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Amount:</td>
-                    <td style="padding: 8px 0; font-weight: bold; text-align: right;">${formattedAmount}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Type:</td>
-                    <td style="padding: 8px 0; text-align: right;">${paymentType === 'subscription' ? 'Check & See Subscription' : 'Patent Application Fee'}</td>
-                  </tr>
-                  ${applicationTitle ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Application:</td>
-                    <td style="padding: 8px 0; text-align: right;">${applicationTitle}</td>
-                  </tr>
-                  ` : ''}
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Date:</td>
-                    <td style="padding: 8px 0; text-align: right;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot-ai.com/dashboard"
-                   style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Go to Dashboard
-                </a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">
-                This is your receipt for tax purposes. If you have any questions about this charge, please contact support.
-              </p>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+            <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7fa;">
+                <tr>
+                  <td style="padding: 40px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <img src="${APP_LOGO}" alt="${APP_NAME}" style="height: 50px; width: auto; margin-bottom: 10px;" />
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">${APP_NAME}</h1>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 40px;">
+                          <h2 style="margin: 0 0 20px; color: #1a1a2e; font-size: 22px;">✅ Payment Received</h2>
+                          <p style="margin: 0 0 20px; color: #4a5568; font-size: 16px; line-height: 1.6;">
+                            Thank you for your payment! Your transaction has been successfully processed.
+                          </p>
+                          <div style="background-color: #f8fafc; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                            <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 16px; font-weight: 600;">Payment Details:</h3>
+                            <table style="width: 100%; border-collapse: collapse;">
+                              <tr><td style="padding: 8px 0; color: #64748b;">Amount:</td><td style="padding: 8px 0; font-weight: bold; text-align: right; color: #1a1a2e;">${formattedAmount}</td></tr>
+                              <tr><td style="padding: 8px 0; color: #64748b;">Type:</td><td style="padding: 8px 0; text-align: right; color: #1a1a2e;">${paymentType === 'subscription' ? 'Check & See Subscription' : 'Patent Application Fee'}</td></tr>
+                              ${applicationTitle ? `<tr><td style="padding: 8px 0; color: #64748b;">Application:</td><td style="padding: 8px 0; text-align: right; color: #1a1a2e;">${applicationTitle}</td></tr>` : ''}
+                              <tr><td style="padding: 8px 0; color: #64748b;">Date:</td><td style="padding: 8px 0; text-align: right; color: #1a1a2e;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+                            </table>
+                          </div>
+                          <div style="text-align: center; margin: 30px 0;">
+                            <a href="${APP_DOMAIN}/dashboard" style="display: inline-block; background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                              Go to Dashboard →
+                            </a>
+                          </div>
+                          <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">
+                            This is your receipt for tax purposes. If you have any questions, please contact support.
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+                          <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                            © ${new Date().getFullYear()} ${APP_NAME} • <a href="${APP_DOMAIN}" style="color: #94a3b8;">patentbot-ai.com</a>
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
           `,
           emailType: 'payment_received'
         };
@@ -306,41 +351,137 @@ serve(async (req) => {
       case 'subscription_welcome':
         emailData = {
           to: recipientEmail,
-          subject: `Welcome to PatentBot AI™ ${planType || 'Premium'}!`,
+          subject: `Welcome to ${APP_NAME} Check & See!`,
           html: `
-            <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #001F3F; margin: 0;">PatentBot AI™</h1>
-                <p style="color: #666; margin: 10px 0;">Thank you for subscribing!</p>
-              </div>
-              
-              <h2 style="color: #001F3F;">🚀 Welcome to ${planType || 'Check & See'}!</h2>
-              
-              <p>Thank you for subscribing to PatentBot AI™! You now have unlimited access to our prior art search tools.</p>
-              
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #001F3F; margin-top: 0;">Your Subscription Benefits:</h3>
-                <ul style="color: #555;">
-                  <li>✅ Unlimited prior art searches</li>
-                  <li>✅ AI-powered patent analysis</li>
-                  <li>✅ Competitive landscape monitoring</li>
-                  <li>✅ Priority support</li>
-                </ul>
-              </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="https://patentbot-ai.com/check"
-                   style="background: #001F3F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  Start Searching
-                </a>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">
-                Your subscription renews monthly at $9.99. You can manage your subscription anytime from your dashboard.
-              </p>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+            <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7fa;">
+                <tr>
+                  <td style="padding: 40px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <img src="${APP_LOGO}" alt="${APP_NAME}" style="height: 50px; width: auto; margin-bottom: 10px;" />
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">${APP_NAME}</h1>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 40px;">
+                          <h2 style="margin: 0 0 20px; color: #1a1a2e; font-size: 22px;">🚀 Welcome to Check & See!</h2>
+                          <p style="margin: 0 0 20px; color: #4a5568; font-size: 16px; line-height: 1.6;">
+                            Thank you for subscribing! You now have unlimited access to our prior art search tools.
+                          </p>
+                          <div style="background-color: #f8fafc; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                            <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 16px; font-weight: 600;">Your Subscription Benefits:</h3>
+                            <ul style="margin: 0; padding-left: 20px; color: #4a5568; font-size: 14px; line-height: 1.8;">
+                              <li>Unlimited prior art searches</li>
+                              <li>AI-powered patent analysis</li>
+                              <li>Competitive landscape monitoring</li>
+                              <li>Priority support</li>
+                            </ul>
+                          </div>
+                          <div style="text-align: center; margin: 30px 0;">
+                            <a href="${APP_DOMAIN}/check" style="display: inline-block; background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                              Start Searching →
+                            </a>
+                          </div>
+                          <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">
+                            Your subscription renews monthly at $9.99. Manage your subscription anytime from your dashboard.
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+                          <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                            © ${new Date().getFullYear()} ${APP_NAME} • <a href="${APP_DOMAIN}" style="color: #94a3b8;">patentbot-ai.com</a>
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
           `,
           emailType: 'subscription_update'
+        };
+        break;
+
+      case 'abandoned_checkout':
+        // Non-annoying abandoned cart recovery email
+        const sessionMode = await req.json().then(d => d.sessionMode).catch(() => 'subscription');
+        const isSubscription = sessionMode === 'subscription';
+        
+        emailData = {
+          to: recipientEmail,
+          subject: `Still thinking it over? - ${APP_NAME}`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+            <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7fa;">
+                <tr>
+                  <td style="padding: 40px 20px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                          <img src="${APP_LOGO}" alt="${APP_NAME}" style="height: 50px; width: auto; margin-bottom: 10px;" />
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">${APP_NAME}</h1>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 40px;">
+                          <h2 style="margin: 0 0 20px; color: #1a1a2e; font-size: 22px;">Still interested in protecting your invention?</h2>
+                          <p style="margin: 0 0 20px; color: #4a5568; font-size: 16px; line-height: 1.6;">
+                            We noticed you didn't complete your ${isSubscription ? 'Check & See subscription' : 'patent application'} checkout. No worries—your cart is still waiting for you.
+                          </p>
+                          <div style="background-color: #f8fafc; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                            <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 16px; font-weight: 600;">What you'll get:</h3>
+                            ${isSubscription ? `
+                            <ul style="margin: 0; padding-left: 20px; color: #4a5568; font-size: 14px; line-height: 1.8;">
+                              <li>Unlimited prior art searches</li>
+                              <li>AI-powered patentability analysis</li>
+                              <li>7-day free trial to try everything</li>
+                              <li>Cancel anytime—no commitments</li>
+                            </ul>
+                            ` : `
+                            <ul style="margin: 0; padding-left: 20px; color: #4a5568; font-size: 14px; line-height: 1.8;">
+                              <li>Complete USPTO-ready patent application</li>
+                              <li>Professional claims, description & abstract</li>
+                              <li>DOCX & PDF export formats</li>
+                              <li>Save 90% vs traditional patent attorneys</li>
+                            </ul>
+                            `}
+                          </div>
+                          <div style="text-align: center; margin: 30px 0;">
+                            <a href="${APP_DOMAIN}/${isSubscription ? 'pricing' : 'new-application'}" style="display: inline-block; background: linear-gradient(135deg, ${BRAND_COLOR} 0%, #003366 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                              Complete Your ${isSubscription ? 'Subscription' : 'Application'} →
+                            </a>
+                          </div>
+                          <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">
+                            Questions? Just reply to this email—we're happy to help.
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+                          <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
+                            © ${new Date().getFullYear()} ${APP_NAME} • <a href="${APP_DOMAIN}" style="color: #94a3b8;">patentbot-ai.com</a>
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+          `,
+          emailType: 'abandoned_checkout'
         };
         break;
 
@@ -351,7 +492,7 @@ serve(async (req) => {
     logStep("Sending email", { to: emailData.to, subject: emailData.subject });
 
     const emailResponse = await resend.emails.send({
-      from: "PatentBot AI <noreply@resend.dev>",
+      from: `PatentBot <noreply@resend.dev>`,
       to: emailData.to,
       subject: emailData.subject,
       html: emailData.html,
