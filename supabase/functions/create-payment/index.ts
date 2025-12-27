@@ -47,6 +47,62 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
+    // Find or create the PatentBot Patent Application product + price
+    const resolvePatentApplicationPriceId = async () => {
+      const productName = 'PatentBot™ Patent Application';
+      
+      // 1) Find or create the PatentBot product
+      const products = await stripe.products.list({ active: true, limit: 100 });
+      let product = products.data.find((p) => p.name === productName);
+      
+      if (!product) {
+        product = await stripe.products.create({
+          name: productName,
+          description: 'Complete AI-guided patent application with USPTO-ready formatting.',
+          metadata: { app: 'patentbot' }
+        });
+        logStep("Created PatentBot Patent Application product", { productId: product.id });
+      } else {
+        logStep("Found existing PatentBot Patent Application product", { productId: product.id });
+      }
+
+      // 2) Look for an existing $1,000 one-time price on THIS product only
+      const prices = await stripe.prices.list({ 
+        product: product.id, 
+        active: true, 
+        limit: 100 
+      });
+      
+      const existingPrice = prices.data.find((p) =>
+        p.currency === 'usd' &&
+        p.unit_amount === 100000 &&
+        !p.recurring
+      );
+      
+      if (existingPrice?.id) {
+        logStep("Found existing PatentBot Patent Application price", { priceId: existingPrice.id });
+        return existingPrice.id;
+      }
+
+      // 3) Create the $1,000 one-time price on the PatentBot product
+      const createdPrice = await stripe.prices.create({
+        product: product.id,
+        currency: 'usd',
+        unit_amount: 100000,
+        metadata: { app: 'patentbot' }
+      });
+
+      logStep("Created PatentBot Patent Application price", {
+        productId: product.id,
+        priceId: createdPrice.id,
+      });
+
+      return createdPrice.id;
+    };
+
+    const priceId = await resolvePatentApplicationPriceId();
+    logStep("Resolved patent application price", { priceId });
+
     // Check if customer exists
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId;
@@ -64,19 +120,12 @@ serve(async (req) => {
 
     const appDomain = "https://patentbot-ai.com";
     
-    // Create embedded one-time payment session
+    // Create embedded one-time payment session using the resolved price
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {
-          price_data: {
-            currency: "usd",
-            product_data: { 
-              name: "Patent Application Filing",
-              description: "Complete AI-guided patent application with USPTO-ready formatting"
-            },
-            unit_amount: 100000, // $1,000 in cents
-          },
+          price: priceId,
           quantity: 1,
         },
       ],
