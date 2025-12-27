@@ -42,69 +42,58 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { priceId: requestedPriceId, planType = "check_and_see" } = await req.json();
-    // Default Check & See price id (may vary by Stripe account/mode)
-    const fallbackPriceId = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
-    logStep("Request parsed", { requestedPriceId, planType });
+    const { planType = "check_and_see" } = await req.json();
+    logStep("Request parsed", { planType });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
     const resolveSubscriptionPriceId = async () => {
-      // 1) Try the requested price id first (if provided)
-      if (requestedPriceId) {
-        try {
-          const p = await stripe.prices.retrieve(requestedPriceId);
-          if (p?.id) return p.id;
-        } catch (e) {
-          logStep("Requested price not found; will fallback", {
-            requestedPriceId,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }
-
-      // 2) Try the fallback id (if it exists)
-      try {
-        const p = await stripe.prices.retrieve(fallbackPriceId);
-        if (p?.id) return p.id;
-      } catch (e) {
-        logStep("Fallback price not found; will search/create", {
-          fallbackPriceId,
-          message: e instanceof Error ? e.message : String(e),
+      const productName = 'PatentBot™ Check & See';
+      
+      // 1) Find or create the PatentBot product first
+      const products = await stripe.products.list({ active: true, limit: 100 });
+      let product = products.data.find((p) => p.name === productName);
+      
+      if (!product) {
+        product = await stripe.products.create({
+          name: productName,
+          description: 'Unlimited prior patent searches. Cancel anytime.',
+          metadata: { app: 'patentbot' }
         });
+        logStep("Created PatentBot product", { productId: product.id });
+      } else {
+        logStep("Found existing PatentBot product", { productId: product.id });
       }
 
-      // 3) Try to find an existing $9.99/mo USD price
-      const prices = await stripe.prices.list({ active: true, limit: 100 });
-      const existing = prices.data.find((p) =>
+      // 2) Look for an existing $9.99/mo price on THIS product only
+      const prices = await stripe.prices.list({ 
+        product: product.id, 
+        active: true, 
+        limit: 100 
+      });
+      
+      const existingPrice = prices.data.find((p) =>
         p.currency === 'usd' &&
         p.unit_amount === 999 &&
         !!p.recurring &&
         p.recurring.interval === 'month'
       );
-      if (existing?.id) {
-        logStep("Found existing $9.99/mo price", { priceId: existing.id });
-        return existing.id;
+      
+      if (existingPrice?.id) {
+        logStep("Found existing PatentBot price", { priceId: existingPrice.id });
+        return existingPrice.id;
       }
 
-      // 4) Create product + price in this Stripe account (so checkout can proceed)
-      const productName = 'PatentBot™ — Check & See';
-      const products = await stripe.products.list({ active: true, limit: 100 });
-      const product =
-        products.data.find((p) => p.name === productName) ??
-        (await stripe.products.create({
-          name: productName,
-          description: 'Unlimited prior patent searches while subscribed.',
-        }));
-
+      // 3) Create the $9.99/mo price on the PatentBot product
       const createdPrice = await stripe.prices.create({
         product: product.id,
         currency: 'usd',
         unit_amount: 999,
         recurring: { interval: 'month' },
+        metadata: { app: 'patentbot' }
       });
 
-      logStep("Created new $9.99/mo price", {
+      logStep("Created PatentBot price", {
         productId: product.id,
         priceId: createdPrice.id,
       });
