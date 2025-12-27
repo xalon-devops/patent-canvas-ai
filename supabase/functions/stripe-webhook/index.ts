@@ -160,6 +160,31 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "checkout.session.expired": {
+        // Handle abandoned checkout - send recovery email
+        const expiredSession = event.data.object as Stripe.Checkout.Session;
+        logStep("Checkout session expired (abandoned)", { sessionId: expiredSession.id });
+
+        if (expiredSession.customer_email || expiredSession.metadata?.user_id) {
+          // Send abandoned checkout recovery email
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              type: "abandoned_checkout",
+              userId: expiredSession.metadata?.user_id,
+              userEmail: expiredSession.customer_email,
+              sessionMode: expiredSession.mode,
+              amountTotal: expiredSession.amount_total,
+            }),
+          }).catch(err => logStep("Error sending abandoned checkout email", { error: err }));
+        }
+        break;
+      }
+
       case "customer.subscription.created":
       case "customer.subscription.updated": 
       case "customer.subscription.deleted": {
