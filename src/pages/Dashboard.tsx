@@ -514,7 +514,7 @@ const Dashboard = () => {
               Your Patent Portfolio
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 max-w-2xl mx-auto px-2">
-              AI-powered patent management with real-time competitive intelligence and infringement monitoring.
+              Track your applications, manage ideas, and monitor your intellectual property.
             </p>
           </div>
 
@@ -539,7 +539,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  Track your inventions with daily competitive landscape monitoring and prior art alerts.
+                  Save invention ideas and get notified when similar patents are filed.
                 </p>
                 <div className="flex items-center gap-2 text-accent font-medium group-hover:gap-3 transition-all text-sm">
                   <span>Explore Ideas</span>
@@ -564,7 +564,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  Real-time updates on filing status, examiner actions, and competitive intelligence.
+                  View applications in progress and continue drafting where you left off.
                 </p>
                 <div className="flex items-center gap-2 text-blue-500 font-medium group-hover:gap-3 transition-all text-sm">
                   <span>View Applications</span>
@@ -589,7 +589,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  Automated infringement detection, maintenance tracking, and portfolio valuation.
+                  View your filed patents and track maintenance deadlines.
                 </p>
                 <div className="flex items-center gap-2 text-green-500 font-medium group-hover:gap-3 transition-all text-sm">
                   <span>Manage Portfolio</span>

@@ -303,27 +303,27 @@ const Pricing = () => {
 
         {/* Features Comparison */}
         <div className="mt-16">
-          <h3 className="text-2xl font-bold text-center mb-8">Why Choose Premium?</h3>
+          <h3 className="text-2xl font-bold text-center mb-8">Why PatentBot AI?</h3>
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <Card className="text-center p-6 shadow-card border-0 bg-card/80 backdrop-blur-sm">
               <Bot className="h-12 w-12 text-primary mx-auto mb-4" />
-              <h4 className="font-semibold mb-2">Advanced AI</h4>
+              <h4 className="font-semibold mb-2">AI-Guided Drafting</h4>
               <p className="text-sm text-muted-foreground">
-                GPT-4o powered patent drafting with legal expertise and USPTO compliance
+                Structured interview process that captures every technical detail of your invention
               </p>
             </Card>
             <Card className="text-center p-6 shadow-card border-0 bg-card/80 backdrop-blur-sm">
               <Shield className="h-12 w-12 text-primary mx-auto mb-4" />
-              <h4 className="font-semibold mb-2">Legal Quality</h4>
+              <h4 className="font-semibold mb-2">USPTO Format</h4>
               <p className="text-sm text-muted-foreground">
-                Professional-grade patent applications that meet legal standards
+                Documents formatted to USPTO specifications, ready for your attorney review
               </p>
             </Card>
             <Card className="text-center p-6 shadow-card border-0 bg-card/80 backdrop-blur-sm">
               <FileText className="h-12 w-12 text-primary mx-auto mb-4" />
-              <h4 className="font-semibold mb-2">Complete Process</h4>
+              <h4 className="font-semibold mb-2">Prior Art Search</h4>
               <p className="text-sm text-muted-foreground">
-                From idea to filed patent with prior art search and export tools
+                Search patent databases before you file to assess novelty and avoid conflicts
               </p>
             </Card>
           </div>
@@ -338,14 +338,14 @@ const Pricing = () => {
                   Ready to protect your innovation?
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Join thousands of inventors who trust PatentBot AI™ for their patent applications.
+                  Start with 3 free prior art searches. No credit card required.
                 </p>
                 <Button 
                   variant="gradient" 
                   size="lg"
                   onClick={() => navigate('/auth?tab=signup')}
                 >
-                  Get Started Free
+                  Create Free Account
                 </Button>
               </CardContent>
             </Card>

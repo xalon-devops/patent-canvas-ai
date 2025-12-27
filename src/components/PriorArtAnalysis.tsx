@@ -182,7 +182,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
             />
           </div>
           <div className="text-sm text-muted-foreground">
-            Searching thousands of patent records...
+            Searching patent databases...
           </div>
         </div>
       </motion.div>
