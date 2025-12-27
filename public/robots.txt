@@ -1,6 +1,6 @@
-# PatentBot AI - Robots.txt
+# PatentBot™ - Robots.txt
 # Domain: patentbot-ai.com
-# Last updated: 2025-12-21
+# Last updated: 2025-12-27
 
 # Allow all search engines to crawl public pages
 User-agent: *

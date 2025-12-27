@@ -11,7 +11,7 @@ interface SEOProps {
   structuredData?: object;
 }
 
-const BASE_TITLE = "PatentBot AI™";
+const BASE_TITLE = "PatentBot™";
 const BASE_URL = "https://patentbot-ai.com";
 const DEFAULT_IMAGE = `${BASE_URL}/social-preview.png`;
 
@@ -44,11 +44,11 @@ export const SEO = ({
       <meta property="og:type" content={ogType} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:site_name" content="PatentBot AI" />
+      <meta property="og:site_name" content="PatentBot™" />
       <meta property="og:image" content={ogImage} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="PatentBot AI - AI-Powered Patent Application Generator" />
+      <meta property="og:image:alt" content="PatentBot™ - AI-Powered Patent Application Generator" />
       <meta property="og:locale" content="en_US" />
       {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
       
@@ -57,7 +57,7 @@ export const SEO = ({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
-      <meta name="twitter:image:alt" content="PatentBot AI - AI-Powered Patent Application Generator" />
+      <meta name="twitter:image:alt" content="PatentBot™ - AI-Powered Patent Application Generator" />
       <meta name="twitter:site" content="@patentbotai" />
       
       {/* Page-specific structured data */}
@@ -75,7 +75,7 @@ export const PageSEO = {
   Home: () => (
     <SEO
       canonicalPath="/"
-      description="File patent applications in minutes with PatentBot AI™. AI-guided drafting, prior art search, and USPTO-ready formatting. Just $1,000 flat fee vs $10,000+ for attorneys. Protect your invention today."
+      description="File patent applications in minutes with PatentBot™. AI-guided drafting, prior art search, and USPTO-ready formatting. Just $1,000 flat fee vs $10,000+ for attorneys. Protect your invention today."
       keywords="patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property protection, patent automation, file patent online, patent application cost, cheap patent filing, patent attorney alternative, provisional patent application, how to file a patent, utility patent, patent protection"
     />
   ),
@@ -84,7 +84,7 @@ export const PageSEO = {
     <SEO
       title="Pricing - Patent Applications from $1,000"
       canonicalPath="/pricing"
-      description="PatentBot AI pricing: $1,000 flat fee for complete USPTO-ready patent applications. $9.99/month for unlimited prior art searches. Save 90% vs traditional patent attorneys. No hidden fees, no hourly billing."
+      description="PatentBot™ pricing: $1,000 flat fee for complete USPTO-ready patent applications. $9.99/month for unlimited prior art searches. Save 90% vs traditional patent attorneys. No hidden fees, no hourly billing."
       keywords="patent application cost, patent filing price, AI patent pricing, USPTO filing cost, affordable patent services, cheap patent filing, patent attorney alternative, how much does a patent cost, patent application fees, patent lawyer cost, provisional patent cost"
       structuredData={{
         "@context": "https://schema.org",
@@ -100,8 +100,8 @@ export const PageSEO = {
     <SEO
       title="Free Demo - See AI Patent Drafting in Action"
       canonicalPath="/demo"
-      description="Watch PatentBot AI transform your invention idea into a professional USPTO-ready patent application in minutes. Free interactive demo - see how our AI drafts claims, descriptions, and conducts prior art analysis."
-      keywords="patent AI demo, patent application demo, AI patent generator demo, USPTO filing demo, how to file patent, patent drafting software, patent application tool, free patent demo, patent writing software, AI legal technology"
+      description="Watch PatentBot™ transform your invention idea into a professional USPTO-ready patent application in minutes. Free interactive demo - see how our AI drafts claims, descriptions, and conducts prior art analysis."
+      keywords="patent AI demo, patent application demo, AI patent generator demo, USPTO filing demo, how to file patent, patent drafting software, patent application tool, free patent demo, patent writing software"
     />
   ),
   
@@ -109,8 +109,8 @@ export const PageSEO = {
     <SEO
       title="Sign In - Start Your Patent Application"
       canonicalPath="/auth"
-      description="Sign in to PatentBot AI to start your patent application. Create a free account to file patents with AI-guided drafting, prior art search, and professional USPTO formatting."
-      keywords="patent application login, PatentBot AI sign in, create patent account, file patent online, start patent application, patent account"
+      description="Sign in to PatentBot™ to start your patent application. Create a free account to file patents with AI-guided drafting, prior art search, and professional USPTO formatting."
+      keywords="patent application login, PatentBot sign in, create patent account, file patent online, start patent application, patent account"
     />
   ),
   
@@ -118,7 +118,7 @@ export const PageSEO = {
     <SEO
       title="Prior Art Search - Check if Your Invention is Patentable"
       canonicalPath="/check"
-      description="AI-powered prior art search to check if your invention is patentable. PatentBot AI searches USPTO, Google Patents & international databases. 3 free searches, then unlimited for $9.99/month. Find similar patents instantly."
+      description="AI-powered prior art search to check if your invention is patentable. PatentBot™ searches USPTO, Google Patents & international databases. 3 free searches, then unlimited for $9.99/month. Find similar patents instantly."
       keywords="prior art search, patent search, patent database search, invention novelty check, USPTO patent search, patent similarity search, free patent search, check if patent exists, is my invention patentable, patent novelty search, prior art analysis, patent clearance search, freedom to operate search"
       structuredData={{
         "@context": "https://schema.org",
@@ -127,7 +127,7 @@ export const PageSEO = {
         "description": "AI-powered prior art search across USPTO, Google Patents, and international databases",
         "provider": {
           "@type": "Organization",
-          "name": "PatentBot AI"
+          "name": "PatentBot"
         },
         "offers": {
           "@type": "Offer",
@@ -184,7 +184,7 @@ export const PageSEO = {
     <SEO
       title="Settings"
       noindex={true}
-      description="Manage your PatentBot AI account settings."
+      description="Manage your PatentBot™ account settings."
     />
   ),
   
@@ -192,7 +192,7 @@ export const PageSEO = {
     <SEO
       title="Admin Dashboard"
       noindex={true}
-      description="PatentBot AI admin dashboard."
+      description="PatentBot™ admin dashboard."
     />
   ),
   
@@ -232,7 +232,7 @@ export const PageSEO = {
     <SEO
       title="Payment Complete"
       noindex={true}
-      description="Payment confirmation for PatentBot AI services."
+      description="Payment confirmation for PatentBot™ services."
     />
   ),
   
