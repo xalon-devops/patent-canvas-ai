@@ -9,16 +9,16 @@ import {
 } from '@/lib/pricingConstants';
 
 interface WelcomeOnboardingProps {
-  onDismiss: () => void;
+  onDismiss: () => void | Promise<void>;
   userName?: string;
 }
 
 export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProps) => {
   const navigate = useNavigate();
-  
-  // Helper that marks onboarding complete before navigating
-  const handleAction = (path: string) => {
-    onDismiss(); // This saves to DB
+
+  // Ensure onboarding completion persists before navigating away
+  const handleAction = async (path: string) => {
+    await onDismiss();
     navigate(path);
   };
   

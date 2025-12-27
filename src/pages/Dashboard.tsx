@@ -86,7 +86,7 @@ const Dashboard = () => {
       }
     );
 
-    const loadOnboardingState = async (userId: string) => {
+    const loadOnboardingState = async (userId: string, email?: string | null) => {
       try {
         const { data, error } = await supabase
           .from('users')
@@ -95,14 +95,29 @@ const Dashboard = () => {
           .maybeSingle();
 
         if (error) {
-          // Fallback to local state if profile fetch fails
           const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
           setShowWelcome(!dismissed);
           return;
         }
 
+        // If the row doesn't exist (legacy users), create it so the setting can persist.
+        if (!data) {
+          await supabase
+            .from('users')
+            .upsert(
+              {
+                id: userId,
+                email: email ?? null,
+              },
+              { onConflict: 'id' }
+            );
+
+          setShowWelcome(true);
+          return;
+        }
+
         // Show onboarding until user explicitly dismisses it (persisted in DB)
-        setShowWelcome(!data?.onboarding_completed_at);
+        setShowWelcome(!data.onboarding_completed_at);
       } catch {
         const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
         setShowWelcome(!dismissed);
@@ -141,7 +156,7 @@ const Dashboard = () => {
           return;
         }
 
-        await loadOnboardingState(session.user.id);
+        await loadOnboardingState(session.user.id, session.user.email);
         setLoading(false);
       })
       .catch((error) => {
@@ -381,17 +396,25 @@ const Dashboard = () => {
         <div className="content-width">
           {/* Welcome Onboarding for New Users */}
           {showWelcome && (
-            <WelcomeOnboarding 
+            <WelcomeOnboarding
               userName={user?.email}
               onDismiss={async () => {
+                // Hide immediately in UI
                 setShowWelcome(false);
-                // Persist to database so it never shows again
+
+                // Persist to database so it never shows again (upsert handles missing row)
                 if (user?.id) {
                   const { error } = await supabase
                     .from('users')
-                    .update({ onboarding_completed_at: getCurrentISOString() })
-                    .eq('id', user.id);
-                  
+                    .upsert(
+                      {
+                        id: user.id,
+                        email: user.email ?? null,
+                        onboarding_completed_at: getCurrentISOString(),
+                      },
+                      { onConflict: 'id' }
+                    );
+
                   if (error) {
                     console.error('Failed to save onboarding state:', error);
                     // Fallback to localStorage
