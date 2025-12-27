@@ -271,48 +271,41 @@ const Index = () => {
         <div className="divider" />
       </div>
 
-      {/* Testimonials - Minimal, credible */}
+      {/* Why PatentBot - Features, not fake testimonials */}
       <section className="section-spacing">
         <div className="max-w-6xl mx-auto px-5 sm:px-8">
           {/* Section header */}
           <div className="max-w-2xl mb-16">
             <p className="text-muted-foreground text-sm mb-4 tracking-wide uppercase">
-              Testimonials
+              Why PatentBot
             </p>
             <h2 className="text-3xl sm:text-4xl font-medium text-foreground tracking-tight">
-              Trusted by inventors
+              Built for inventors
             </h2>
           </div>
 
-          {/* Testimonials grid */}
+          {/* Benefits grid */}
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                quote: "PatentBot AI cut my patent drafting time by 80%. The AI interview process really helped me articulate my invention clearly.",
-                name: "Sarah M.",
-                title: "Software Engineer"
-              },
-              {
-                quote: "The prior art search saved me from filing a patent that already existed. Worth every penny for the Check & See subscription.",
-                name: "David K.",
-                title: "Startup Founder"
-              },
-              {
-                quote: "Professional quality drafts at a fraction of the cost. My patent attorney was impressed with the thoroughness.",
-                name: "Jennifer L.",
-                title: "Medical Device Inventor"
-              }
-            ].map((testimonial, i) => (
-              <div key={i} className="space-y-6">
-                <p className="text-foreground/80 leading-relaxed">
-                  "{testimonial.quote}"
-                </p>
-                <div>
-                  <div className="font-medium text-foreground text-sm">{testimonial.name}</div>
-                  <div className="text-muted-foreground text-sm">{testimonial.title}</div>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-4">
+              <h3 className="text-xl font-medium text-foreground">Save time</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Complete your first draft in hours instead of weeks. Our AI interview captures technical details efficiently.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-xl font-medium text-foreground">Reduce costs</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                A single flat fee for your entire application. No hourly billing, no surprise charges.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-xl font-medium text-foreground">Stay informed</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Search prior art before you invest. Understand your competitive landscape and refine your claims.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -321,10 +314,10 @@ const Index = () => {
       <section className="section-spacing bg-card/30">
         <div className="max-w-6xl mx-auto px-5 sm:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-medium text-foreground tracking-tight mb-4">
-            Ready to protect your innovation?
+            Ready to get started?
           </h2>
           <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-            Join inventors using AI to create professional patent applications.
+            Create a free account to explore. 3 prior art searches included.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
@@ -332,7 +325,7 @@ const Index = () => {
               onClick={() => handleAuthNav('signup')}
               className="group"
             >
-              {user ? 'Go to Dashboard' : 'Get Started'}
+              {user ? 'Go to Dashboard' : 'Create Free Account'}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </div>
