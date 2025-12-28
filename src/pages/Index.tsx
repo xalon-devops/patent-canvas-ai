@@ -472,107 +472,99 @@ const Index = () => {
             viewport={{ once: true, margin: "-50px" }}
             variants={fadeInUp}
             transition={{ duration: 0.6 }}
-            className="overflow-hidden rounded-3xl border border-border/60 bg-card"
+            className="overflow-hidden rounded-2xl border border-border/60 bg-card"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border/60">
-                    <th className="text-left p-6 text-muted-foreground font-medium text-sm uppercase tracking-wider">Feature</th>
-                    <th className="p-6 text-center">
-                      <div className="inline-flex flex-col items-center gap-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                          <FileText className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-bold text-foreground">PatentBot</span>
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th className="text-left p-2.5 sm:p-4 text-muted-foreground font-medium uppercase tracking-wider text-[10px] sm:text-xs">Feature</th>
+                  <th className="p-2.5 sm:p-4 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                       </div>
-                    </th>
-                    <th className="p-6 text-center">
-                      <div className="inline-flex flex-col items-center gap-2">
-                        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-                          <Award className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                        <span className="font-medium text-muted-foreground">Traditional Firm</span>
+                      <span className="font-bold text-foreground text-[10px] sm:text-xs">PatentBot</span>
+                    </div>
+                  </th>
+                  <th className="p-2.5 sm:p-4 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-muted flex items-center justify-center">
+                        <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                       </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/40">
-                    <td className="p-6 font-medium text-foreground">Patent Application Cost</td>
-                    <td className="p-6 text-center">
-                      <span className="text-2xl font-bold text-gradient">$1,000</span>
-                      <span className="block text-xs text-muted-foreground mt-1">flat fee</span>
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className="text-2xl font-bold text-muted-foreground">$8,000–$15,000+</span>
-                      <span className="block text-xs text-muted-foreground mt-1">hourly billing</span>
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/40 bg-muted/20">
-                    <td className="p-6 font-medium text-foreground">Time to First Draft</td>
-                    <td className="p-6 text-center">
-                      <span className="text-2xl font-bold text-gradient">24 hours</span>
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className="text-2xl font-bold text-muted-foreground">2–4 weeks</span>
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/40">
-                    <td className="p-6 font-medium text-foreground">Prior Art Search</td>
-                    <td className="p-6 text-center">
-                      <div className="inline-flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-semibold text-foreground">Included</span>
+                      <span className="font-medium text-muted-foreground text-[10px] sm:text-xs">Traditional</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/40">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Cost</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <span className="text-base sm:text-xl font-bold text-gradient">$1,000</span>
+                    <span className="block text-[9px] sm:text-xs text-muted-foreground">flat fee</span>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <span className="text-base sm:text-xl font-bold text-muted-foreground">$8K–$15K+</span>
+                    <span className="block text-[9px] sm:text-xs text-muted-foreground">hourly</span>
+                  </td>
+                </tr>
+                <tr className="border-b border-border/40 bg-muted/20">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">First Draft</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <span className="text-base sm:text-xl font-bold text-gradient">24h</span>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <span className="text-base sm:text-xl font-bold text-muted-foreground">2–4 wks</span>
+                  </td>
+                </tr>
+                <tr className="border-b border-border/40">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Prior Art</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <div className="inline-flex items-center gap-1">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary" />
                       </div>
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className="text-muted-foreground">$1,500–$3,000 extra</span>
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/40 bg-muted/20">
-                    <td className="p-6 font-medium text-foreground">Revisions</td>
-                    <td className="p-6 text-center">
-                      <div className="inline-flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-semibold text-foreground">Unlimited</span>
+                      <span className="font-semibold text-foreground">Included</span>
+                    </div>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground">$1.5K–$3K extra</td>
+                </tr>
+                <tr className="border-b border-border/40 bg-muted/20">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Revisions</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <div className="inline-flex items-center gap-1">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary" />
                       </div>
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className="text-muted-foreground">$200–$500/hour</span>
-                    </td>
-                  </tr>
-                  <tr className="border-b border-border/40">
-                    <td className="p-6 font-medium text-foreground">USPTO-Ready Format</td>
-                    <td className="p-6 text-center">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                        <Check className="w-4 h-4 text-primary" />
-                      </div>
-                    </td>
-                    <td className="p-6 text-center">
-                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center mx-auto">
-                        <Check className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    </td>
-                  </tr>
-                  <tr className="bg-muted/20">
-                    <td className="p-6 font-medium text-foreground">24/7 Availability</td>
-                    <td className="p-6 text-center">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                        <Check className="w-4 h-4 text-primary" />
-                      </div>
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className="text-muted-foreground text-sm">Business hours only</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                      <span className="font-semibold text-foreground">Unlimited</span>
+                    </div>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground">$200–$500/hr</td>
+                </tr>
+                <tr className="border-b border-border/40">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">USPTO Format</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <Check className="w-3 h-3 text-primary" />
+                    </div>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <Check className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                  </td>
+                </tr>
+                <tr className="bg-muted/20">
+                  <td className="p-2.5 sm:p-4 font-medium text-foreground">24/7 Access</td>
+                  <td className="p-2.5 sm:p-4 text-center">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <Check className="w-3 h-3 text-primary" />
+                    </div>
+                  </td>
+                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground text-[10px] sm:text-xs">Business hrs</td>
+                </tr>
+              </tbody>
+            </table>
 
             {/* Bottom CTA */}
             <div className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-t border-border/40 text-center">
