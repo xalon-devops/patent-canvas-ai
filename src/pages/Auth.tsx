@@ -54,7 +54,7 @@ const Auth = () => {
     try {
       const redirectUrl = `${window.location.origin}/dashboard`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -75,12 +75,14 @@ const Auth = () => {
             variant: "destructive",
           });
         }
-      } else {
+      } else if (data.user && !data.session) {
+        // Email confirmation is required
         toast({
           title: "Check your email",
           description: "We've sent you a confirmation link to complete your registration.",
         });
       }
+      // If data.session exists, user is auto-confirmed and will be redirected by onAuthStateChange
     } catch (error) {
       toast({
         title: "Sign up failed",

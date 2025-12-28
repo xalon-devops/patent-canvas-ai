@@ -42,13 +42,13 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Visitors (7d)</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Signups (7d)</p>
                 <p className="text-2xl font-bold mt-1">
-                  {data.dailyMetrics.reduce((sum, d) => sum + d.visitors, 0).toLocaleString()}
+                  {data.dailyMetrics.reduce((sum, d) => sum + d.signups, 0).toLocaleString()}
                 </p>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
-                <Eye className="h-5 w-5 text-primary" />
+                <Users className="h-5 w-5 text-primary" />
               </div>
             </div>
             <div className={`flex items-center gap-1 text-xs mt-2 ${data.visitorTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -62,13 +62,13 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Signups (7d)</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Applications (7d)</p>
                 <p className="text-2xl font-bold mt-1">
-                  {data.dailyMetrics.reduce((sum, d) => sum + d.signups, 0).toLocaleString()}
+                  {data.funnelData.find(f => f.name === 'Started Application')?.value.toLocaleString() || '0'}
                 </p>
               </div>
               <div className="p-2 bg-secondary/10 rounded-full">
-                <Users className="h-5 w-5 text-secondary" />
+                <Eye className="h-5 w-5 text-secondary" />
               </div>
             </div>
           </CardContent>
@@ -114,27 +114,23 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
         </Card>
       </div>
 
-      {/* Visitors & Conversions Chart */}
+      {/* Signups & Conversions Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5 text-primary" />
-            Visitors, Signups & Conversions
+            <Users className="h-5 w-5 text-primary" />
+            Signups & Conversions
           </CardTitle>
-          <CardDescription>Daily traffic and conversion trends</CardDescription>
+          <CardDescription>Daily user signups and payment conversions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.dailyMetrics}>
                 <defs>
-                  <linearGradient id="colorVisitors" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorSignups" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorSignups" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--secondary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--secondary))" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorConversions" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -152,8 +148,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
                   }}
                 />
                 <Legend />
-                <Area type="monotone" dataKey="visitors" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorVisitors)" name="Visitors" />
-                <Area type="monotone" dataKey="signups" stroke="hsl(var(--secondary))" fillOpacity={1} fill="url(#colorSignups)" name="Signups" />
+                <Area type="monotone" dataKey="signups" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSignups)" name="Signups" />
                 <Area type="monotone" dataKey="conversions" stroke="#10b981" fillOpacity={1} fill="url(#colorConversions)" name="Conversions" />
               </AreaChart>
             </ResponsiveContainer>

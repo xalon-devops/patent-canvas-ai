@@ -270,45 +270,77 @@ const Admin = () => {
         .select('created_at, status')
         .gte('created_at', twoWeeksAgo.toISOString());
 
-      // Fetch payments by day
+      // Fetch PatentBot payments by day (filter by description containing 'Patent')
       const { data: paymentsData } = await supabase
         .from('application_payments')
         .select('created_at, amount, status')
         .eq('status', 'completed')
         .gte('created_at', twoWeeksAgo.toISOString());
 
+      // Fetch PatentBot subscription payments (filter by description)
       const { data: subPayments } = await supabase
         .from('payment_transactions')
-        .select('created_at, amount, status')
+        .select('created_at, amount, status, payment_type, description')
         .eq('status', 'completed')
         .gte('created_at', twoWeeksAgo.toISOString());
+
+      // Filter to PatentBot only (descriptions contain 'Patent' or 'Check & See')
+      const patentbotSubPayments = (subPayments || []).filter(p => 
+        p.description?.includes('Patent') || 
+        p.description?.includes('Check & See') ||
+        p.payment_type === 'subscription'
+      );
 
       // Get user counts for funnel
       const { count: totalUsers } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true });
 
-      const { count: usersWithSessions } = await supabase
+      const { data: uniqueSessionUsers } = await supabase
         .from('patent_sessions')
-        .select('user_id', { count: 'exact', head: true });
+        .select('user_id');
+      
+      const usersWithSessions = new Set(uniqueSessionUsers?.map(s => s.user_id)).size;
 
       const { count: completedSessions } = await supabase
         .from('patent_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'completed');
 
-      const { count: paidUsers } = await supabase
+      const { data: paidAppUsers } = await supabase
         .from('application_payments')
-        .select('*', { count: 'exact', head: true })
+        .select('user_id')
         .eq('status', 'completed');
+      
+      const uniquePaidUsers = new Set(paidAppUsers?.map(p => p.user_id)).size;
 
-      const { count: activeSubscribers } = await supabase
+      // Get subscription statuses for funnel
+      const { data: allSubscriptions } = await supabase
         .from('subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+        .select('status, plan')
         .neq('plan', 'free_grant');
 
-      // Generate daily metrics for last 7 days
+      const trialingCount = allSubscriptions?.filter(s => s.status === 'trialing').length || 0;
+      const activeSubCount = allSubscriptions?.filter(s => s.status === 'active').length || 0;
+      const cancelledCount = allSubscriptions?.filter(s => s.status === 'cancelled' || s.status === 'canceled').length || 0;
+      const pastDueCount = allSubscriptions?.filter(s => s.status === 'past_due').length || 0;
+
+      // Get free grant users count
+      const { count: freeGrantCount } = await supabase
+        .from('subscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('plan', 'free_grant')
+        .eq('status', 'active');
+
+      // Get abandoned checkout count (pending payments older than 1 hour)
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: abandonedCount } = await supabase
+        .from('payment_transactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .lt('created_at', oneHourAgo);
+
+      // Generate daily metrics for last 7 days (signups-based, no fake visitors)
       const dailyMetrics = [];
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
@@ -319,16 +351,14 @@ const Admin = () => {
         const daySessions = sessionsData?.filter(s => s.created_at.startsWith(dateStr)) || [];
         const dayPayments = [
           ...(paymentsData?.filter(p => p.created_at.startsWith(dateStr)) || []),
-          ...(subPayments?.filter(p => p.created_at.startsWith(dateStr)) || [])
+          ...(patentbotSubPayments?.filter(p => p.created_at.startsWith(dateStr)) || [])
         ];
         
-        // Estimate visitors as 10x signups (typical SaaS ratio)
         const signups = dayUsers.length;
-        const visitors = Math.max(signups * 10, Math.floor(Math.random() * 50) + 20); // Minimum floor
         
         dailyMetrics.push({
           date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          visitors,
+          visitors: 0, // Will be populated by Lovable analytics if available
           signups,
           conversions: dayPayments.length,
           revenue: dayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
@@ -336,44 +366,59 @@ const Admin = () => {
       }
 
       // Calculate trends (this week vs last week)
-      const thisWeekVisitors = dailyMetrics.reduce((sum, d) => sum + d.visitors, 0);
-      const lastWeekMetrics = [];
+      const thisWeekSignups = dailyMetrics.reduce((sum, d) => sum + d.signups, 0);
+      let lastWeekSignups = 0;
       for (let i = 13; i >= 7; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
         const dayUsers = usersData?.filter(u => u.created_at.startsWith(dateStr)) || [];
-        lastWeekMetrics.push({ visitors: Math.max(dayUsers.length * 10, 20) });
+        lastWeekSignups += dayUsers.length;
       }
-      const lastWeekVisitors = lastWeekMetrics.reduce((sum, d) => sum + d.visitors, 0);
-      const visitorTrend = lastWeekVisitors > 0 
-        ? Math.round(((thisWeekVisitors - lastWeekVisitors) / lastWeekVisitors) * 100)
-        : 0;
+      const signupTrend = lastWeekSignups > 0 
+        ? Math.round(((thisWeekSignups - lastWeekSignups) / lastWeekSignups) * 100)
+        : thisWeekSignups > 0 ? 100 : 0;
 
       // Revenue trend
       const thisWeekRevenue = dailyMetrics.reduce((sum, d) => sum + d.revenue, 0);
-      const revenueTrend = Math.floor(Math.random() * 30) - 5; // Placeholder
+      let lastWeekRevenue = 0;
+      for (let i = 13; i >= 7; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayPayments = [
+          ...(paymentsData?.filter(p => p.created_at.startsWith(dateStr)) || []),
+          ...(patentbotSubPayments?.filter(p => p.created_at.startsWith(dateStr)) || [])
+        ];
+        lastWeekRevenue += dayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      }
+      const revenueTrend = lastWeekRevenue > 0
+        ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100)
+        : thisWeekRevenue > 0 ? 100 : 0;
 
-      // Funnel data
+      // Funnel data - real user journey
       const funnelData = [
-        { name: 'Visitors', value: thisWeekVisitors, fill: 'hsl(var(--primary))' },
-        { name: 'Signups', value: totalUsers || 0, fill: 'hsl(var(--secondary))' },
-        { name: 'Started App', value: usersWithSessions || 0, fill: 'hsl(var(--accent))' },
-        { name: 'Completed', value: completedSessions || 0, fill: '#10b981' },
-        { name: 'Paid', value: (paidUsers || 0) + (activeSubscribers || 0), fill: '#f59e0b' }
+        { name: 'Signed Up', value: totalUsers || 0, fill: 'hsl(var(--primary))' },
+        { name: 'Started Application', value: usersWithSessions, fill: 'hsl(var(--secondary))' },
+        { name: 'Completed Draft', value: completedSessions || 0, fill: 'hsl(var(--accent))' },
+        { name: 'Trialing', value: trialingCount, fill: '#8b5cf6' },
+        { name: 'Paid', value: uniquePaidUsers + activeSubCount, fill: '#10b981' }
       ];
 
-      // User stages
+      // User stages with subscription status breakdown
       const total = totalUsers || 1;
       const userStages = [
-        { stage: 'Free Users', count: (totalUsers || 0) - (activeSubscribers || 0) - (paidUsers || 0), percentage: 0 },
-        { stage: 'Active Subscribers', count: activeSubscribers || 0, percentage: 0 },
-        { stage: 'Patent Buyers', count: paidUsers || 0, percentage: 0 },
-        { stage: 'In Progress', count: (usersWithSessions || 0) - (completedSessions || 0), percentage: 0 },
-        { stage: 'Completed', count: completedSessions || 0, percentage: 0 }
-      ].map(s => ({ ...s, percentage: (s.count / total) * 100 }));
+        { stage: 'Free Users', count: (totalUsers || 0) - activeSubCount - uniquePaidUsers - trialingCount - (freeGrantCount || 0), percentage: 0 },
+        { stage: 'Trialing', count: trialingCount, percentage: 0 },
+        { stage: 'Active Subs', count: activeSubCount, percentage: 0 },
+        { stage: 'Patent Buyers', count: uniquePaidUsers, percentage: 0 },
+        { stage: 'Free Grants', count: freeGrantCount || 0, percentage: 0 },
+        { stage: 'Past Due', count: pastDueCount, percentage: 0 },
+        { stage: 'Cancelled', count: cancelledCount, percentage: 0 },
+        { stage: 'Abandoned', count: abandonedCount || 0, percentage: 0 }
+      ].filter(s => s.count > 0).map(s => ({ ...s, percentage: (s.count / total) * 100 }));
 
-      const totalConversions = (paidUsers || 0) + (activeSubscribers || 0);
+      const totalConversions = uniquePaidUsers + activeSubCount;
       const conversionRate = total > 0 ? (totalConversions / total) * 100 : 0;
 
       setAnalyticsData({
@@ -381,7 +426,7 @@ const Admin = () => {
         funnelData,
         userStages,
         conversionRate,
-        visitorTrend,
+        visitorTrend: signupTrend, // Using signup trend since we don't have real visitor data
         revenueTrend
       });
     } catch (error) {
@@ -743,6 +788,41 @@ const Admin = () => {
                   <div className="flex justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Subscription Price</span>
                     <span className="font-medium">{CHECK_AND_SEE_PRICE_DISPLAY}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-muted-foreground">Free Trial</span>
+                    <span className="font-medium text-green-600">7 days</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Email Recovery Stats</CardTitle>
+                  <CardDescription>Abandoned checkout emails sent via Stripe webhook</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground mb-4">
+                    Abandoned checkout emails are automatically sent when a Stripe checkout session expires. 
+                    Check the email_notifications table for delivery status and the Stripe dashboard for checkout session expiry events.
+                  </div>
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open('https://dashboard.stripe.com/events', '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Stripe Events
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(`https://supabase.com/dashboard/project/jdkogqskjsmwlhigaecb/editor`, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Email Logs
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

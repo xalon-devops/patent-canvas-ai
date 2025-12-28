@@ -121,7 +121,7 @@ serve(async (req) => {
 
     const appDomain = "https://patentbot-ai.com";
     
-    // Create embedded checkout session
+    // Create embedded checkout session with 7-day free trial
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -133,9 +133,18 @@ serve(async (req) => {
       mode: "subscription",
       ui_mode: "embedded",
       return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: {
+          app: 'patentbot',
+          user_id: user.id,
+          plan_type: planType
+        }
+      },
       metadata: {
         user_id: user.id,
-        plan_type: planType
+        plan_type: planType,
+        app: 'patentbot'
       }
     });
 

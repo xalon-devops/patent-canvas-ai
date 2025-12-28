@@ -83,27 +83,41 @@ Deno.serve(async (req) => {
           logStep("Error updating payment transaction", { error: updateError });
         }
 
-        // Handle subscription payment (Check & See)
+        // Handle subscription payment (Check & See) - including trials
         if (session.mode === "subscription" && session.metadata?.user_id) {
           const userId = session.metadata.user_id;
           const planType = session.metadata.plan_type || "check_and_see";
+
+          // Get subscription details to check if it's trialing
+          let subscriptionStatus = "active";
+          let currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          
+          if (session.subscription) {
+            try {
+              const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+              subscriptionStatus = subscription.status; // Will be 'trialing' if trial is active
+              currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+            } catch (e) {
+              logStep("Could not fetch subscription details", { error: e });
+            }
+          }
 
           const { error: subError } = await supabaseClient
             .from("subscriptions")
             .upsert({
               user_id: userId,
-              status: "active",
+              status: subscriptionStatus,
               plan: planType,
               stripe_subscription_id: session.subscription,
               current_period_start: new Date().toISOString(),
-              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              current_period_end: currentPeriodEnd.toISOString(),
               updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
 
           if (subError) {
             logStep("Error updating subscription", { error: subError });
           } else {
-            logStep("Subscription updated successfully", { userId, planType });
+            logStep("Subscription updated successfully", { userId, planType, status: subscriptionStatus });
           }
         }
 
