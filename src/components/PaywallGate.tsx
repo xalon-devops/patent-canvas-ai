@@ -111,9 +111,9 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
         return;
       }
 
-      // Check for active paid subscription
+      // Check for active paid subscription (including trialing)
       const hasActiveSubscription = 
-        subscription?.status === 'active' && 
+        (subscription?.status === 'active' || subscription?.status === 'trialing') && 
         subscription?.plan !== 'free' &&
         subscription?.plan !== 'inactive';
 
