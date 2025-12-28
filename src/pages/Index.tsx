@@ -594,7 +594,14 @@ const Index = () => {
             variants={fadeInUp}
             transition={{ duration: 0.6 }}
           >
-            <p className="badge-outline mb-4">Why PatentBot</p>
+            <div className="inline-flex items-center gap-2 badge-outline mb-4">
+              <span>Why</span>
+              <img 
+                src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+                alt="PatentBot" 
+                className="h-5 w-auto"
+              />
+            </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
               Built for <span className="text-gradient">inventors</span>
             </h2>
