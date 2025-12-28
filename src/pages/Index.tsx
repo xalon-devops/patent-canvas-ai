@@ -437,6 +437,151 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Comparison Table Section */}
+      <section className="section-spacing-sm relative">
+        <div className="max-w-5xl mx-auto px-5 sm:px-8">
+          <motion.div 
+            className="text-center max-w-3xl mx-auto mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+            transition={{ duration: 0.6 }}
+          >
+            <p className="badge-outline mb-4">Compare</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
+              PatentBot vs <span className="text-gradient">Traditional Firms</span>
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              See how much you can save in time and money.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={fadeInUp}
+            transition={{ duration: 0.6 }}
+            className="overflow-hidden rounded-3xl border border-border/60 bg-card"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/60">
+                    <th className="text-left p-6 text-muted-foreground font-medium text-sm uppercase tracking-wider">Feature</th>
+                    <th className="p-6 text-center">
+                      <div className="inline-flex flex-col items-center gap-2">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-bold text-foreground">PatentBot</span>
+                      </div>
+                    </th>
+                    <th className="p-6 text-center">
+                      <div className="inline-flex flex-col items-center gap-2">
+                        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                          <Award className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <span className="font-medium text-muted-foreground">Traditional Firm</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/40">
+                    <td className="p-6 font-medium text-foreground">Patent Application Cost</td>
+                    <td className="p-6 text-center">
+                      <span className="text-2xl font-bold text-gradient">$1,000</span>
+                      <span className="block text-xs text-muted-foreground mt-1">flat fee</span>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className="text-2xl font-bold text-muted-foreground">$8,000–$15,000+</span>
+                      <span className="block text-xs text-muted-foreground mt-1">hourly billing</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/40 bg-muted/20">
+                    <td className="p-6 font-medium text-foreground">Time to First Draft</td>
+                    <td className="p-6 text-center">
+                      <span className="text-2xl font-bold text-gradient">24 hours</span>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className="text-2xl font-bold text-muted-foreground">2–4 weeks</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/40">
+                    <td className="p-6 font-medium text-foreground">Prior Art Search</td>
+                    <td className="p-6 text-center">
+                      <div className="inline-flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="font-semibold text-foreground">Included</span>
+                      </div>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className="text-muted-foreground">$1,500–$3,000 extra</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/40 bg-muted/20">
+                    <td className="p-6 font-medium text-foreground">Revisions</td>
+                    <td className="p-6 text-center">
+                      <div className="inline-flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="font-semibold text-foreground">Unlimited</span>
+                      </div>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className="text-muted-foreground">$200–$500/hour</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border/40">
+                    <td className="p-6 font-medium text-foreground">USPTO-Ready Format</td>
+                    <td className="p-6 text-center">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                        <Check className="w-4 h-4 text-primary" />
+                      </div>
+                    </td>
+                    <td className="p-6 text-center">
+                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center mx-auto">
+                        <Check className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr className="bg-muted/20">
+                    <td className="p-6 font-medium text-foreground">24/7 Availability</td>
+                    <td className="p-6 text-center">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                        <Check className="w-4 h-4 text-primary" />
+                      </div>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className="text-muted-foreground text-sm">Business hours only</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Bottom CTA */}
+            <div className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-t border-border/40 text-center">
+              <p className="text-muted-foreground mb-4">
+                Save up to <span className="font-bold text-foreground">90%</span> compared to traditional patent firms
+              </p>
+              <Button 
+                className="btn-gradient"
+                onClick={() => handleAuthNav('signup')}
+              >
+                {user ? 'Go to Dashboard' : 'Get Started Now'}
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Why PatentBot - Features */}
       <section className="section-spacing relative">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
