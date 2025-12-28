@@ -33,11 +33,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-// Initialize TrackIt analytics on app load
-initTrackIt();
-
 const RouteTracker = () => {
   const location = useLocation();
+
+  useEffect(() => {
+    // Initialize TrackIt analytics on first render
+    initTrackIt();
+  }, []);
 
   useEffect(() => {
     logEvent("page_view", {}, "PatentBot AI™");
