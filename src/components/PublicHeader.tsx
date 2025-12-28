@@ -32,9 +32,9 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
   }, []);
 
   return (
-    <header className={`sticky top-0 z-50 ${transparent ? 'bg-transparent' : 'bg-background/80 backdrop-blur-xl border-b border-border/50'}`}>
-      <div className="max-w-6xl mx-auto px-5 sm:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className={`sticky top-0 z-50 ${transparent ? 'bg-transparent' : 'glass-strong border-b border-border/30'}`}>
+      <div className="max-w-7xl mx-auto px-5 sm:px-8">
+        <div className="flex items-center justify-between h-18 py-4">
           {/* Logo */}
           <div 
             className="cursor-pointer" 
@@ -47,16 +47,15 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
             />
           </div>
 
-          {/* Navigation - Minimal */}
-          <nav className="flex items-center gap-4">
+          {/* Navigation */}
+          <nav className="flex items-center gap-2 sm:gap-4">
             {loading ? (
-              <div className="w-20 h-9 bg-muted/30 rounded-lg animate-pulse" />
+              <div className="w-20 h-9 bg-muted/30 rounded-xl animate-pulse" />
             ) : user ? (
               <Button 
-                variant="ghost"
+                variant="default"
                 size="sm"
                 onClick={() => navigate('/dashboard')}
-                className="text-foreground/70 hover:text-foreground"
               >
                 Dashboard
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -67,7 +66,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
                   variant="ghost" 
                   size="sm"
                   onClick={() => navigate('/auth?tab=signin')}
-                  className="text-foreground/70 hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Sign in
                 </Button>
