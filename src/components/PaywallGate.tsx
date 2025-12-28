@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Crown, Shield, CheckCircle, Lock } from 'lucide-react';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
 import { CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY, PATENT_APPLICATION_PRICE_DISPLAY, FREE_SEARCHES_LIMIT } from '@/lib/pricingConstants';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 interface PaywallGateProps {
   children: React.ReactNode;
@@ -41,13 +42,19 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
 
+  const adminStatus = useAdminStatus(userId);
+
   useEffect(() => {
-    if (bypassPaywall) {
+    // If admin status is still loading, wait
+    if (adminStatus.loading) return;
+    
+    // If user can bypass paywall (admin or free grant), grant access immediately
+    if (bypassPaywall || adminStatus.canBypassPaywall) {
       setStatus({
         hasAccess: true,
-        isAdmin: true,
-        isFreeUser: false,
-        plan: 'bypass',
+        isAdmin: adminStatus.isAdmin,
+        isFreeUser: adminStatus.isFreeGrant,
+        plan: adminStatus.isAdmin ? 'admin' : 'free_grant',
         status: 'active'
       });
       setLoading(false);
@@ -55,7 +62,7 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
     }
 
     checkAccess();
-  }, [userId, bypassPaywall]);
+  }, [userId, bypassPaywall, adminStatus.loading, adminStatus.canBypassPaywall]);
 
   const checkAccess = async () => {
     if (!userId) {
