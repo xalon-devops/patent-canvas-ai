@@ -134,25 +134,13 @@ const Pricing = () => {
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Button>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-20"></div>
-                  <div className="relative rounded-lg p-2">
-                    <img 
-                      src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
-                      alt="PatentBot AI Logo" 
-                      className="h-8 w-auto"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    PatentBot AI™ Pricing
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    Choose the plan that's right for you
-                  </p>
-                </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  PatentBot AI™ Pricing
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Choose the plan that's right for you
+                </p>
               </div>
             </div>
           </div>
