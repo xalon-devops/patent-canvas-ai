@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { ArrowRight, Check, Sparkles, Shield, Zap, FileText, Search, Clock, DollarSign, Award, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Shield, Zap, FileText, Search, Clock, DollarSign, Award, ChevronRight, HelpCircle } from 'lucide-react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
 import PublicHeader from '@/components/PublicHeader';
@@ -474,6 +480,106 @@ const Index = () => {
                 <p className="text-muted-foreground leading-relaxed">{benefit.description}</p>
               </motion.div>
             ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="section-spacing relative bg-muted/20">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+          {/* Section header */}
+          <motion.div 
+            className="text-center max-w-3xl mx-auto mb-16"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+            transition={{ duration: 0.6 }}
+          >
+            <p className="badge-outline mb-4">
+              <HelpCircle className="w-3.5 h-3.5 mr-1" />
+              FAQ
+            </p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
+              Frequently asked <span className="text-gradient">questions</span>
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Everything you need to know about our patent application process.
+            </p>
+          </motion.div>
+
+          {/* FAQ Accordion */}
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={fadeInUp}
+            transition={{ duration: 0.6 }}
+          >
+            <Accordion type="single" collapsible className="space-y-4">
+              <AccordionItem value="item-1" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  What types of patents can PatentBot help with?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  PatentBot specializes in utility patents, which cover new and useful processes, machines, manufactures, and compositions of matter. This includes software patents, mechanical inventions, chemical compositions, and business methods. We currently focus on provisional and non-provisional utility patent applications for the USPTO.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-2" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  How long does it take to generate a patent application?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  Most patent applications are generated within 24-48 hours after completing the AI interview process. The interview itself typically takes 30-60 minutes depending on the complexity of your invention. You can complete it in multiple sessions if needed.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-3" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  Do I still need a patent attorney?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  While PatentBot generates professional-quality patent applications, we recommend having a registered patent attorney or agent review your application before filing, especially for complex inventions or if you're new to the patent process. Our output is designed to give attorneys a strong starting point, potentially reducing their billable hours significantly.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-4" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  What is included in the prior art search?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  Our prior art search covers the USPTO database, EPO (European Patent Office), WIPO (World Intellectual Property Organization), and major international patent databases. We use AI-powered semantic search to identify similar inventions, analyze claim overlap, and provide a novelty assessment with similarity scores for each result.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-5" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  Is my invention idea kept confidential?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  Absolutely. Your invention details are encrypted and stored securely. We never share your information with third parties, and our systems are designed with attorney-client privilege standards in mind. All data is stored on SOC 2 compliant infrastructure and you can delete your data at any time.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-6" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  What format will my patent application be in?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  Your patent application is generated in USPTO-compliant format and can be downloaded as both DOCX and PDF files. The document includes all required sections: title, abstract, background, summary, detailed description, claims, and drawing descriptions. The formatting follows USPTO guidelines so you can file directly or share with your attorney.
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="item-7" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
+                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
+                  Can I make revisions after the draft is generated?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+                  Yes! Unlimited revisions are included with every patent application. You can edit any section directly in our editor, request AI-powered enhancements, or regenerate specific sections based on new information. Your application is never "locked" — iterate as much as you need before filing.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </motion.div>
         </div>
       </section>
