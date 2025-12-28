@@ -15,17 +15,21 @@ const BASE_TITLE = "PatentBot™";
 const BASE_URL = "https://patentbot-ai.com";
 const DEFAULT_IMAGE = `${BASE_URL}/social-preview.png`;
 
+// Primary keywords targeting "AI patents" search intent
+const PRIMARY_KEYWORDS = "AI patent, AI patents, AI patent application, machine learning patent, artificial intelligence patent, file AI patent, AI patent filing, AI patent software, patent AI tool, AI patent generator, AI patent drafting, deep learning patent, neural network patent, AI invention patent";
+const SECONDARY_KEYWORDS = "USPTO filing, patent search, patent drafting, intellectual property protection, file patent online, patent application cost, patent attorney alternative, DIY patent, file patent without attorney, provisional patent, utility patent";
+
 export const SEO = ({
   title,
-  description = "File patent applications in minutes with AI-guided drafting, prior art search, and USPTO-ready formatting. $1,000 flat fee. Save 90% vs patent attorneys.",
-  keywords = "patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property protection, invention patent, file patent online",
+  description = "File AI patent applications in minutes. AI-powered patent drafting for machine learning, neural networks & AI inventions. USPTO-ready formatting. $1,000 flat fee - save 90% vs attorneys.",
+  keywords = `${PRIMARY_KEYWORDS}, ${SECONDARY_KEYWORDS}`,
   canonicalPath,
   noindex = false,
   ogType = "website",
   ogImage = DEFAULT_IMAGE,
   structuredData,
 }: SEOProps) => {
-  const fullTitle = title ? `${title} | ${BASE_TITLE}` : `${BASE_TITLE} - AI-Powered Patent Application Generator | $1,000 Flat Fee`;
+  const fullTitle = title ? `${title} | ${BASE_TITLE}` : `${BASE_TITLE} - AI Patent Application Generator | File AI Patents for $1,000`;
   const canonicalUrl = canonicalPath ? `${BASE_URL}${canonicalPath}` : undefined;
 
   return (
@@ -70,61 +74,99 @@ export const SEO = ({
   );
 };
 
-// Pre-configured SEO for each page - optimized for conversions and Google ranking
+// Pre-configured SEO for each page - optimized for "AI patents" ranking
 export const PageSEO = {
   Home: () => (
     <SEO
       canonicalPath="/"
-      description="File patent applications in minutes with PatentBot™. AI-guided drafting, prior art search, and USPTO-ready formatting. Just $1,000 flat fee vs $10,000+ for attorneys. Protect your invention today."
-      keywords="patent application, AI patent generator, USPTO filing, patent search, patent drafting, intellectual property protection, patent automation, file patent online, patent application cost, cheap patent filing, patent attorney alternative, provisional patent application, how to file a patent, utility patent, patent protection"
+      description="File AI patents in minutes with PatentBot™. The #1 AI patent application tool for machine learning, neural networks & AI inventions. USPTO-ready formatting. $1,000 flat fee vs $10,000+ attorneys."
+      keywords="AI patent, AI patents, file AI patent, AI patent application, machine learning patent, artificial intelligence patent, AI patent generator, AI patent software, neural network patent, deep learning patent, AI invention patent, USPTO AI patent, patent AI tool, AI patent drafting, file patent online, patent application cost, DIY patent application, file patent without attorney, patent attorney alternative, provisional patent, utility patent"
+      structuredData={{
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "How to File an AI Patent Application",
+        "description": "Step-by-step guide to filing a patent for AI, machine learning, or neural network inventions using PatentBot's AI-powered platform.",
+        "totalTime": "PT30M",
+        "estimatedCost": {
+          "@type": "MonetaryAmount",
+          "currency": "USD",
+          "value": "1000"
+        },
+        "step": [
+          {
+            "@type": "HowToStep",
+            "position": 1,
+            "name": "Describe Your AI Invention",
+            "text": "Answer AI-guided questions about your machine learning model, neural network architecture, or AI algorithm."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 2,
+            "name": "Prior Art Search",
+            "text": "Our AI searches USPTO, Google Patents, and international databases to find similar AI patents and assess novelty."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 3,
+            "name": "AI Drafts Your Patent",
+            "text": "PatentBot generates professional patent claims, detailed technical descriptions, and abstracts for your AI invention."
+          },
+          {
+            "@type": "HowToStep",
+            "position": 4,
+            "name": "Review & Export",
+            "text": "Review your USPTO-ready AI patent application and export to DOCX/PDF for filing."
+          }
+        ]
+      }}
     />
   ),
   
   Pricing: () => (
     <SEO
-      title="Pricing - Patent Applications from $1,000"
+      title="AI Patent Pricing - File AI Patents from $1,000"
       canonicalPath="/pricing"
-      description="PatentBot™ pricing: $1,000 flat fee for complete USPTO-ready patent applications. $9.99/month for unlimited prior art searches. Save 90% vs traditional patent attorneys. No hidden fees, no hourly billing."
-      keywords="patent application cost, patent filing price, AI patent pricing, USPTO filing cost, affordable patent services, cheap patent filing, patent attorney alternative, how much does a patent cost, patent application fees, patent lawyer cost, provisional patent cost"
+      description="PatentBot™ AI patent pricing: $1,000 flat fee for complete USPTO-ready AI patent applications. File machine learning & neural network patents. $9.99/month for unlimited AI prior art searches."
+      keywords="AI patent cost, AI patent application price, machine learning patent cost, file AI patent price, artificial intelligence patent filing cost, AI patent attorney alternative, how much does an AI patent cost, neural network patent price, deep learning patent cost, AI invention patent fees"
       structuredData={{
         "@context": "https://schema.org",
         "@type": "PriceSpecification",
         "price": "1000",
         "priceCurrency": "USD",
-        "description": "Complete AI-guided patent application with USPTO-ready formatting"
+        "description": "Complete AI patent application with USPTO-ready formatting for machine learning, neural networks, and AI inventions"
       }}
     />
   ),
   
   Demo: () => (
     <SEO
-      title="Free Demo - See AI Patent Drafting in Action"
+      title="AI Patent Demo - See AI Patent Drafting in Action"
       canonicalPath="/demo"
-      description="Watch PatentBot™ transform your invention idea into a professional USPTO-ready patent application in minutes. Free interactive demo - see how our AI drafts claims, descriptions, and conducts prior art analysis."
-      keywords="patent AI demo, patent application demo, AI patent generator demo, USPTO filing demo, how to file patent, patent drafting software, patent application tool, free patent demo, patent writing software"
+      description="Watch PatentBot™ transform your AI invention into a professional USPTO-ready patent application. Free demo shows how we draft AI patents, machine learning patents, and neural network patents in minutes."
+      keywords="AI patent demo, machine learning patent demo, file AI patent demo, AI patent generator demo, neural network patent demo, AI patent drafting software, AI patent application tool, free AI patent demo"
     />
   ),
   
   Auth: () => (
     <SEO
-      title="Sign In - Start Your Patent Application"
+      title="Sign In - Start Your AI Patent Application"
       canonicalPath="/auth"
-      description="Sign in to PatentBot™ to start your patent application. Create a free account to file patents with AI-guided drafting, prior art search, and professional USPTO formatting."
-      keywords="patent application login, PatentBot sign in, create patent account, file patent online, start patent application, patent account"
+      description="Sign in to PatentBot™ to file your AI patent application. Create a free account to file machine learning patents, neural network patents, and AI invention patents with AI-guided drafting."
+      keywords="AI patent login, PatentBot sign in, file AI patent account, start AI patent application, machine learning patent account"
     />
   ),
   
   Check: () => (
     <SEO
-      title="Prior Art Search - Check if Your Invention is Patentable"
+      title="AI Patent Search - Check if Your AI Invention is Patentable"
       canonicalPath="/check"
-      description="AI-powered prior art search to check if your invention is patentable. PatentBot™ searches USPTO, Google Patents & international databases. 3 free searches, then unlimited for $9.99/month. Find similar patents instantly."
-      keywords="prior art search, patent search, patent database search, invention novelty check, USPTO patent search, patent similarity search, free patent search, check if patent exists, is my invention patentable, patent novelty search, prior art analysis, patent clearance search, freedom to operate search"
+      description="AI-powered prior art search for AI patents. Check if your machine learning model, neural network, or AI algorithm is patentable. Search USPTO & Google Patents for similar AI patents instantly."
+      keywords="AI patent search, machine learning patent search, neural network patent search, AI prior art search, is my AI patentable, AI patent database search, artificial intelligence patent search, deep learning patent search, AI invention novelty check, AI patent similarity search, free AI patent search"
       structuredData={{
         "@context": "https://schema.org",
         "@type": "Service",
-        "name": "Prior Art Search",
-        "description": "AI-powered prior art search across USPTO, Google Patents, and international databases",
+        "name": "AI Patent Prior Art Search",
+        "description": "AI-powered prior art search for machine learning patents, neural network patents, and AI inventions across USPTO, Google Patents, and international databases",
         "provider": {
           "@type": "Organization",
           "name": "PatentBot"
@@ -133,7 +175,7 @@ export const PageSEO = {
           "@type": "Offer",
           "price": "9.99",
           "priceCurrency": "USD",
-          "description": "Unlimited prior art searches per month"
+          "description": "Unlimited AI patent searches per month"
         }
       }}
     />
