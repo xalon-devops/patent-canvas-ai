@@ -14,7 +14,8 @@ import {
   FileText, 
   Bot,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
@@ -23,6 +24,7 @@ import {
   CHECK_AND_SEE_PRICE_DISPLAY, 
   STRIPE_CHECK_AND_SEE_PRICE_ID 
 } from '@/lib/pricingConstants';
+import { PublicHeader } from '@/components/PublicHeader';
 
 const Pricing = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -121,31 +123,7 @@ const Pricing = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Pricing />
-      {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  PatentBot AI™ Pricing
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Choose the plan that's right for you
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main className="container mx-auto px-4 py-12">
         {/* Hero Section */}
@@ -225,45 +203,52 @@ const Pricing = () => {
           </Card>
 
           {/* Check & See Subscription - $9.99/month */}
-          <Card className="relative shadow-card border-0 bg-card/80 backdrop-blur-sm">
-            <CardHeader className="text-center pb-8">
-              <div className="w-12 h-12 bg-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-6 w-6 text-secondary" />
+          <Card className="relative shadow-elegant border border-accent/20 bg-card overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent"></div>
+            <div className="absolute top-4 right-4">
+              <Badge className="bg-accent/10 text-accent border-accent/30">
+                <Sparkles className="h-3 w-3 mr-1" />
+                7-Day Free Trial
+              </Badge>
+            </div>
+            <CardHeader className="text-center pb-8 relative">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-6 w-6 text-accent" />
               </div>
-              <CardTitle className="text-2xl">Check & See</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-2xl text-foreground">Check & See</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Unlimited prior patent searches
               </CardDescription>
-              <div className="text-4xl font-bold mt-4 text-secondary">
+              <div className="text-4xl font-bold mt-4 text-accent">
                 {CHECK_AND_SEE_PRICE_DISPLAY}
-                <span className="text-base font-normal text-muted-foreground block mt-1">per month</span>
+                <span className="text-base font-normal text-muted-foreground block mt-1">per month after trial</span>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 relative">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">Unlimited patent searches</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">Unlimited patent searches</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">AI-powered similarity analysis</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">AI-powered similarity analysis</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">USPTO & Google Patents search</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">USPTO & Google Patents search</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">Detailed overlap analysis</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">Detailed overlap analysis</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">Search before you file</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">Search before you file</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-secondary" />
-                  <span className="text-sm">Cancel anytime</span>
+                  <Check className="h-4 w-4 text-accent" />
+                  <span className="text-sm text-foreground">Cancel anytime</span>
                 </div>
               </div>
               {isPremium ? (
@@ -277,12 +262,11 @@ const Pricing = () => {
                 </Button>
               ) : (
                 <Button 
-                  variant="outline" 
-                  className="w-full mt-6 border-secondary/50 hover:bg-secondary/10"
+                  className="w-full mt-6 bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => user ? navigate('/check') : navigate('/auth?tab=signup')}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  {user ? 'Start Searching' : 'Get Started'}
+                  {user ? 'Start Free Trial' : 'Start Free Trial'}
                 </Button>
               )}
             </CardContent>
