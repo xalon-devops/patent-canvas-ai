@@ -203,51 +203,51 @@ const Pricing = () => {
           </Card>
 
           {/* Check & See Subscription - $9.99/month */}
-          <Card className="relative shadow-elegant border border-accent/20 bg-card overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent"></div>
+          <Card className="relative shadow-elegant border border-primary/20 bg-card overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
             <div className="absolute top-4 right-4">
-              <Badge className="bg-accent/10 text-accent border-accent/30">
+              <Badge className="bg-primary/10 text-primary border-primary/30">
                 <Sparkles className="h-3 w-3 mr-1" />
                 7-Day Free Trial
               </Badge>
             </div>
             <CardHeader className="text-center pb-8 relative">
-              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="h-6 w-6 text-accent" />
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-2xl text-foreground">Check & See</CardTitle>
               <CardDescription className="text-muted-foreground">
                 Unlimited prior patent searches
               </CardDescription>
-              <div className="text-4xl font-bold mt-4 text-accent">
-                {CHECK_AND_SEE_PRICE_DISPLAY}
+              <div className="mt-4">
+                <span className="text-4xl font-bold text-primary">{CHECK_AND_SEE_PRICE_DISPLAY}</span>
                 <span className="text-base font-normal text-muted-foreground block mt-1">per month after trial</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 relative">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">Unlimited patent searches</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">AI-powered similarity analysis</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">USPTO & Google Patents search</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">Detailed overlap analysis</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">Search before you file</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-accent" />
+                  <Check className="h-4 w-4 text-primary" />
                   <span className="text-sm text-foreground">Cancel anytime</span>
                 </div>
               </div>
@@ -262,11 +262,12 @@ const Pricing = () => {
                 </Button>
               ) : (
                 <Button 
-                  className="w-full mt-6 bg-accent text-accent-foreground hover:bg-accent/90"
+                  variant="gradient"
+                  className="w-full mt-6"
                   onClick={() => user ? navigate('/check') : navigate('/auth?tab=signup')}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  {user ? 'Start Free Trial' : 'Start Free Trial'}
+                  Start Free Trial
                 </Button>
               )}
             </CardContent>
