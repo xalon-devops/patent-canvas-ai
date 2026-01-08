@@ -8,20 +8,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Scale, FileText, Brain, ArrowLeft } from 'lucide-react';
+import { Scale, FileText, Brain, ArrowLeft, Mail } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
+  const authType = searchParams.get('type');
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Show success message if user just confirmed email
+    if (authType === 'confirmed') {
+      toast({
+        title: "Email Verified!",
+        description: "Your email has been verified. You can now sign in.",
+      });
+    } else if (authType === 'recovery') {
+      toast({
+        title: "Reset Your Password",
+        description: "Enter your new password below.",
+      });
+    }
+  }, [authType, toast]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,13 +70,11 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
-      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl
+          emailRedirectTo: `${window.location.origin}/auth?type=confirmed`
         }
       });
 
@@ -76,13 +92,20 @@ const Auth = () => {
           });
         }
       } else if (data.user && !data.session) {
-        // Email confirmation is required
+        // Send custom branded confirmation email
+        try {
+          await supabase.functions.invoke('send-email-confirmation', {
+            body: { email, type: 'signup' }
+          });
+        } catch (emailError) {
+          console.log('Custom email failed, using default:', emailError);
+        }
+        
         toast({
           title: "Check your email",
           description: "We've sent you a confirmation link to complete your registration.",
         });
       }
-      // If data.session exists, user is auto-confirmed and will be redirected by onAuthStateChange
     } catch (error) {
       toast({
         title: "Sign up failed",
@@ -121,6 +144,191 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setLoading(true);
+
+    try {
+      // Use our custom branded password reset email
+      const { error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setResetEmailSent(true);
+      toast({
+        title: "Reset email sent!",
+        description: "Check your inbox for a password reset link.",
+      });
+    } catch (error: any) {
+      // Fallback to Supabase default if custom fails
+      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
+      });
+      
+      if (supabaseError) {
+        toast({
+          title: "Failed to send reset email",
+          description: supabaseError.message,
+          variant: "destructive",
+        });
+      } else {
+        setResetEmailSent(true);
+        toast({
+          title: "Reset email sent!",
+          description: "Check your inbox for a password reset link.",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Please enter your email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setLoading(true);
+
+    try {
+      // Use our custom branded magic link email
+      const { error } = await supabase.functions.invoke('send-magic-link', {
+        body: { email }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Magic link sent!",
+        description: "Check your inbox for a sign-in link.",
+      });
+    } catch (error: any) {
+      // Fallback to Supabase default if custom fails
+      const { error: supabaseError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      
+      if (supabaseError) {
+        toast({
+          title: "Failed to send magic link",
+          description: supabaseError.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Magic link sent!",
+          description: "Check your inbox for a sign-in link.",
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Forgot Password View
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
+        <PageSEO.Auth />
+        <div className="w-full max-w-md">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setShowForgotPassword(false);
+              setResetEmailSent(false);
+            }}
+            className="mb-4 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Sign In
+          </Button>
+
+          <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
+            <CardHeader className="text-center">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-primary/10 rounded-full p-4">
+                  <Mail className="h-8 w-8 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl">Reset Password</CardTitle>
+              <CardDescription>
+                {resetEmailSent 
+                  ? "Check your email for a reset link"
+                  : "Enter your email to receive a reset link"
+                }
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              {resetEmailSent ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground mb-4">
+                    We've sent a password reset link to <strong>{email}</strong>
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setResetEmailSent(false);
+                      setEmail('');
+                    }}
+                  >
+                    Send to different email
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="transition-smooth focus:shadow-glow/20"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-primary hover:shadow-glow transition-smooth"
+                    disabled={loading}
+                  >
+                    {loading ? 'Sending...' : 'Send Reset Link'}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
@@ -195,7 +403,16 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password">Password</Label>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <Input
                       id="signin-password"
                       type="password"
@@ -212,6 +429,26 @@ const Auth = () => {
                     disabled={loading}
                   >
                     {loading ? 'Signing In...' : 'Sign In'}
+                  </Button>
+                  
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleMagicLink}
+                    disabled={loading}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Sign in with Magic Link
                   </Button>
                 </form>
               </TabsContent>
