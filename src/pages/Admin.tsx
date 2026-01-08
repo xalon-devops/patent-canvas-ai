@@ -25,7 +25,11 @@ import {
   BarChart3,
   DollarSign,
   TrendingUp,
-  Settings
+  Settings,
+  Mail,
+  Send,
+  UserX,
+  AlertCircle
 } from 'lucide-react';
 import { formatDateAdmin, getCurrentISOString } from '@/lib/dateUtils';
 import { PageSEO } from '@/components/SEO';
@@ -101,6 +105,9 @@ const Admin = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('analytics');
+  const [winbackLoading, setWinbackLoading] = useState(false);
+  const [winbackPreview, setWinbackPreview] = useState<{ targetCount: number; targetUsers: any[] } | null>(null);
+  const [selectedWinbackType, setSelectedWinbackType] = useState<string>('never_started');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -524,6 +531,71 @@ const Admin = () => {
     );
   }
 
+  // Winback email handlers
+  const handleWinbackPreview = async () => {
+    setWinbackLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-winback-emails', {
+        body: { targetType: selectedWinbackType, dryRun: true }
+      });
+
+      if (error) throw error;
+
+      setWinbackPreview({
+        targetCount: data.targetCount,
+        targetUsers: data.targetUsers || []
+      });
+
+      toast({
+        title: "Preview Ready",
+        description: `Found ${data.targetCount} users to email`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Preview Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setWinbackLoading(false);
+    }
+  };
+
+  const handleSendWinbackEmails = async () => {
+    if (!winbackPreview || winbackPreview.targetCount === 0) {
+      toast({
+        title: "No Users Selected",
+        description: "Run a preview first to see target users",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setWinbackLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-winback-emails', {
+        body: { targetType: selectedWinbackType, dryRun: false }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Winback Emails Sent!",
+        description: `Successfully sent ${data.sentCount} emails (${data.errorCount} errors)`,
+      });
+
+      setWinbackPreview(null);
+    } catch (error: any) {
+      toast({
+        title: "Send Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setWinbackLoading(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
@@ -792,6 +864,114 @@ const Admin = () => {
                   <div className="flex justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Free Trial</span>
                     <span className="font-medium text-green-600">7 days</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Winback Email Campaign Card */}
+              <Card className="md:col-span-2 border-primary/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    Winback Email Campaigns
+                  </CardTitle>
+                  <CardDescription>Send targeted emails to inactive/unpaid users to bring them back</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Campaign Type Selection */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Target Audience</label>
+                    <Select value={selectedWinbackType} onValueChange={setSelectedWinbackType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select audience" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="never_started">
+                          <div className="flex items-center gap-2">
+                            <UserX className="h-4 w-4" />
+                            <span>Never Started - Signed up but no sessions</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="abandoned_draft">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            <span>Abandoned Drafts - Started but didn't pay</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="churned_subscription">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>Churned Subscribers - Canceled/expired subs</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="all_inactive">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            <span>All Inactive - Everyone without active payment</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Preview Results */}
+                  {winbackPreview && (
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Target Users Found:</span>
+                        <Badge variant={winbackPreview.targetCount > 0 ? "default" : "secondary"}>
+                          {winbackPreview.targetCount} users
+                        </Badge>
+                      </div>
+                      {winbackPreview.targetUsers.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-sm text-muted-foreground">Preview (first 10):</span>
+                          <div className="grid gap-1 text-sm">
+                            {winbackPreview.targetUsers.map((u: any, i: number) => (
+                              <div key={i} className="flex justify-between items-center py-1 px-2 bg-background rounded">
+                                <span className="truncate">{u.email}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(u.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline"
+                      onClick={handleWinbackPreview}
+                      disabled={winbackLoading}
+                    >
+                      {winbackLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4 mr-2" />
+                      )}
+                      Preview Recipients
+                    </Button>
+                    <Button 
+                      onClick={handleSendWinbackEmails}
+                      disabled={winbackLoading || !winbackPreview || winbackPreview.targetCount === 0}
+                      className="bg-primary"
+                    >
+                      {winbackLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      Send to {winbackPreview?.targetCount || 0} Users
+                    </Button>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3" />
+                    Emails use PatentBot branded templates via Resend. All sends are logged to email_notifications table.
                   </div>
                 </CardContent>
               </Card>
