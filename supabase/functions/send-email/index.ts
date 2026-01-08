@@ -55,8 +55,9 @@ serve(async (req) => {
     // App branding constants
     const APP_NAME = "PatentBot™";
     const APP_DOMAIN = "https://patentbot-ai.com";
-    const APP_LOGO = "https://patentbot-ai.com/logo.png";
+    const APP_LOGO = "https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png";
     const BRAND_COLOR = "#001F3F";
+    const EMAIL_FROM = "PatentBot™ <teams@msg.patentbot-ai.com>";
 
     switch (type) {
       case 'welcome':
@@ -492,7 +493,7 @@ serve(async (req) => {
     logStep("Sending email", { to: emailData.to, subject: emailData.subject });
 
     const emailResponse = await resend.emails.send({
-      from: `PatentBot <noreply@resend.dev>`,
+      from: EMAIL_FROM,
       to: emailData.to,
       subject: emailData.subject,
       html: emailData.html,
