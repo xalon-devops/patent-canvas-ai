@@ -13,6 +13,7 @@ import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Sh
 
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
+import { WelcomeWizard } from '@/components/WelcomeWizard';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -394,38 +395,37 @@ const Dashboard = () => {
 
       <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">
-          {/* Welcome Onboarding for New Users */}
-          {showWelcome && (
-            <WelcomeOnboarding
-              userName={user?.email}
-              onDismiss={async () => {
-                // Hide immediately in UI
-                setShowWelcome(false);
+          {/* Welcome Wizard Modal for New Users */}
+          <WelcomeWizard
+            open={showWelcome}
+            userName={user?.email}
+            onComplete={async () => {
+              // Hide immediately in UI
+              setShowWelcome(false);
 
-                // Persist to database so it never shows again (upsert handles missing row)
-                if (user?.id) {
-                  const { error } = await supabase
-                    .from('users')
-                    .upsert(
-                      {
-                        id: user.id,
-                        email: user.email ?? null,
-                        onboarding_completed_at: getCurrentISOString(),
-                      },
-                      { onConflict: 'id' }
-                    );
+              // Persist to database so it never shows again (upsert handles missing row)
+              if (user?.id) {
+                const { error } = await supabase
+                  .from('users')
+                  .upsert(
+                    {
+                      id: user.id,
+                      email: user.email ?? null,
+                      onboarding_completed_at: getCurrentISOString(),
+                    },
+                    { onConflict: 'id' }
+                  );
 
-                  if (error) {
-                    console.error('Failed to save onboarding state:', error);
-                    // Fallback to localStorage
-                    localStorage.setItem('patentbot_welcome_dismissed', 'true');
-                  }
-                } else {
+                if (error) {
+                  console.error('Failed to save onboarding state:', error);
+                  // Fallback to localStorage
                   localStorage.setItem('patentbot_welcome_dismissed', 'true');
                 }
-              }}
-            />
-          )}
+              } else {
+                localStorage.setItem('patentbot_welcome_dismissed', 'true');
+              }
+            }}
+          />
 
           {/* Pricing Cards */}
           <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
