@@ -294,32 +294,53 @@ serve(async (req) => {
       `;
     };
 
-    for (const targetUser of targetUsers) {
-      try {
-        const emailResult = await resend.emails.send({
-          from: EMAIL_FROM,
-          to: [targetUser.email],
-          subject: getWinbackSubject(targetType),
-          html: getWinbackContent(targetType)
-        });
+    // Rate limiting: send in batches with delays to avoid API throttling
+    const BATCH_SIZE = 10;
+    const DELAY_BETWEEN_EMAILS_MS = 200; // 200ms between individual emails
+    const DELAY_BETWEEN_BATCHES_MS = 2000; // 2s between batches
 
-        // Log to email_notifications table
-        await supabaseClient.from('email_notifications').insert({
-          user_id: targetUser.id,
-          recipient_email: targetUser.email,
-          email_type: `winback_${targetType}`,
-          subject: getWinbackSubject(targetType),
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          metadata: { resend_id: emailResult.data?.id, target_type: targetType }
-        });
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-        sentCount++;
-        logStep(`Sent email to ${targetUser.email}`);
-      } catch (emailError: any) {
-        errorCount++;
-        errors.push(`${targetUser.email}: ${emailError.message}`);
-        logStep(`Failed to send to ${targetUser.email}`, { error: emailError.message });
+    for (let i = 0; i < targetUsers.length; i += BATCH_SIZE) {
+      const batch = targetUsers.slice(i, i + BATCH_SIZE);
+      logStep(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`, { batchSize: batch.length, totalProcessed: i });
+
+      for (const targetUser of batch) {
+        try {
+          const emailResult = await resend.emails.send({
+            from: EMAIL_FROM,
+            to: [targetUser.email],
+            subject: getWinbackSubject(targetType),
+            html: getWinbackContent(targetType)
+          });
+
+          // Log to email_notifications table
+          await supabaseClient.from('email_notifications').insert({
+            user_id: targetUser.id,
+            recipient_email: targetUser.email,
+            email_type: `winback_${targetType}`,
+            subject: getWinbackSubject(targetType),
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            metadata: { resend_id: emailResult.data?.id, target_type: targetType }
+          });
+
+          sentCount++;
+          logStep(`Sent email to ${targetUser.email}`);
+          
+          // Small delay between individual emails
+          await sleep(DELAY_BETWEEN_EMAILS_MS);
+        } catch (emailError: any) {
+          errorCount++;
+          errors.push(`${targetUser.email}: ${emailError.message}`);
+          logStep(`Failed to send to ${targetUser.email}`, { error: emailError.message });
+        }
+      }
+
+      // Longer delay between batches
+      if (i + BATCH_SIZE < targetUsers.length) {
+        logStep(`Waiting between batches...`);
+        await sleep(DELAY_BETWEEN_BATCHES_MS);
       }
     }
 
