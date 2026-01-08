@@ -1,12 +1,17 @@
 {
-  "name": "PatentBot AI",
+  "id": "patentbot-ai",
+  "name": "PatentBot AI - File AI Patents for $1,000",
   "short_name": "PatentBot",
-  "description": "AI-Powered Patent Application Generator - File Patents for $1,000",
+  "description": "AI-Powered Patent Application Generator - File AI patents, machine learning patents, and neural network patents in minutes. USPTO-ready formatting.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f8f9fb",
   "theme_color": "#1565c0",
   "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/favicon.png",
@@ -29,6 +34,14 @@
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/social-preview.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "label": "PatentBot AI - AI Patent Application Generator"
     }
   ]
 }

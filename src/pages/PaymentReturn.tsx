@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, FileText, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY } from '@/lib/pricingConstants';
+import { PageSEO } from '@/components/SEO';
 
 type PaymentStatus = 'verifying' | 'success' | 'error' | 'processing';
 type PaymentType = 'payment' | 'subscription' | null;
@@ -103,6 +104,7 @@ export default function PaymentReturn() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <PageSEO.PaymentReturn />
       <Card className="max-w-lg w-full shadow-elegant">
         {status === 'verifying' && (
           <>
