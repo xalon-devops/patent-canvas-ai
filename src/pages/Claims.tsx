@@ -18,6 +18,7 @@ import {
 import { formatDateTime } from '@/lib/dateUtils';
 import { validatePatentSection, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import DOMPurify from 'dompurify';
+import { PageSEO } from '@/components/SEO';
 
 interface PatentSession {
   id: string;
@@ -319,6 +320,7 @@ const Claims = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <PageSEO.Claims />
       {/* Header */}
       <header className="border-b bg-card/90 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">

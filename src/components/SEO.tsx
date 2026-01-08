@@ -230,6 +230,14 @@ export const PageSEO = {
     />
   ),
   
+  Profile: () => (
+    <SEO
+      title="Profile"
+      noindex={true}
+      description="View and edit your PatentBot™ profile."
+    />
+  ),
+  
   Admin: () => (
     <SEO
       title="Admin Dashboard"

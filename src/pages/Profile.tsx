@@ -158,7 +158,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <PageSEO.Settings />
+      <PageSEO.Profile />
       <div className="safe-area py-8">
         <div className="content-width max-w-2xl mx-auto px-4">
           {/* Header */}
