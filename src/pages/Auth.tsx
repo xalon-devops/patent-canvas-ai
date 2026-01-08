@@ -11,6 +11,9 @@ import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain, ArrowLeft, Mail } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
 
+// Production app domain - always use this for redirects
+const APP_DOMAIN = "https://patentbot-ai.com";
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
@@ -74,7 +77,7 @@ const Auth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth?type=confirmed`
+          emailRedirectTo: `${APP_DOMAIN}/auth?type=confirmed`
         }
       });
 
@@ -176,7 +179,7 @@ const Auth = () => {
     } catch (error: any) {
       // Fallback to Supabase default if custom fails
       const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?type=recovery`,
+        redirectTo: `${APP_DOMAIN}/auth?type=recovery`,
       });
       
       if (supabaseError) {
@@ -228,7 +231,7 @@ const Auth = () => {
       const { error: supabaseError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${APP_DOMAIN}/dashboard`,
         },
       });
       

@@ -3,54 +3,54 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
-  <!-- Homepage - Highest Priority -->
+  <!-- Homepage - Highest Priority (Primary Landing) -->
   <url>
     <loc>https://patentbot-ai.com/</loc>
-    <lastmod>2025-12-27</lastmod>
+    <lastmod>2026-01-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://patentbot-ai.com/social-preview.png</image:loc>
-      <image:title>PatentBot™ - AI-Powered Patent Application Generator</image:title>
-      <image:caption>File patent applications in minutes with AI-guided drafting for $1,000 flat fee</image:caption>
+      <image:title>PatentBot™ - AI Patent Application Generator for Machine Learning &amp; Neural Networks</image:title>
+      <image:caption>File AI patent applications in minutes for $1,000 flat fee. USPTO-ready formatting.</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://patentbot-ai.com/logo.png</image:loc>
       <image:title>PatentBot™ Logo</image:title>
-      <image:caption>PatentBot™ - Protect Your Innovation with AI</image:caption>
+      <image:caption>PatentBot™ - Protect Your AI Innovation</image:caption>
     </image:image>
   </url>
   
   <!-- Pricing - High Commercial Intent (Money Page) -->
   <url>
     <loc>https://patentbot-ai.com/pricing</loc>
-    <lastmod>2025-12-27</lastmod>
+    <lastmod>2026-01-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.95</priority>
     <image:image>
       <image:loc>https://patentbot-ai.com/social-preview.png</image:loc>
-      <image:title>PatentBot™ Pricing - $1,000 Patent Applications</image:title>
-      <image:caption>Affordable AI patent filing - save 90% vs patent attorneys</image:caption>
+      <image:title>PatentBot™ AI Patent Pricing - $1,000 Flat Fee</image:title>
+      <image:caption>Save 90% vs patent attorneys. File AI patents for $1,000. Prior art search $9.99/month.</image:caption>
     </image:image>
   </url>
   
   <!-- Check & See - Prior Art Search Feature Page -->
   <url>
     <loc>https://patentbot-ai.com/check</loc>
-    <lastmod>2025-12-27</lastmod>
+    <lastmod>2026-01-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <image:image>
       <image:loc>https://patentbot-ai.com/social-preview.png</image:loc>
-      <image:title>Prior Art Search - Check if Your Invention is Patentable</image:title>
-      <image:caption>AI-powered patent database search - USPTO, Google Patents, international databases</image:caption>
+      <image:title>AI Patent Search - Check if Your Invention is Patentable</image:title>
+      <image:caption>AI-powered prior art search across USPTO, Google Patents, and international databases</image:caption>
     </image:image>
   </url>
   
   <!-- Demo - Lead Generation Page -->
   <url>
     <loc>https://patentbot-ai.com/demo</loc>
-    <lastmod>2025-12-27</lastmod>
+    <lastmod>2026-01-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.85</priority>
     <image:image>
@@ -60,10 +60,10 @@
     </image:image>
   </url>
   
-  <!-- Auth - Entry Point (lower priority as it's transactional) -->
+  <!-- Auth - Entry Point -->
   <url>
     <loc>https://patentbot-ai.com/auth</loc>
-    <lastmod>2025-12-27</lastmod>
+    <lastmod>2026-01-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
