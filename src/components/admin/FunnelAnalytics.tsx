@@ -35,7 +35,6 @@ export function FunnelAnalytics() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Calculate time filter
       const now = new Date();
       let startDate: Date;
       switch (timeRange) {
@@ -55,7 +54,6 @@ export function FunnelAnalytics() {
           startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       }
 
-      // Fetch all events in time range
       const { data: events, error } = await supabase
         .from('funnel_events')
         .select('*')
@@ -64,11 +62,9 @@ export function FunnelAnalytics() {
 
       if (error) throw error;
 
-      // Calculate unique sessions
       const sessions = new Set((events || []).map(e => e.session_id));
       setUniqueSessions(sessions.size);
 
-      // Calculate funnel metrics
       const stepOrder = [
         FUNNEL_STEPS.LANDING,
         FUNNEL_STEPS.AUTH_VIEW,
@@ -105,7 +101,7 @@ export function FunnelAnalytics() {
       });
 
       setFunnelData(funnel);
-      setRecentEvents((events || []).slice(0, 20) as FunnelEvent[]);
+      setRecentEvents((events || []).slice(0, 10) as FunnelEvent[]);
     } catch (error) {
       console.error('Error fetching funnel data:', error);
     } finally {
@@ -118,172 +114,124 @@ export function FunnelAnalytics() {
   }, [timeRange]);
 
   const getStepLabel = (step: string) => {
-    const labels: Record<string, string> = {
-      landing: '🏠 Landing Page',
-      auth_view: '🔐 Auth Page View',
-      auth_signup_start: '✏️ Signup Started',
-      auth_signup_complete: '✅ Signup Complete',
-      auth_login: '🔑 Login',
-      dashboard: '📊 Dashboard',
-      new_application_start: '📝 New App Started',
-      patent_session_created: '💡 Patent Session',
-      payment_initiated: '💳 Payment Started',
-      payment_complete: '💰 Payment Complete',
-      check_page_view: '🔍 Check & See',
-      prior_art_search: '🔎 Prior Art Search',
+    const labels: Record<string, { icon: string; label: string }> = {
+      landing: { icon: '🏠', label: 'Landing' },
+      auth_view: { icon: '🔐', label: 'Auth Page' },
+      auth_signup_start: { icon: '✏️', label: 'Signup Start' },
+      auth_signup_complete: { icon: '✅', label: 'Signup Done' },
+      auth_login: { icon: '🔑', label: 'Login' },
+      dashboard: { icon: '📊', label: 'Dashboard' },
+      new_application_start: { icon: '📝', label: 'New App' },
+      patent_session_created: { icon: '💡', label: 'Patent Session' },
+      payment_initiated: { icon: '💳', label: 'Payment Start' },
+      payment_complete: { icon: '💰', label: 'Payment Done' },
+      check_page_view: { icon: '🔍', label: 'Check & See' },
+      prior_art_search: { icon: '🔎', label: 'Prior Art' },
     };
-    return labels[step] || step;
-  };
-
-  const getDropoffColor = (dropoff: number) => {
-    if (dropoff === 0) return 'text-muted-foreground';
-    if (dropoff < 30) return 'text-green-600';
-    if (dropoff < 60) return 'text-yellow-600';
-    return 'text-red-600';
+    return labels[step] || { icon: '•', label: step };
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with controls */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Conversion Funnel</h3>
-          <p className="text-sm text-muted-foreground">Track where visitors drop off</p>
-        </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-base font-semibold">Funnel</h3>
         <div className="flex gap-2">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1h">Last Hour</SelectItem>
-              <SelectItem value="24h">Last 24h</SelectItem>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
+              <SelectItem value="1h">1h</SelectItem>
+              <SelectItem value="24h">24h</SelectItem>
+              <SelectItem value="7d">7d</SelectItem>
+              <SelectItem value="30d">30d</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Sessions</span>
+      {/* Summary - Compact 4-column grid */}
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { icon: Users, label: 'Sessions', value: uniqueSessions },
+          { icon: MousePointer, label: 'Signups', value: funnelData.find(f => f.step === 'auth_signup_complete')?.count || 0 },
+          { icon: TrendingDown, label: 'Drop', value: `${funnelData.find(f => f.step === 'auth_signup_complete')?.dropoff || 0}%` },
+          { icon: CreditCard, label: 'Paid', value: funnelData.find(f => f.step === 'payment_complete')?.count || 0 },
+        ].map((stat) => (
+          <Card key={stat.label} className="p-2">
+            <div className="flex items-center gap-1.5">
+              <stat.icon className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="text-[10px] text-muted-foreground truncate">{stat.label}</span>
             </div>
-            <p className="text-2xl font-bold">{uniqueSessions}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <MousePointer className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Signups</span>
-            </div>
-            <p className="text-2xl font-bold">
-              {funnelData.find(f => f.step === 'auth_signup_complete')?.count || 0}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Auth Dropoff</span>
-            </div>
-            <p className="text-2xl font-bold">
-              {funnelData.find(f => f.step === 'auth_signup_complete')?.dropoff || 0}%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Payments</span>
-            </div>
-            <p className="text-2xl font-bold">
-              {funnelData.find(f => f.step === 'payment_complete')?.count || 0}
-            </p>
-          </CardContent>
-        </Card>
+            <p className="text-lg font-bold mt-0.5">{stat.value}</p>
+          </Card>
+        ))}
       </div>
 
-      {/* Funnel Visualization */}
+      {/* Funnel Steps - Compact */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Funnel Steps</CardTitle>
-          <CardDescription>Conversion rate at each step</CardDescription>
+        <CardHeader className="pb-2 pt-3 px-3">
+          <CardTitle className="text-sm">Steps</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {funnelData.map((step, index) => (
-              <div key={step.step} className="relative">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">{getStepLabel(step.step)}</span>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">{step.count} sessions</Badge>
-                    {step.dropoff > 0 && (
-                      <span className={`text-xs font-medium ${getDropoffColor(step.dropoff)}`}>
-                        ↓ {step.dropoff}% dropoff
-                      </span>
-                    )}
+        <CardContent className="px-3 pb-3">
+          <div className="space-y-2">
+            {funnelData.map((step) => {
+              const stepInfo = getStepLabel(step.step);
+              return (
+                <div key={step.step} className="flex items-center gap-2">
+                  <span className="text-sm shrink-0">{stepInfo.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between text-xs mb-0.5">
+                      <span className="font-medium truncate">{stepInfo.label}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-muted-foreground">{step.count}</span>
+                        {step.dropoff > 0 && (
+                          <span className={`text-[10px] ${step.dropoff >= 50 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            -{step.dropoff}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300"
+                        style={{ width: `${step.percentage}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="h-8 bg-muted rounded-md overflow-hidden">
-                  <div
-                    className="h-full bg-primary/80 transition-all duration-500"
-                    style={{ width: `${step.percentage}%` }}
-                  />
-                </div>
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-primary-foreground mix-blend-difference">
-                  {step.percentage}%
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Events */}
+      {/* Recent Events - Compact scrollable list */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Events</CardTitle>
-          <CardDescription>Last 20 funnel events</CardDescription>
+        <CardHeader className="pb-2 pt-3 px-3">
+          <CardTitle className="text-sm">Recent</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+        <CardContent className="px-3 pb-3">
+          <div className="space-y-1 max-h-32 overflow-y-auto">
             {recentEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No events recorded yet. Visit the landing page to start tracking.
-              </p>
+              <p className="text-xs text-muted-foreground text-center py-2">No events yet</p>
             ) : (
               recentEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-center justify-between text-sm py-2 border-b border-border last:border-0"
+                  className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0"
                 >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {event.funnel_step}
-                    </Badge>
-                    <span className="text-muted-foreground">{event.page_path}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span>{getStepLabel(event.funnel_step).icon}</span>
+                    <span className="text-muted-foreground truncate">{event.page_path}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {event.user_id && (
-                      <Badge variant="secondary" className="text-xs">
-                        Logged In
-                      </Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(event.created_at).toLocaleTimeString()}
-                    </span>
-                  </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                    {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               ))
             )}
