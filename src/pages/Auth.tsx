@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Scale, FileText, Brain, ArrowLeft, Mail } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { trackSignupStart, trackSignupComplete, trackLogin } from '@/hooks/useFunnelTracking';
 
 // Production app domain - always use this for redirects
 const APP_DOMAIN = "https://patentbot-ai.com";
@@ -71,6 +72,9 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Track signup attempt
+    trackSignupStart();
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -95,6 +99,9 @@ const Auth = () => {
           });
         }
       } else if (data.user && !data.session) {
+        // Track successful signup (email confirmation pending)
+        trackSignupComplete(data.user.id, email);
+        
         // Send custom branded confirmation email
         try {
           await supabase.functions.invoke('send-email-confirmation', {
@@ -108,6 +115,9 @@ const Auth = () => {
           title: "Check your email",
           description: "We've sent you a confirmation link to complete your registration.",
         });
+      } else if (data.user && data.session) {
+        // User auto-confirmed (e.g., dev environment)
+        trackSignupComplete(data.user.id, email);
       }
     } catch (error) {
       toast({
@@ -125,7 +135,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -136,6 +146,9 @@ const Auth = () => {
           description: error.message,
           variant: "destructive",
         });
+      } else if (data.user) {
+        // Track successful login
+        trackLogin(data.user.id, email);
       }
     } catch (error) {
       toast({

@@ -8,6 +8,7 @@ import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import { useEffect } from "react";
 import { logEvent } from "@/lib/conversionTracker";
 import { initTrackIt } from "@/lib/trackitAnalytics";
+import { useFunnelTracking } from "@/hooks/useFunnelTracking";
 import ScrollToTop from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -35,6 +36,9 @@ const queryClient = new QueryClient();
 
 const RouteTracker = () => {
   const location = useLocation();
+  
+  // Funnel tracking hook - tracks page views automatically
+  useFunnelTracking();
 
   useEffect(() => {
     // Initialize TrackIt analytics on first render

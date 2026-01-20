@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PageSEO } from '@/components/SEO';
 import { STRIPE_CHECK_AND_SEE_PRICE_ID, FREE_SEARCHES_LIMIT, CHECK_AND_SEE_PRICE } from '@/lib/pricingConstants';
+import { trackPriorArtSearch } from '@/hooks/useFunnelTracking';
 
 const Check = () => {
   // Use centralized data hook - single source of truth
@@ -82,6 +83,9 @@ const Check = () => {
       if (data?.results) {
         setPriorArtResults(data.results);
         setSearchKeywords(data.keywords_used || []);
+        
+        // Track successful prior art search
+        trackPriorArtSearch(searchQuery);
         
         // Update remaining searches locally for immediate feedback
         if (data.search_credits_remaining !== 'unlimited') {

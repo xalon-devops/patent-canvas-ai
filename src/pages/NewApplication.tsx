@@ -40,6 +40,7 @@ import PriorArtAnalysis from '@/components/PriorArtAnalysis';
 import PatentabilityAssessment from '@/components/PatentabilityAssessment';
 import PatentDrafter from '@/components/PatentDrafter';
 import { PageSEO } from '@/components/SEO';
+import { trackPatentSessionCreated } from '@/hooks/useFunnelTracking';
 
 type PatentType = 'software' | 'non-software' | null;
 
@@ -529,6 +530,9 @@ const NewApplication = () => {
       }
 
       console.log('Session created successfully:', sessionRow.id);
+      
+      // Track patent session creation for funnel analytics
+      trackPatentSessionCreated(sessionRow.id);
       
       const tempSessionData: SessionData = {
         sessionId: sessionRow.id,
