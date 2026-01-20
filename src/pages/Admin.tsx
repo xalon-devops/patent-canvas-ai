@@ -36,6 +36,7 @@ import { PageSEO } from '@/components/SEO';
 import { STRIPE_CHECK_AND_SEE_PRICE_ID, PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY, SUPABASE_QUERY_LIMIT, formatPrice } from '@/lib/pricingConstants';
 import AdminAnalyticsCharts from '@/components/admin/AdminAnalyticsCharts';
 import AdminUserManagement from '@/components/admin/AdminUserManagement';
+import { FunnelAnalytics } from '@/components/admin/FunnelAnalytics';
 
 interface AdminPatentSession {
   id: string;
@@ -709,7 +710,24 @@ const Admin = () => {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics">
-            <AdminAnalyticsCharts data={analyticsData} />
+            <div className="space-y-8">
+              {/* Funnel Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Conversion Funnel Tracking
+                  </CardTitle>
+                  <CardDescription>Track where visitors drop off in the signup funnel</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FunnelAnalytics />
+                </CardContent>
+              </Card>
+              
+              {/* Legacy Analytics Charts */}
+              <AdminAnalyticsCharts data={analyticsData} />
+            </div>
           </TabsContent>
 
           {/* Users Tab */}
