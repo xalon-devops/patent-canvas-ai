@@ -68,11 +68,33 @@ serve(async (req) => {
     logStep("Request parsed", { targetType, dryRun });
 
     // Find inactive/unpaid users based on targetType
+    // IMPORTANT: Only target users who exist in our public.users table (actual app users)
+    // and have email preferences allowing winback emails
     let targetUsers: { id: string; email: string; created_at: string; last_activity?: string }[] = [];
+
+    // Get all registered app users from our users table (not auth.users which includes all Supabase users)
+    const { data: registeredUsers, error: usersError } = await supabaseClient
+      .from('users')
+      .select('id, email, created_at, email_preferences');
+    
+    if (usersError) {
+      logStep("Error fetching registered users", { error: usersError.message });
+      throw new Error(`Failed to fetch users: ${usersError.message}`);
+    }
+
+    // Filter to only users with valid emails who haven't opted out of winback emails
+    const eligibleUsers = (registeredUsers || []).filter(u => {
+      if (!u.email) return false;
+      // Check email preferences - default to true if not set
+      const prefs = u.email_preferences as Record<string, boolean> | null;
+      // Allow if no preferences set, or if weekly_digest is true (use this as general marketing opt-in)
+      return !prefs || prefs.weekly_digest !== false;
+    });
+
+    logStep(`Found ${eligibleUsers.length} eligible registered users out of ${registeredUsers?.length || 0} total`);
 
     if (targetType === 'never_started') {
       // Users who signed up but never started a session
-      const { data: allUsers } = await supabaseClient.auth.admin.listUsers();
       const { data: usersWithSessions } = await supabaseClient
         .from('patent_sessions')
         .select('user_id')
@@ -80,8 +102,8 @@ serve(async (req) => {
 
       const userIdsWithSessions = new Set(usersWithSessions?.map(s => s.user_id) || []);
       
-      targetUsers = (allUsers?.users || [])
-        .filter(u => !userIdsWithSessions.has(u.id) && u.email)
+      targetUsers = eligibleUsers
+        .filter(u => !userIdsWithSessions.has(u.id))
         .map(u => ({
           id: u.id,
           email: u.email!,
@@ -102,15 +124,22 @@ serve(async (req) => {
         .eq('status', 'completed');
 
       const paidUserIds = new Set(paidUsers?.map(p => p.user_id) || []);
-      const unpaidUserIds = [...new Set((draftSessions || []).filter(s => !paidUserIds.has(s.user_id)).map(s => s.user_id))];
+      const eligibleUserIds = new Set(eligibleUsers.map(u => u.id));
+      
+      // Only include users who are in our eligible users list AND have draft sessions AND haven't paid
+      const unpaidUserIds = [...new Set(
+        (draftSessions || [])
+          .filter(s => !paidUserIds.has(s.user_id) && eligibleUserIds.has(s.user_id))
+          .map(s => s.user_id)
+      )];
 
       for (const userId of unpaidUserIds) {
-        const { data: userData } = await supabaseClient.auth.admin.getUserById(userId);
-        if (userData?.user?.email) {
+        const user = eligibleUsers.find(u => u.id === userId);
+        if (user?.email) {
           targetUsers.push({
             id: userId,
-            email: userData.user.email,
-            created_at: userData.user.created_at,
+            email: user.email,
+            created_at: user.created_at,
             last_activity: draftSessions?.find(s => s.user_id === userId)?.created_at
           });
         }
@@ -123,22 +152,25 @@ serve(async (req) => {
         .select('user_id, updated_at')
         .in('status', ['canceled', 'expired', 'past_due']);
 
+      const eligibleUserIds = new Set(eligibleUsers.map(u => u.id));
+
       for (const sub of churnedSubs || []) {
-        const { data: userData } = await supabaseClient.auth.admin.getUserById(sub.user_id);
-        if (userData?.user?.email) {
+        // Only include if user is in our eligible list
+        if (!eligibleUserIds.has(sub.user_id)) continue;
+        
+        const user = eligibleUsers.find(u => u.id === sub.user_id);
+        if (user?.email) {
           targetUsers.push({
             id: sub.user_id,
-            email: userData.user.email,
-            created_at: userData.user.created_at,
+            email: user.email,
+            created_at: user.created_at,
             last_activity: sub.updated_at
           });
         }
       }
 
     } else if (targetType === 'all_inactive') {
-      // All users without active subscription AND no completed payments
-      const { data: allUsers } = await supabaseClient.auth.admin.listUsers();
-      
+      // All registered users without active subscription AND no completed payments
       const { data: activeSubscribers } = await supabaseClient
         .from('subscriptions')
         .select('user_id')
@@ -154,8 +186,8 @@ serve(async (req) => {
         ...(paidUsers?.map(p => p.user_id) || [])
       ]);
 
-      targetUsers = (allUsers?.users || [])
-        .filter(u => !paidOrActiveIds.has(u.id) && u.email)
+      targetUsers = eligibleUsers
+        .filter(u => !paidOrActiveIds.has(u.id))
         .map(u => ({
           id: u.id,
           email: u.email!,
