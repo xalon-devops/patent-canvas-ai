@@ -411,9 +411,8 @@ serve(async (req) => {
         };
         break;
 
-      case 'abandoned_checkout':
+      case 'abandoned_checkout': {
         // Safety switch: abandoned checkout emails are OFF unless explicitly enabled.
-        // This prevents accidental email storms while we tune dedup/rate limits.
         if (Deno.env.get("ABANDONED_CHECKOUT_EMAILS_ENABLED") !== "true") {
           logStep("Abandoned checkout emails disabled - skipping");
           return new Response(JSON.stringify({ skipped: true, reason: "disabled" }), {
@@ -422,49 +421,66 @@ serve(async (req) => {
           });
         }
 
-        // DEDUPLICATION: Check if we already sent an email for this stripe session
-        if (stripeSessionId) {
-          const { data: existingEmail } = await supabaseClient
-            .from("email_notifications")
-            .select("id")
-            .eq("email_type", "abandoned_checkout")
-            .filter("metadata->>stripe_session_id", "eq", stripeSessionId)
-            .maybeSingle();
-
-          if (existingEmail) {
-            logStep("Abandoned checkout email already sent for this session, skipping", { stripeSessionId });
-            return new Response(JSON.stringify({ skipped: true, reason: "duplicate" }), {
-              status: 200,
-              headers: { "Content-Type": "application/json", ...corsHeaders },
-            });
-          }
+        if (!stripeSessionId) {
+          logStep("No stripeSessionId provided, cannot dedupe - skipping for safety");
+          return new Response(JSON.stringify({ skipped: true, reason: "no_session_id" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
         }
 
-        // Also rate limit: max 1 abandoned checkout email per user per 24 hours
-        logStep("Checking rate limit for recipient", { recipientEmail });
-        const { data: recentEmails, error: rateError } = await supabaseClient
+        // ATOMIC CLAIM-SEND: Insert first with unique constraint, if it fails = duplicate
+        // This prevents race conditions where concurrent requests both pass the SELECT check
+        const claimId = crypto.randomUUID();
+        const { error: claimError } = await supabaseClient
+          .from("email_notifications")
+          .insert({
+            id: claimId,
+            user_id: userId,
+            email_type: "abandoned_checkout",
+            recipient_email: recipientEmail,
+            subject: `Still thinking it over? - ${APP_NAME}`,
+            status: 'claimed', // Mark as claimed, not sent yet
+            stripe_session_id: stripeSessionId, // Unique constraint will reject duplicates
+            metadata: { claimed_at: new Date().toISOString() }
+          });
+
+        if (claimError) {
+          // Unique constraint violation = duplicate, or other error
+          if (claimError.code === '23505') { // PostgreSQL unique violation
+            logStep("ATOMIC DEDUPE: Email already claimed for this session", { stripeSessionId });
+          } else {
+            logStep("Error claiming email slot", { error: claimError.message, code: claimError.code });
+          }
+          return new Response(JSON.stringify({ skipped: true, reason: "duplicate_or_error" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
+        logStep("ATOMIC DEDUPE: Successfully claimed email slot", { stripeSessionId, claimId });
+
+        // Also check rate limit: max 1 abandoned checkout email per user per 24 hours
+        const { data: recentEmails } = await supabaseClient
           .from("email_notifications")
           .select("id")
           .eq("email_type", "abandoned_checkout")
           .eq("recipient_email", recipientEmail)
+          .eq("status", "sent")
           .gte("sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .limit(1);
 
-        logStep("Rate limit check result", { found: recentEmails?.length || 0, error: rateError?.message });
-
-        if (rateError) {
-          logStep("Error checking rate limit", { error: rateError.message });
-        }
-
         if (recentEmails && recentEmails.length > 0) {
-          logStep("Abandoned checkout email already sent to this user in last 24h, skipping", { recipientEmail });
+          logStep("Rate limited: email already sent to this user in last 24h", { recipientEmail });
+          // Delete the claim since we're not sending
+          await supabaseClient.from("email_notifications").delete().eq("id", claimId);
           return new Response(JSON.stringify({ skipped: true, reason: "rate_limited" }), {
             status: 200,
             headers: { "Content-Type": "application/json", ...corsHeaders },
           });
         }
 
-        // Non-annoying abandoned cart recovery email
+        // Build the email content
         const isSubscription = sessionMode === 'subscription';
         
         emailData = {
@@ -533,9 +549,11 @@ serve(async (req) => {
             </body>
             </html>
           `,
-          emailType: 'abandoned_checkout'
+          emailType: 'abandoned_checkout',
+          claimId // Pass claimId so we update the right row after sending
         };
         break;
+      }
 
       default:
         throw new Error(`Unknown email type: ${type}`);
@@ -552,25 +570,50 @@ serve(async (req) => {
 
     logStep("Email sent successfully", { emailId: emailResponse.data?.id });
 
-    // Log email in database (include stripe_session_id for deduplication)
-    const { error: logError } = await supabaseClient
-      .from("email_notifications")
-      .insert({
-        user_id: userId,
-        email_type: emailData.emailType,
-        recipient_email: emailData.to,
-        subject: emailData.subject,
-        content: emailData.html,
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        metadata: { 
-          resend_id: emailResponse.data?.id,
-          ...(stripeSessionId && { stripe_session_id: stripeSessionId })
-        }
-      });
+    // Log email in database
+    // For abandoned_checkout, we already have a claimed row - update it
+    // For other types, insert a new row
+    if (emailData.claimId) {
+      // Update the pre-claimed row for abandoned_checkout
+      const { error: updateError } = await supabaseClient
+        .from("email_notifications")
+        .update({
+          content: emailData.html,
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          metadata: { 
+            resend_id: emailResponse.data?.id,
+            stripe_session_id: stripeSessionId
+          }
+        })
+        .eq("id", emailData.claimId);
 
-    if (logError) {
-      logStep("Error logging email", { error: logError });
+      if (updateError) {
+        logStep("Error updating claimed email record", { error: updateError });
+      } else {
+        logStep("Updated claimed email record to sent", { claimId: emailData.claimId });
+      }
+    } else {
+      // Insert new row for non-abandoned-checkout emails
+      const { error: logError } = await supabaseClient
+        .from("email_notifications")
+        .insert({
+          user_id: userId,
+          email_type: emailData.emailType,
+          recipient_email: emailData.to,
+          subject: emailData.subject,
+          content: emailData.html,
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          stripe_session_id: stripeSessionId || null,
+          metadata: { 
+            resend_id: emailResponse.data?.id
+          }
+        });
+
+      if (logError) {
+        logStep("Error logging email", { error: logError });
+      }
     }
 
     return new Response(JSON.stringify(emailResponse), {
