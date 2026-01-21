@@ -175,11 +175,24 @@ Deno.serve(async (req) => {
       }
 
       case "checkout.session.expired": {
-        // Handle abandoned checkout - send recovery email
+        // Handle abandoned checkout - send recovery email (with deduplication)
         const expiredSession = event.data.object as Stripe.Checkout.Session;
         logStep("Checkout session expired (abandoned)", { sessionId: expiredSession.id });
 
         if (expiredSession.customer_email || expiredSession.metadata?.user_id) {
+          // Check if we already sent an email for this checkout session
+          const { data: existingEmail } = await supabaseClient
+            .from("email_notifications")
+            .select("id")
+            .eq("email_type", "abandoned_checkout")
+            .eq("metadata->stripe_session_id", expiredSession.id)
+            .maybeSingle();
+
+          if (existingEmail) {
+            logStep("Abandoned checkout email already sent for this session, skipping", { sessionId: expiredSession.id });
+            break;
+          }
+
           // Send abandoned checkout recovery email
           fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
             method: "POST",
@@ -193,6 +206,7 @@ Deno.serve(async (req) => {
               userEmail: expiredSession.customer_email,
               sessionMode: expiredSession.mode,
               amountTotal: expiredSession.amount_total,
+              stripeSessionId: expiredSession.id, // Pass this for deduplication tracking
             }),
           }).catch(err => logStep("Error sending abandoned checkout email", { error: err }));
         }
