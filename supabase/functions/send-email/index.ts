@@ -31,7 +31,7 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
-    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId } = await req.json();
+    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode } = await req.json();
     logStep("Request parsed", { type });
 
     let emailData: {
@@ -412,8 +412,49 @@ serve(async (req) => {
         break;
 
       case 'abandoned_checkout':
+        // DEDUPLICATION: Check if we already sent an email for this stripe session
+        if (stripeSessionId) {
+          const { data: existingEmail } = await supabaseClient
+            .from("email_notifications")
+            .select("id")
+            .eq("email_type", "abandoned_checkout")
+            .filter("metadata->>stripe_session_id", "eq", stripeSessionId)
+            .maybeSingle();
+
+          if (existingEmail) {
+            logStep("Abandoned checkout email already sent for this session, skipping", { stripeSessionId });
+            return new Response(JSON.stringify({ skipped: true, reason: "duplicate" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+          }
+        }
+
+        // Also rate limit: max 1 abandoned checkout email per user per 24 hours
+        logStep("Checking rate limit for recipient", { recipientEmail });
+        const { data: recentEmails, error: rateError } = await supabaseClient
+          .from("email_notifications")
+          .select("id")
+          .eq("email_type", "abandoned_checkout")
+          .eq("recipient_email", recipientEmail)
+          .gte("sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        logStep("Rate limit check result", { found: recentEmails?.length || 0, error: rateError?.message });
+
+        if (rateError) {
+          logStep("Error checking rate limit", { error: rateError.message });
+        }
+
+        if (recentEmails && recentEmails.length > 0) {
+          logStep("Abandoned checkout email already sent to this user in last 24h, skipping", { recipientEmail });
+          return new Response(JSON.stringify({ skipped: true, reason: "rate_limited" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
         // Non-annoying abandoned cart recovery email
-        const sessionMode = await req.json().then(d => d.sessionMode).catch(() => 'subscription');
         const isSubscription = sessionMode === 'subscription';
         
         emailData = {
@@ -533,26 +574,6 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in send-email", { message: errorMessage });
-
-    // Log failed email attempt
-    if (userId && recipientEmail) {
-      const supabaseClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-        { auth: { persistSession: false } }
-      );
-
-      await supabaseClient
-        .from("email_notifications")
-        .insert({
-          user_id: userId,
-          email_type: type || 'unknown',
-          recipient_email: recipientEmail,
-          subject: 'Failed to send',
-          status: 'failed',
-          metadata: { error: errorMessage }
-        });
-    }
 
     return new Response(
       JSON.stringify({ error: errorMessage }),
