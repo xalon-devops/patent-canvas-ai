@@ -31,8 +31,8 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
-    const { type, userId, sessionId, planType, userEmail, userName } = await req.json();
-    logStep("Request parsed", { type, userId, sessionId, planType });
+    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId } = await req.json();
+    logStep("Request parsed", { type });
 
     let emailData: {
       to: string;
@@ -501,7 +501,7 @@ serve(async (req) => {
 
     logStep("Email sent successfully", { emailId: emailResponse.data?.id });
 
-    // Log email in database
+    // Log email in database (include stripe_session_id for deduplication)
     const { error: logError } = await supabaseClient
       .from("email_notifications")
       .insert({
@@ -512,7 +512,10 @@ serve(async (req) => {
         content: emailData.html,
         status: 'sent',
         sent_at: new Date().toISOString(),
-        metadata: { resend_id: emailResponse.data?.id }
+        metadata: { 
+          resend_id: emailResponse.data?.id,
+          ...(stripeSessionId && { stripe_session_id: stripeSessionId })
+        }
       });
 
     if (logError) {
