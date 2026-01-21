@@ -412,6 +412,16 @@ serve(async (req) => {
         break;
 
       case 'abandoned_checkout':
+        // Safety switch: abandoned checkout emails are OFF unless explicitly enabled.
+        // This prevents accidental email storms while we tune dedup/rate limits.
+        if (Deno.env.get("ABANDONED_CHECKOUT_EMAILS_ENABLED") !== "true") {
+          logStep("Abandoned checkout emails disabled - skipping");
+          return new Response(JSON.stringify({ skipped: true, reason: "disabled" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          });
+        }
+
         // DEDUPLICATION: Check if we already sent an email for this stripe session
         if (stripeSessionId) {
           const { data: existingEmail } = await supabaseClient

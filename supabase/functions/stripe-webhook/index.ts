@@ -64,6 +64,10 @@ Deno.serve(async (req) => {
 
     logStep("Processing event", { type: event.type, id: event.id });
 
+    // Safety switch: abandoned checkout emails are OFF unless explicitly enabled.
+    // This prevents email storms if Stripe retries or multiple sessions expire.
+    const abandonedCheckoutEmailsEnabled = Deno.env.get("ABANDONED_CHECKOUT_EMAILS_ENABLED") === "true";
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -178,6 +182,11 @@ Deno.serve(async (req) => {
         // Handle abandoned checkout - send recovery email (with deduplication)
         const expiredSession = event.data.object as Stripe.Checkout.Session;
         logStep("Checkout session expired (abandoned)", { sessionId: expiredSession.id });
+
+        if (!abandonedCheckoutEmailsEnabled) {
+          logStep("Abandoned checkout emails disabled - skipping", { sessionId: expiredSession.id });
+          break;
+        }
 
         if (expiredSession.customer_email || expiredSession.metadata?.user_id) {
           // Check if we already sent an email for this checkout session
