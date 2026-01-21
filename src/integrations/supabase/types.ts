@@ -151,6 +151,7 @@ export type Database = {
           recipient_email: string
           sent_at: string | null
           status: string | null
+          stripe_session_id: string | null
           subject: string
           user_id: string | null
         }
@@ -163,6 +164,7 @@ export type Database = {
           recipient_email: string
           sent_at?: string | null
           status?: string | null
+          stripe_session_id?: string | null
           subject: string
           user_id?: string | null
         }
@@ -175,6 +177,7 @@ export type Database = {
           recipient_email?: string
           sent_at?: string | null
           status?: string | null
+          stripe_session_id?: string | null
           subject?: string
           user_id?: string | null
         }
