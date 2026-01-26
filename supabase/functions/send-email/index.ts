@@ -460,19 +460,28 @@ serve(async (req) => {
 
         logStep("ATOMIC DEDUPE: Successfully claimed email slot", { stripeSessionId, claimId });
 
-        // Also check rate limit: max 1 abandoned checkout email per user per 24 hours
+        // Rate limit: max 1 abandoned checkout email per user per 24 hours
+        // Check for BOTH 'sent' and 'claimed' to prevent sub-second race conditions
+        // (exclude our own claimId so we don't block ourselves)
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        
         const { data: recentEmails } = await supabaseClient
           .from("email_notifications")
-          .select("id")
+          .select("id, status")
           .eq("email_type", "abandoned_checkout")
           .eq("recipient_email", recipientEmail)
-          .eq("status", "sent")
-          .gte("sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .neq("id", claimId) // Exclude our own claim
+          .or(`status.eq.sent,status.eq.claimed`)
+          .gte("created_at", twentyFourHoursAgo)
           .limit(1);
 
         if (recentEmails && recentEmails.length > 0) {
-          logStep("Rate limited: email already sent to this user in last 24h", { recipientEmail });
-          // Delete the claim since we're not sending
+          logStep("Rate limited: another email already sent/claimed for this user in last 24h", { 
+            recipientEmail, 
+            existingId: recentEmails[0].id,
+            existingStatus: recentEmails[0].status 
+          });
+          // Delete our claim since we're not sending
           await supabaseClient.from("email_notifications").delete().eq("id", claimId);
           return new Response(JSON.stringify({ skipped: true, reason: "rate_limited" }), {
             status: 200,
