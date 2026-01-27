@@ -16,12 +16,12 @@ import {
   Brain,
   Zap,
   Scale,
-  PanelRightOpen,
   PanelRightClose
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import PriorArtComparisonPanel from './PriorArtComparisonPanel';
 import SectionQualityScore from './SectionQualityScore';
+import PatentProgressTracker from './PatentProgressTracker';
 
 interface PatentSection {
   id: string;
@@ -316,30 +316,8 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
 
   return (
     <div className="space-y-6">
-      {/* Overall Progress */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Patent Application Progress
-          </CardTitle>
-          <CardDescription>
-            AI-powered patent drafting in real-time
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span>Overall Completion</span>
-              <span>{Math.round(getTotalProgress())}%</span>
-            </div>
-            <Progress value={getTotalProgress()} className="h-3" />
-            <div className="text-xs text-muted-foreground">
-              {sections.filter(s => s.content).length} of {Object.keys(sectionConfig).length} sections complete
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Progress Tracker */}
+      <PatentProgressTracker sections={sections} />
 
       {/* Section Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
