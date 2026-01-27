@@ -369,15 +369,12 @@ const Auth = () => {
               <div className="relative bg-white/10 rounded-xl p-3 backdrop-blur-sm">
                 <img 
                   src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
-                  alt="PatentBot AI Logo"
-                  className="h-12 w-auto"
+                  alt="PatentBot AI"
+                  className="h-14 w-auto"
                 />
               </div>
             </div>
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            PatentBot AI™
-          </h1>
           <p className="text-muted-foreground">
             Intelligent patent drafting made simple
           </p>
