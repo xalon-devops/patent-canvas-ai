@@ -28,7 +28,7 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch session data and existing sections
+    // Fetch session data, prior art, and existing sections
     const { data: session } = await supabase
       .from('patent_sessions')
       .select('idea_prompt')
@@ -40,6 +40,14 @@ serve(async (req) => {
       .select('question, answer')
       .eq('session_id', session_id)
       .not('answer', 'is', null);
+
+    // Fetch prior art results for differentiation context
+    const { data: priorArtResults } = await supabase
+      .from('prior_art_results')
+      .select('title, summary, similarity_score, overlap_claims, difference_claims')
+      .eq('session_id', session_id)
+      .order('similarity_score', { ascending: false })
+      .limit(5);
 
     // Get enhanced prompts for different section types
     const sectionPrompts = {
@@ -84,19 +92,37 @@ serve(async (req) => {
     // Build context from Q&A
     const qaContext = questions?.map(q => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n') || '';
 
+    // Build prior art differentiation context
+    let priorArtContext = '';
+    if (priorArtResults && priorArtResults.length > 0) {
+      priorArtContext = '\n\nPRIOR ART TO DIFFERENTIATE FROM:\n';
+      priorArtResults.forEach((result, i) => {
+        priorArtContext += `${i + 1}. "${result.title}" (${Math.round((result.similarity_score || 0) * 100)}% similar)\n`;
+        if (result.overlap_claims?.length) {
+          priorArtContext += `   Overlapping aspects: ${result.overlap_claims.slice(0, 3).join(', ')}\n`;
+        }
+        if (result.difference_claims?.length) {
+          priorArtContext += `   Key differentiators: ${result.difference_claims.slice(0, 3).join(', ')}\n`;
+        }
+      });
+      priorArtContext += '\nIMPORTANT: Emphasize how this invention differs from the above prior art.';
+    }
+
     const fullPrompt = `${sectionPrompt}
 
 Invention Idea: ${session.idea_prompt}
 
 Additional Context from Q&A:
 ${qaContext}
+${priorArtContext}
 
 Requirements:
 - Use professional patent application language
 - Be technically precise and comprehensive
 - Follow USPTO formatting guidelines
 - Include specific details and technical specifications
-- Ensure novelty and non-obviousness are clear`;
+- Ensure novelty and non-obviousness are clear
+- Clearly differentiate from prior art where applicable`;
 
     // Call Lovable AI
     const model = section_type === 'claims' ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
@@ -173,8 +199,9 @@ Requirements:
 
   } catch (error) {
     console.error('Error enhancing patent section:', error);
+    const errMessage = error instanceof Error ? error.message : 'Failed to enhance patent section';
     return new Response(
-      JSON.stringify({ error: 'Failed to enhance patent section' }), 
+      JSON.stringify({ success: false, error: errMessage }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
