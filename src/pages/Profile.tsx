@@ -159,10 +159,10 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Profile />
-      <div className="safe-area py-8">
-        <div className="content-width max-w-2xl mx-auto px-4">
+      <div className="safe-area py-6 sm:py-8 px-4 sm:px-6">
+        <div className="content-width max-w-2xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <Button
               variant="ghost"
               size="sm"
@@ -170,59 +170,53 @@ const Profile = () => {
               className="gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Dashboard
+              <span className="hidden xs:inline">Dashboard</span>
             </Button>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-1">
               Your Profile
             </h1>
-            <p className="text-muted-foreground">
-              Manage your personal information and profile picture
+            <p className="text-sm text-muted-foreground">
+              Manage your personal information
             </p>
           </div>
 
           {/* Avatar Section */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5" />
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Camera className="w-4 h-4" />
                 Profile Picture
               </CardTitle>
-              <CardDescription>
-                Click on your avatar to upload a new picture (max 5MB)
-              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-6">
+            <CardContent className="p-4 pt-0">
+              <div className="flex items-center gap-4">
                 <div className="relative group">
                   <Avatar 
-                    className="h-24 w-24 cursor-pointer ring-4 ring-primary/20 transition-all group-hover:ring-primary/40"
+                    className="h-16 w-16 sm:h-20 sm:w-20 cursor-pointer ring-2 ring-primary/20"
                     onClick={handleAvatarClick}
                   >
                     <AvatarImage 
                       src={previewUrl || profile?.avatar_url || undefined} 
-                      alt="Profile picture"
+                      alt="Profile"
                       className="object-cover"
                     />
-                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  
-                  {/* Upload overlay */}
                   <div 
                     className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                     onClick={handleAvatarClick}
                   >
                     {uploadingAvatar ? (
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
                     ) : (
-                      <Camera className="w-6 h-6 text-white" />
+                      <Camera className="w-5 h-5 text-white" />
                     )}
                   </div>
-
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -231,13 +225,12 @@ const Profile = () => {
                     className="hidden"
                   />
                 </div>
-
-                <div className="flex-1">
-                  <p className="font-medium">{profile?.display_name || user?.email?.split('@')[0]}</p>
-                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{profile?.display_name || user?.email?.split('@')[0]}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                   {uploadingAvatar && (
-                    <p className="text-sm text-primary mt-2 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
                       Uploading...
                     </p>
                   )}
@@ -247,44 +240,43 @@ const Profile = () => {
           </Card>
 
           {/* Profile Info */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <User className="w-4 h-4" />
                 Personal Information
               </CardTitle>
-              <CardDescription>
-                Update your personal details
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="display_name">Display Name</Label>
+            <CardContent className="p-4 pt-0 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="display_name" className="text-xs">Display Name</Label>
                   <Input
                     id="display_name"
                     name="display_name"
                     placeholder="How you want to be called"
                     value={formData.display_name}
                     onChange={handleInputChange}
+                    className="h-9 text-sm"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="full_name" className="text-xs">Full Name</Label>
                   <Input
                     id="full_name"
                     name="full_name"
                     placeholder="Your full legal name"
                     value={formData.full_name}
                     onChange={handleInputChange}
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="company" className="flex items-center gap-2">
-                  <Building className="w-4 h-4" />
-                  Company / Organization
+              <div className="space-y-1">
+                <Label htmlFor="company" className="flex items-center gap-1 text-xs">
+                  <Building className="w-3 h-3" />
+                  Company
                 </Label>
                 <Input
                   id="company"
@@ -292,41 +284,41 @@ const Profile = () => {
                   placeholder="Your company or organization"
                   value={formData.company}
                   onChange={handleInputChange}
+                  className="h-9 text-sm"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="bio" className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
+              <div className="space-y-1">
+                <Label htmlFor="bio" className="flex items-center gap-1 text-xs">
+                  <FileText className="w-3 h-3" />
                   Bio
                 </Label>
                 <Textarea
                   id="bio"
                   name="bio"
-                  placeholder="Tell us a bit about yourself or your invention interests..."
+                  placeholder="Tell us about yourself..."
                   value={formData.bio}
                   onChange={handleInputChange}
-                  rows={4}
-                  className="resize-none"
+                  rows={3}
+                  className="resize-none text-sm"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Account Info (read-only) */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Account Details</CardTitle>
-              <CardDescription>Your account information (read-only)</CardDescription>
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="text-base">Account Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Email Address</Label>
-                <p className="font-medium">{user?.email}</p>
+            <CardContent className="p-4 pt-0 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <p className="text-sm font-medium truncate">{user?.email}</p>
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Account Created</Label>
-                <p className="font-medium">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Created</Label>
+                <p className="text-sm font-medium">
                   {formatDatePatent(profile?.created_at)}
                 </p>
               </div>
@@ -334,13 +326,12 @@ const Profile = () => {
           </Card>
 
           {/* Save Button */}
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col xs:flex-row justify-end gap-2">
             {isEditing && (
               <Button 
                 variant="outline" 
                 onClick={() => {
                   setIsEditing(false);
-                  // Reset form to profile values
                   if (profile) {
                     setFormData({
                       display_name: profile.display_name || '',
@@ -351,6 +342,7 @@ const Profile = () => {
                   }
                 }}
                 className="gap-2"
+                size="sm"
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -360,6 +352,7 @@ const Profile = () => {
               onClick={handleSave} 
               disabled={saving || !isEditing} 
               className="gap-2"
+              size="sm"
             >
               {saving ? (
                 <>
@@ -369,7 +362,7 @@ const Profile = () => {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  Save
                 </>
               )}
             </Button>

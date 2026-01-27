@@ -96,42 +96,48 @@ const Ideas = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Ideas />
-      <div className="safe-area py-8">
+      <div className="safe-area py-6 sm:py-8 px-4 sm:px-6">
         <div className="content-width">
           {/* Header */}
-          <div className="flex items-center gap-6 mb-12">
+          <div className="space-y-4 mb-8">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate('/dashboard')}
-              className="gap-2 hover:scale-105 transition-transform"
+              className="gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Dashboard
+              <span className="hidden xs:inline">Dashboard</span>
             </Button>
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-3">
+            
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
                 Ideas Laboratory
               </h1>
-              <p className="text-xl text-muted-foreground">
-                Nurture innovations with AI-powered competitive intelligence and daily patent landscape monitoring
+              <p className="text-sm sm:text-base text-muted-foreground">
+                AI-powered patent monitoring
               </p>
             </div>
-            <Button 
-              onClick={() => setQuickCaptureOpen(true)} 
-              variant="outline"
-              className="gap-2 px-4 py-2"
-            >
-              <Plus className="w-4 h-4" />
-              Quick Capture
-            </Button>
-            <Button 
-              onClick={() => navigate('/new-application')} 
-              className="gap-2 px-6 py-3 bg-gradient-primary hover:scale-105 transition-transform shadow-glow"
-            >
-              <Lightbulb className="w-5 h-5" />
-              Draft Full Patent
-            </Button>
+            
+            <div className="flex flex-col xs:flex-row gap-2">
+              <Button 
+                onClick={() => setQuickCaptureOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="gap-2 flex-1 xs:flex-none"
+              >
+                <Plus className="w-4 h-4" />
+                Quick Capture
+              </Button>
+              <Button 
+                onClick={() => navigate('/new-application')} 
+                size="sm"
+                className="gap-2 flex-1 xs:flex-none"
+              >
+                <Lightbulb className="w-4 h-4" />
+                Draft Patent
+              </Button>
+            </div>
           </div>
 
           {/* Quick Idea Capture Dialog */}
@@ -141,88 +147,85 @@ const Ideas = () => {
             onSuccess={() => refetch()}
           />
 
-          {/* Enhanced Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-            <Card className="glass group hover:shadow-glow transition-all duration-500 transform hover:scale-[1.02]">
-              <CardContent className="p-8">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 bg-primary/10 rounded-xl group-hover:scale-110 transition-transform duration-300">
-                    <Lightbulb className="w-8 h-8 text-primary" />
+          {/* Stats Overview - Compact Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <Card className="bg-card/80">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                    <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">{stats.totalIdeas}</p>
-                    <p className="text-sm text-muted-foreground font-medium">Active Ideas</p>
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl font-bold">{stats.totalIdeas}</p>
+                    <p className="text-xs text-muted-foreground truncate">Ideas</p>
                   </div>
                 </div>
               </CardContent>
-          </Card>
+            </Card>
 
-          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-500/10 rounded-lg">
-                  <Eye className="w-6 h-6 text-blue-500" />
+            <Card className="bg-card/80">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg flex-shrink-0">
+                    <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl font-bold">{stats.monitoringIdeas}</p>
+                    <p className="text-xs text-muted-foreground truncate">Monitoring</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.monitoringIdeas}</p>
-                  <p className="text-sm text-muted-foreground">Being Monitored</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-500/10 rounded-lg">
-                  <FileText className="w-6 h-6 text-green-500" />
+            <Card className="bg-card/80">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg flex-shrink-0">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl font-bold">{stats.draftedIdeas}</p>
+                    <p className="text-xs text-muted-foreground truncate">Drafted</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.draftedIdeas}</p>
-                  <p className="text-sm text-muted-foreground">Drafted</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-orange-500/10 rounded-lg">
-                  <AlertTriangle className="w-6 h-6 text-orange-500" />
+            <Card className="bg-card/80">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg flex-shrink-0">
+                    <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl font-bold">{stats.unreadAlerts}</p>
+                    <p className="text-xs text-muted-foreground truncate">Alerts</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.unreadAlerts}</p>
-                  <p className="text-sm text-muted-foreground">New Alerts</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
 
         {/* Recent Alerts */}
         {alerts.length > 0 && (
-          <Card className="mb-8 bg-card/80 border-border/20 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Recent Monitoring Alerts
+          <Card className="mb-6 bg-card/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="w-4 h-4" />
+                Recent Alerts
               </CardTitle>
-              <CardDescription>
-                Latest updates from your patent landscape monitoring
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-2">
               {alerts.slice(0, 3).map((alert) => (
-                <div key={alert.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <Badge className={getSeverityColor(alert.severity)}>
+                <div key={alert.id} className="flex flex-col xs:flex-row xs:items-center gap-2 p-3 border rounded-lg">
+                  <Badge className={`${getSeverityColor(alert.severity)} text-xs flex-shrink-0 w-fit`}>
                     {alert.severity.toUpperCase()}
                   </Badge>
-                  <div className="flex-1">
-                    <h4 className="font-medium">{alert.title}</h4>
-                    <p className="text-sm text-muted-foreground">{alert.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">{alert.title}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{alert.description}</p>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-muted-foreground flex-shrink-0">
                     {formatDate(alert.created_at)}
                   </div>
                 </div>

@@ -246,29 +246,29 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
   const overallProgress = Math.round((docProgress + feeProgress + stepProgress) / 3);
 
   const renderChecklistItem = (item: ChecklistItem, showFee = false) => (
-    <div key={item.id} className="flex items-start gap-3 py-2">
+    <div key={item.id} className="flex items-start gap-2 py-1.5">
       <Checkbox
         id={item.id}
         checked={isChecked(item.id)}
         onCheckedChange={() => toggleItem(item.id)}
-        className="mt-0.5"
+        className="mt-0.5 flex-shrink-0"
       />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <label 
             htmlFor={item.id}
-            className={`text-sm font-medium cursor-pointer ${isChecked(item.id) ? 'line-through text-muted-foreground' : ''}`}
+            className={`text-xs sm:text-sm font-medium cursor-pointer ${isChecked(item.id) ? 'line-through text-muted-foreground' : ''}`}
           >
             {item.label}
           </label>
           {item.required && (
-            <Badge variant="outline" className="text-xs text-red-600 border-red-300">
-              Required
+            <Badge variant="outline" className="text-[10px] px-1 py-0 text-red-600 border-red-300">
+              Req
             </Badge>
           )}
           {autoCheckedDocs.has(item.id) && (
-            <Badge className="text-xs bg-green-100 text-green-700">
-              ✓ Generated
+            <Badge className="text-[10px] px-1 py-0 bg-green-100 text-green-700">
+              ✓
             </Badge>
           )}
           {item.link && (
@@ -283,10 +283,10 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
           )}
         </div>
         {item.description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>
         )}
         {showFee && item.fee && (
-          <p className="text-xs font-medium text-primary mt-1">{item.fee}</p>
+          <p className="text-[10px] sm:text-xs font-medium text-primary mt-0.5">{item.fee}</p>
         )}
       </div>
     </div>
@@ -294,29 +294,29 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-amber-500 text-white">
-              <ClipboardList size={20} />
+      <CardHeader className="pb-2 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-amber-500 text-white flex-shrink-0">
+              <ClipboardList size={16} className="sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <CardTitle className="text-lg">USPTO Filing Checklist</CardTitle>
-              <CardDescription>
-                Required documents, fees & submission steps
+            <div className="min-w-0">
+              <CardTitle className="text-sm sm:text-base">USPTO Filing Checklist</CardTitle>
+              <CardDescription className="text-xs hidden sm:block">
+                Documents, fees & submission steps
               </CardDescription>
             </div>
           </div>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   {overallProgress === 100 ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 text-amber-500" />
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
                   )}
-                  <span className="text-sm font-medium">{overallProgress}%</span>
+                  <span className="text-xs font-medium">{overallProgress}%</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
@@ -325,98 +325,96 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Progress value={overallProgress} className="h-2 mt-3" />
+        <Progress value={overallProgress} className="h-1.5 mt-2" />
       </CardHeader>
 
-      <CardContent>
-        <Accordion type="multiple" defaultValue={['documents']} className="space-y-2">
+      <CardContent className="p-3 sm:p-4 pt-0">
+        <Accordion type="multiple" defaultValue={['documents']} className="space-y-1">
           {/* Required Documents */}
-          <AccordionItem value="documents" className="border rounded-lg px-3">
-            <AccordionTrigger className="hover:no-underline py-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-500" />
-                <span className="font-semibold">Required Documents</span>
-                <Badge variant="secondary" className="ml-auto mr-2">
+          <AccordionItem value="documents" className="border rounded-lg px-2 sm:px-3">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                <span className="font-semibold">Documents</span>
+                <Badge variant="secondary" className="ml-auto mr-1 text-[10px] px-1.5">
                   {docProgress}%
                 </Badge>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="space-y-1 divide-y">
+            <AccordionContent className="pb-2">
+              <div className="space-y-0.5 divide-y">
                 {REQUIRED_DOCUMENTS.map(item => renderChecklistItem(item))}
               </div>
             </AccordionContent>
           </AccordionItem>
 
           {/* USPTO Fees */}
-          <AccordionItem value="fees" className="border rounded-lg px-3">
-            <AccordionTrigger className="hover:no-underline py-3">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-500" />
-                <span className="font-semibold">USPTO Fees</span>
-                <Badge variant="secondary" className="ml-auto mr-2">
+          <AccordionItem value="fees" className="border rounded-lg px-2 sm:px-3">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <div className="flex items-center gap-2 text-sm">
+                <DollarSign className="w-3.5 h-3.5 text-green-500" />
+                <span className="font-semibold">Fees</span>
+                <Badge variant="secondary" className="ml-auto mr-1 text-[10px] px-1.5">
                   {feeProgress}%
                 </Badge>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="p-2 mb-3 bg-blue-50 rounded-md border border-blue-200 flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-700">
-                  Fees shown are for FY2024. Micro entity = 80% discount, Small entity = 50% discount. 
+            <AccordionContent className="pb-2">
+              <div className="p-2 mb-2 bg-blue-50 rounded-md border border-blue-200 flex items-start gap-1.5">
+                <Info className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-[10px] text-blue-700">
+                  Micro = 80% off, Small = 50% off.{' '}
                   <a 
                     href="https://www.uspto.gov/learning-and-resources/fees-and-payment/uspto-fee-schedule" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="underline ml-1"
+                    className="underline"
                   >
-                    View current fee schedule
+                    Fee schedule
                   </a>
                 </p>
               </div>
-              <div className="space-y-1 divide-y">
+              <div className="space-y-0.5 divide-y">
                 {USPTO_FEES.map(item => renderChecklistItem(item, true))}
               </div>
-              <div className="mt-3 p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">Estimated Total (Micro Entity):</p>
-                <p className="text-lg font-bold text-primary">$910 - $1,160</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Includes basic filing, search, examination, and issue fees
-                </p>
+              <div className="mt-2 p-2 bg-muted rounded-lg">
+                <p className="text-xs font-medium">Estimated Total (Micro):</p>
+                <p className="text-base font-bold text-primary">$910 - $1,160</p>
               </div>
             </AccordionContent>
           </AccordionItem>
 
           {/* Submission Steps */}
-          <AccordionItem value="steps" className="border rounded-lg px-3">
-            <AccordionTrigger className="hover:no-underline py-3">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-purple-500" />
-                <span className="font-semibold">Submission Steps</span>
-                <Badge variant="secondary" className="ml-auto mr-2">
+          <AccordionItem value="steps" className="border rounded-lg px-2 sm:px-3">
+            <AccordionTrigger className="hover:no-underline py-2">
+              <div className="flex items-center gap-2 text-sm">
+                <ClipboardList className="w-3.5 h-3.5 text-purple-500" />
+                <span className="font-semibold">Steps</span>
+                <Badge variant="secondary" className="ml-auto mr-1 text-[10px] px-1.5">
                   {stepProgress}%
                 </Badge>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pb-3">
-              <div className="space-y-1">
+            <AccordionContent className="pb-2">
+              <div className="space-y-0.5">
                 {SUBMISSION_STEPS.map((item, index) => (
-                  <div key={item.id} className="flex items-start gap-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                  <div key={item.id} className="flex items-start gap-2 py-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium flex-shrink-0">
                         {index + 1}
                       </span>
                       <Checkbox
                         id={item.id}
                         checked={isChecked(item.id)}
                         onCheckedChange={() => toggleItem(item.id)}
+                        className="flex-shrink-0"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <label 
                           htmlFor={item.id}
-                          className={`text-sm font-medium cursor-pointer ${isChecked(item.id) ? 'line-through text-muted-foreground' : ''}`}
+                          className={`text-xs sm:text-sm font-medium cursor-pointer ${isChecked(item.id) ? 'line-through text-muted-foreground' : ''}`}
                         >
                           {item.label}
                         </label>
@@ -432,7 +430,7 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
                         )}
                       </div>
                       {item.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
                       )}
                     </div>
                   </div>
@@ -442,13 +440,14 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
           </AccordionItem>
         </Accordion>
 
-        <div className="mt-4 pt-4 border-t">
+        <div className="mt-3 pt-3 border-t">
           <Button 
             variant="outline" 
-            className="w-full"
+            size="sm"
+            className="w-full text-xs"
             onClick={() => window.open('https://patentcenter.uspto.gov/', '_blank')}
           >
-            <ExternalLink className="w-4 h-4 mr-2" />
+            <ExternalLink className="w-3 h-3 mr-1.5" />
             Open USPTO Patent Center
           </Button>
         </div>

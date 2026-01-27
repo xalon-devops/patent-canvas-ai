@@ -129,10 +129,10 @@ const Settings = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Settings />
-      <div className="safe-area py-8">
+      <div className="safe-area py-6 sm:py-8 px-4 sm:px-6">
         <div className="content-width max-w-2xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <Button
               variant="ghost"
               size="sm"
@@ -140,59 +140,55 @@ const Settings = () => {
               className="gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Dashboard
+              <span className="hidden xs:inline">Dashboard</span>
             </Button>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-1">
               Settings
             </h1>
-            <p className="text-muted-foreground">
-              Manage your account preferences and notifications
+            <p className="text-sm text-muted-foreground">
+              Manage your preferences
             </p>
           </div>
 
           {/* Account Info */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Shield className="w-4 h-4" />
                 Account
               </CardTitle>
-              <CardDescription>Your account information</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Email</Label>
-                <p className="font-medium">{user?.email}</p>
+            <CardContent className="p-4 pt-0">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <p className="text-sm font-medium truncate">{user?.email}</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Email Preferences */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bell className="w-4 h-4" />
                 Email Notifications
               </CardTitle>
-              <CardDescription>
-                Choose which emails you'd like to receive
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="w-4 h-4 text-primary" />
+            <CardContent className="p-4 pt-0 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-primary/10 rounded-lg flex-shrink-0">
+                    <FileText className="w-3 h-3 text-primary" />
                   </div>
-                  <div>
-                    <Label htmlFor="draft_complete" className="font-medium">
+                  <div className="min-w-0">
+                    <Label htmlFor="draft_complete" className="text-sm font-medium">
                       Draft Complete
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when your patent draft is ready
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      When your patent draft is ready
                     </p>
                   </div>
                 </div>
@@ -203,17 +199,17 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500/10 rounded-lg">
-                    <CreditCard className="w-4 h-4 text-green-500" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-green-500/10 rounded-lg flex-shrink-0">
+                    <CreditCard className="w-3 h-3 text-green-500" />
                   </div>
-                  <div>
-                    <Label htmlFor="payment_received" className="font-medium">
+                  <div className="min-w-0">
+                    <Label htmlFor="payment_received" className="text-sm font-medium">
                       Payment Receipts
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive confirmation when payments are processed
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      Payment confirmations
                     </p>
                   </div>
                 </div>
@@ -224,17 +220,17 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/10 rounded-lg">
-                    <Shield className="w-4 h-4 text-orange-500" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-orange-500/10 rounded-lg flex-shrink-0">
+                    <Shield className="w-3 h-3 text-orange-500" />
                   </div>
-                  <div>
-                    <Label htmlFor="prior_art_alert" className="font-medium">
+                  <div className="min-w-0">
+                    <Label htmlFor="prior_art_alert" className="text-sm font-medium">
                       Prior Art Alerts
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get alerts when new prior art is found for your ideas
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      New prior art for your ideas
                     </p>
                   </div>
                 </div>
@@ -245,17 +241,17 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Mail className="w-4 h-4 text-blue-500" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-blue-500/10 rounded-lg flex-shrink-0">
+                    <Mail className="w-3 h-3 text-blue-500" />
                   </div>
-                  <div>
-                    <Label htmlFor="weekly_digest" className="font-medium">
+                  <div className="min-w-0">
+                    <Label htmlFor="weekly_digest" className="text-sm font-medium">
                       Weekly Digest
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Weekly summary of your patent portfolio activity
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      Weekly activity summary
                     </p>
                   </div>
                 </div>
