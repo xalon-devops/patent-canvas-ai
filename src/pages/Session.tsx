@@ -1177,15 +1177,18 @@ const Session = () => {
         {/* Right Panel - Patent Canvas */}
         <div className={`${chatPhase === 'canvas' ? 'w-full lg:w-1/2' : 'hidden lg:block lg:w-1/2'} bg-background/50 backdrop-blur-sm overflow-x-hidden`}>
           <div className="p-4 border-b">
-            <h2 className="font-semibold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              PatentBot AI™
+            <div className="flex items-center gap-2">
+              <img 
+                src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+                alt="PatentBot AI" 
+                className="h-8 w-auto"
+              />
               {chatPhase !== 'canvas' && (
-                <span className="text-xs text-muted-foreground ml-2">
+                <span className="text-xs text-muted-foreground">
                   (Will appear after search)
                 </span>
               )}
-            </h2>
+            </div>
           </div>
 
            {chatPhase === 'canvas' ? (
@@ -1207,8 +1210,12 @@ const Session = () => {
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
               <div className="text-center text-muted-foreground">
-                <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                <p>PatentBot AI™ will appear after completing the interview</p>
+                <img 
+                  src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+                  alt="PatentBot AI" 
+                  className="h-16 w-auto mx-auto mb-4 opacity-40"
+                />
+                <p>Patent Canvas will appear after completing the interview</p>
               </div>
             </div>
           )}
