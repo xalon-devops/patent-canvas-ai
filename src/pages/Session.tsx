@@ -1193,6 +1193,7 @@ const Session = () => {
                 onUpdateSection={updateSection}
                 onRegenerateSection={handleRegenerateSection}
                 isGenerating={regeneratingSection !== null}
+                priorArt={priorArt}
               />
             </div>
           ) : (

@@ -14,9 +14,13 @@ import {
   FileText,
   Sparkles,
   Brain,
-  Zap
+  Zap,
+  Scale,
+  PanelRightOpen,
+  PanelRightClose
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import PriorArtComparisonPanel from './PriorArtComparisonPanel';
 
 interface PatentSection {
   id: string;
@@ -26,11 +30,23 @@ interface PatentSection {
   created_at: string;
 }
 
+interface PriorArtResult {
+  id: string;
+  title: string;
+  publication_number?: string;
+  summary?: string;
+  similarity_score: number;
+  url?: string;
+  overlap_claims?: string[];
+  difference_claims?: string[];
+}
+
 interface PatentCanvasProps {
   sections: PatentSection[];
   onUpdateSection: (sectionId: string, content: string) => Promise<void>;
   onRegenerateSection: (sectionType: string) => Promise<void>;
   isGenerating?: boolean;
+  priorArt?: PriorArtResult[];
 }
 
 const sectionConfig = {
@@ -85,10 +101,11 @@ const sectionConfig = {
   }
 };
 
-export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSection, isGenerating = false }: PatentCanvasProps) {
+export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSection, isGenerating = false, priorArt = [] }: PatentCanvasProps) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [aiThinking, setAiThinking] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState<string | null>(null);
 
   // Simulate AI thinking animation
   useEffect(() => {
@@ -241,7 +258,7 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
               )}
               
               {section?.content && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button onClick={() => handleEdit(section)} variant="outline" size="sm">
                     <Edit3 className="w-4 h-4 mr-1" />
                     Edit
@@ -255,6 +272,30 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
                     <Wand2 className="w-4 h-4 mr-1" />
                     Regenerate
                   </Button>
+                  {priorArt.length > 0 && (
+                    <Button 
+                      onClick={() => setShowComparison(showComparison === sectionType ? null : sectionType)} 
+                      variant={showComparison === sectionType ? "secondary" : "outline"}
+                      size="sm"
+                    >
+                      {showComparison === sectionType ? (
+                        <><PanelRightClose className="w-4 h-4 mr-1" />Hide Prior Art</>
+                      ) : (
+                        <><Scale className="w-4 h-4 mr-1" />Compare</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {/* Prior Art Comparison Panel */}
+              {showComparison === sectionType && priorArt.length > 0 && (
+                <div className="mt-4 animate-in slide-in-from-top-2 duration-200">
+                  <PriorArtComparisonPanel
+                    priorArt={priorArt}
+                    sectionType={sectionType}
+                    sectionContent={section?.content || ''}
+                  />
                 </div>
               )}
             </div>
