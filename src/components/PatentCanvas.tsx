@@ -163,105 +163,100 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
     return (
       <Card 
         key={sectionType} 
-        className={`relative overflow-hidden transition-all duration-500 hover:scale-105 ${
+        className={`relative overflow-hidden transition-all duration-300 ${
           isThinking ? 'ring-2 ring-primary animate-pulse' : ''
-        } ${section?.content ? 'border-green-200' : 'border-gray-200'}`}
+        } ${section?.content ? 'border-green-200' : 'border-muted'}`}
       >
         {isThinking && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-primary-foreground animate-pulse" />
         )}
         
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`p-2 rounded-lg ${config?.color || 'bg-gray-500'} text-white`}>
-                <Icon size={20} />
+        <CardHeader className="pb-2 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`p-1.5 sm:p-2 rounded-lg ${config?.color || 'bg-gray-500'} text-white flex-shrink-0`}>
+                <Icon size={16} className="sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <CardTitle className="text-lg">{config?.title}</CardTitle>
-                <CardDescription className="text-sm">
+              <div className="min-w-0">
+                <CardTitle className="text-sm sm:text-base truncate">{config?.title}</CardTitle>
+                <CardDescription className="text-xs hidden sm:block">
                   {config?.description}
                 </CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-shrink-0">
               {section?.is_user_edited && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                   Edited
                 </Badge>
               )}
               {isThinking ? (
-                <div className="flex items-center gap-1">
-                  <Wand2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-xs text-primary">AI Writing...</span>
-                </div>
+                <Wand2 className="w-4 h-4 animate-spin text-primary" />
               ) : section?.content ? (
-                <CheckCircle className="w-5 h-5 text-green-500" />
+                <CheckCircle className="w-4 h-4 text-green-500" />
               ) : (
-                <Clock className="w-5 h-5 text-gray-400" />
+                <Clock className="w-4 h-4 text-muted-foreground" />
               )}
             </div>
           </div>
           
           {section && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="space-y-1 mt-2">
+              <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground">
                 <span>{section.content ? section.content.split(' ').length : 0} words</span>
-                <span>Target: {config?.targetWords || 100} words</span>
+                <span>Target: {config?.targetWords || 100}</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-1.5" />
             </div>
           )}
         </CardHeader>
 
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2 p-3 sm:p-4 pt-0">
           {isEditing ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="min-h-[200px] font-mono text-sm"
+                className="min-h-[150px] text-sm font-mono"
                 placeholder={`Enter ${config?.title.toLowerCase()} content...`}
               />
               <div className="flex gap-2">
-                <Button onClick={() => handleSave(section!.id)} size="sm">
-                  <Save className="w-4 h-4 mr-1" />
+                <Button onClick={() => handleSave(section!.id)} size="sm" className="text-xs">
+                  <Save className="w-3 h-3 mr-1" />
                   Save
                 </Button>
-                <Button onClick={handleCancel} variant="outline" size="sm">
+                <Button onClick={handleCancel} variant="outline" size="sm" className="text-xs">
                   Cancel
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {section?.content ? (
-                <div className="prose prose-sm max-w-none">
-                  <div 
-                    className="p-3 bg-muted/50 rounded-lg text-sm leading-relaxed break-words break-all sm:break-words whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
-                  />
-                </div>
+                <div 
+                  className="p-2 sm:p-3 bg-muted/50 rounded-lg text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap max-h-[200px] overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
+                />
               ) : (
-                <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                <div className="p-4 sm:p-6 text-center text-muted-foreground border-2 border-dashed rounded-lg">
                   {isThinking ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Wand2 className="w-8 h-8 animate-spin text-primary" />
-                      <span>AI is crafting this section...</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <Wand2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-xs">AI writing...</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Icon className="w-8 h-8" />
-                      <span>Waiting for AI generation...</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <Icon className="w-6 h-6" />
+                      <span className="text-xs">Waiting for AI...</span>
                     </div>
                   )}
                 </div>
               )}
               
               {section?.content && (
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => handleEdit(section)} variant="outline" size="sm">
-                    <Edit3 className="w-4 h-4 mr-1" />
+                <div className="flex flex-wrap gap-1.5">
+                  <Button onClick={() => handleEdit(section)} variant="outline" size="sm" className="text-xs h-7 px-2">
+                    <Edit3 className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
                   <Button 
@@ -269,21 +264,20 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
                     variant="outline" 
                     size="sm"
                     disabled={isGenerating}
+                    className="text-xs h-7 px-2"
                   >
-                    <Wand2 className="w-4 h-4 mr-1" />
-                    Regenerate
+                    <Wand2 className="w-3 h-3 mr-1" />
+                    Regen
                   </Button>
                   {priorArt.length > 0 && (
                     <Button 
                       onClick={() => setShowComparison(showComparison === sectionType ? null : sectionType)} 
                       variant={showComparison === sectionType ? "secondary" : "outline"}
                       size="sm"
+                      className="text-xs h-7 px-2"
                     >
-                      {showComparison === sectionType ? (
-                        <><PanelRightClose className="w-4 h-4 mr-1" />Hide Prior Art</>
-                      ) : (
-                        <><Scale className="w-4 h-4 mr-1" />Compare</>
-                      )}
+                      <Scale className="w-3 h-3 mr-1" />
+                      <span className="hidden xs:inline">Compare</span>
                     </Button>
                   )}
                 </div>
