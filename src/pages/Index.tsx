@@ -781,12 +781,11 @@ const Index = () => {
       <footer className="py-12 border-t border-border/30 bg-card/30">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <FileText className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold text-foreground">PatentBot AI</span>
-            </div>
+            <img 
+              src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+              alt="PatentBot AI" 
+              className="h-8 w-auto"
+            />
             <p className="text-sm text-muted-foreground">
               © {getCurrentYear()} PatentBot AI. All rights reserved.
             </p>
