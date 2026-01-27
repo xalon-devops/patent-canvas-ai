@@ -27,6 +27,7 @@ import { formatDate, formatDateTime } from '@/lib/dateUtils';
 import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, createSafeErrorMessage } from '@/utils/security';
 import SystemMessage from '@/components/SystemMessage';
 import PatentCanvas from '@/components/PatentCanvas';
+import PatentGlossary from '@/components/PatentGlossary';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 import { PageSEO } from '@/components/SEO';
@@ -1187,7 +1188,7 @@ const Session = () => {
           </div>
 
            {chatPhase === 'canvas' ? (
-            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4">
+            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-6">
               <PatentCanvas
                 sections={sections}
                 onUpdateSection={updateSection}
@@ -1195,6 +1196,9 @@ const Session = () => {
                 isGenerating={regeneratingSection !== null}
                 priorArt={priorArt}
               />
+              
+              {/* Patent Glossary */}
+              <PatentGlossary sections={sections} />
             </div>
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
