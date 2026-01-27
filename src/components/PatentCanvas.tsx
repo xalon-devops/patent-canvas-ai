@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import PriorArtComparisonPanel from './PriorArtComparisonPanel';
+import SectionQualityScore from './SectionQualityScore';
 
 interface PatentSection {
   id: string;
@@ -297,6 +298,14 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
                     sectionContent={section?.content || ''}
                   />
                 </div>
+              )}
+              
+              {/* Quality Score Section */}
+              {section?.content && (
+                <SectionQualityScore
+                  sectionType={sectionType}
+                  content={section.content}
+                />
               )}
             </div>
           )}
