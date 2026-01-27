@@ -28,6 +28,7 @@ import { validateAiQuestion, validatePatentSection, sanitizeText, sanitizeHtml, 
 import SystemMessage from '@/components/SystemMessage';
 import PatentCanvas from '@/components/PatentCanvas';
 import PatentGlossary from '@/components/PatentGlossary';
+import PatentFilingChecklist from '@/components/PatentFilingChecklist';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 import { PageSEO } from '@/components/SEO';
@@ -1199,6 +1200,9 @@ const Session = () => {
               
               {/* Patent Glossary */}
               <PatentGlossary sections={sections} />
+              
+              {/* USPTO Filing Checklist */}
+              <PatentFilingChecklist sections={sections} />
             </div>
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
