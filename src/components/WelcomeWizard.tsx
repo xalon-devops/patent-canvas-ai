@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import { 
   FileText, 
@@ -28,12 +29,29 @@ interface WelcomeWizardProps {
 
 export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps) => {
   const [step, setStep] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
   const navigate = useNavigate();
   const displayName = userName?.split('@')[0] || 'Inventor';
 
   const handleAction = async (path: string) => {
-    await onComplete();
-    navigate(path);
+    if (isCompleting) return;
+    setIsCompleting(true);
+    try {
+      await onComplete();
+      navigate(path);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (isCompleting) return;
+    setIsCompleting(true);
+    try {
+      await onComplete();
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   const steps = [
@@ -78,6 +96,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
               size="lg" 
               className="bg-primary hover:bg-primary/90 shadow-glow"
               onClick={() => setStep(1)}
+              disabled={isCompleting}
             >
               Let's Go!
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -85,9 +104,10 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
             <Button 
               size="lg" 
               variant="ghost"
-              onClick={onComplete}
+              onClick={handleSkip}
+              disabled={isCompleting}
             >
-              Skip for now
+              {isCompleting ? 'Saving...' : 'Skip for now'}
             </Button>
           </motion.div>
         </div>
@@ -179,15 +199,18 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              onClick={onComplete}
-              className="p-5 rounded-xl border-2 border-muted/30 hover:border-muted-foreground/30 hover:bg-muted/10 transition-all text-left group"
+              onClick={handleSkip}
+              disabled={isCompleting}
+              className="p-5 rounded-xl border-2 border-muted/30 hover:border-muted-foreground/30 hover:bg-muted/10 transition-all text-left group disabled:opacity-50"
             >
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-muted/30 rounded-xl group-hover:bg-muted/50 transition-colors">
                   <Lightbulb className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">I'm just exploring for now</h3>
+                  <h3 className="font-semibold text-lg mb-1">
+                    {isCompleting ? 'Saving...' : "I'm just exploring for now"}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Look around the dashboard, learn about the process, and come back when ready.
                   </p>
@@ -219,7 +242,11 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
         className="sm:max-w-xl p-0 overflow-hidden bg-gradient-to-b from-card to-card/95 border-primary/20"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
+        aria-describedby={undefined}
       >
+        <VisuallyHidden>
+          <DialogTitle>Welcome to PatentBot AI</DialogTitle>
+        </VisuallyHidden>
         {/* Progress indicator */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-muted">
           <motion.div 
