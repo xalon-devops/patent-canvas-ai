@@ -43,21 +43,23 @@ serve(async (req) => {
       }
     ];
 
-    const diagramPromises = diagramSpecs.map(async (spec, index) => {
-      console.log(`[PATENT DIAGRAMS] Generating ${spec.title}...`);
-      
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
-          messages: [
-            {
-              role: 'user',
-              content: `Create a professional patent-style technical diagram based on this invention: ${context.substring(0, 500)}
+    const generateDiagramWithRetry = async (spec: typeof diagramSpecs[0], index: number, maxRetries = 2) => {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[PATENT DIAGRAMS] Generating ${spec.title}... (attempt ${attempt + 1})`);
+          
+          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash-image-preview',
+              messages: [
+                {
+                  role: 'user',
+                  content: `Create a professional patent-style technical diagram based on this invention: ${context.substring(0, 500)}
 
 ${spec.prompt}
 
@@ -68,34 +70,50 @@ CRITICAL REQUIREMENTS:
 - Professional engineering/patent drawing aesthetic
 - Clear visual hierarchy and spacing
 - NO textual annotations except numbers`
-            }
-          ],
-          modalities: ['image', 'text']
-        }),
-      });
+                }
+              ],
+              modalities: ['image', 'text']
+            }),
+          });
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`AI image generation error: ${error}`);
+          if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`AI image generation error (${response.status}): ${error}`);
+          }
+
+          const data = await response.json();
+          const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          
+          if (!imageUrl) {
+            throw new Error('No image generated in response');
+          }
+
+          // Generate proper HTML description
+          const description = `<p><strong>Figure ${index + 1} - ${spec.title}:</strong> This figure illustrates the ${spec.title.toLowerCase()} of the invention described herein. The diagram shows key components and their relationships using numbered reference elements as detailed in the specification.</p>`;
+
+          return {
+            figure_number: index + 1,
+            description: description,
+            image_data: imageUrl
+          };
+        } catch (error) {
+          console.error(`[PATENT DIAGRAMS] Attempt ${attempt + 1} failed for ${spec.title}:`, error);
+          if (attempt === maxRetries) {
+            // Return a placeholder on final failure instead of crashing
+            console.warn(`[PATENT DIAGRAMS] All retries exhausted for ${spec.title}, using placeholder`);
+            return {
+              figure_number: index + 1,
+              description: `<p><strong>Figure ${index + 1} - ${spec.title}:</strong> [Diagram generation pending - please regenerate this section]</p>`,
+              image_data: null
+            };
+          }
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
       }
+    };
 
-      const data = await response.json();
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      
-      if (!imageUrl) {
-        throw new Error('No image generated');
-      }
-
-      // Generate proper HTML description
-      const description = `<p><strong>Figure ${index + 1} - ${spec.title}:</strong> This figure illustrates the ${spec.title.toLowerCase()} of the invention described herein. The diagram shows key components and their relationships using numbered reference elements as detailed in the specification.</p>`;
-
-      return {
-        figure_number: index + 1,
-        description: description,
-        image_data: imageUrl
-      };
-    });
-
+    const diagramPromises = diagramSpecs.map((spec, index) => generateDiagramWithRetry(spec, index));
     const diagrams = await Promise.all(diagramPromises);
 
     // Store diagrams in patent_sections as structured data

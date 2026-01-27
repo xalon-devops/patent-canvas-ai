@@ -530,15 +530,15 @@ const Session = () => {
 
   const getModelInfoForToast = (sectionType: string) => {
     const modelMap: Record<string, { model: string; icon: string }> = {
-      'claims': { model: 'Mixtral 8x7B', icon: '🧠' },
-      'abstract': { model: 'Ollama 8B', icon: '🕵️' },
-      'field': { model: 'Phi-3', icon: '✍️' },
-      'background': { model: 'Phi-3', icon: '✍️' },
-      'summary': { model: 'Phi-3', icon: '✍️' },
-      'drawings': { model: 'Ollama 8B', icon: '🕵️' },
-      'description': { model: 'Phi-3', icon: '✍️' }
+      'claims': { model: 'Gemini 2.5 Pro', icon: '🧠' },
+      'abstract': { model: 'Gemini 2.5 Flash', icon: '✨' },
+      'field': { model: 'Gemini 2.5 Flash', icon: '✍️' },
+      'background': { model: 'Gemini 2.5 Pro', icon: '📚' },
+      'summary': { model: 'Gemini 2.5 Pro', icon: '📝' },
+      'drawings': { model: 'Gemini Image', icon: '🎨' },
+      'description': { model: 'Gemini 2.5 Pro', icon: '📋' }
     };
-    return modelMap[sectionType] || { model: 'AI Generated', icon: '🤖' };
+    return modelMap[sectionType] || { model: 'Gemini AI', icon: '🤖' };
   };
 
   const handleExportPatent = async () => {
