@@ -166,3 +166,130 @@ workflows:
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD"
+
+  android-submit:
+    name: Android Play Store Submission
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      java: 17
+      ruby: 3.2
+    scripts:
+      - name: Download artifact
+        script: |
+          mkdir -p artifacts
+          echo "Downloading artifact from: $ARTIFACT_URL"
+          curl -L -o artifacts/app.apk "$ARTIFACT_URL"
+          if [[ "$ARTIFACT_URL" == *".aab"* ]]; then
+            mv artifacts/app.apk artifacts/app.aab
+          fi
+          ls -la artifacts/
+      - name: Setup Google Play credentials
+        script: |
+          echo "$GOOGLE_PLAY_JSON_KEY" | base64 -d > google-play-key.json
+          echo "Google Play credentials configured"
+      - name: Install Fastlane
+        script: gem install fastlane
+      - name: Setup metadata and Fastfile
+        script: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          echo "${APP_NAME:-My App}" > fastlane/metadata/android/en-US/title.txt
+          echo "${SHORT_DESCRIPTION:-}" > fastlane/metadata/android/en-US/short_description.txt
+          echo "${APP_DESCRIPTION:-}" > fastlane/metadata/android/en-US/full_description.txt
+          echo "${RELEASE_NOTES:-Bug fixes and improvements}" > fastlane/metadata/android/en-US/changelogs/default.txt
+          cat > fastlane/Fastfile << 'EOF'
+          default_platform(:android)
+          platform :android do
+            lane :deploy do
+              artifact_path = File.exist?('artifacts/app.aab') ? 'artifacts/app.aab' : 'artifacts/app.apk'
+              is_aab = artifact_path.end_with?('.aab')
+              upload_to_play_store(
+                package_name: ENV['PACKAGE_NAME'],
+                json_key: 'google-play-key.json',
+                track: ENV['SUPPLY_TRACK'] || 'internal',
+                aab: is_aab ? artifact_path : nil,
+                apk: is_aab ? nil : artifact_path,
+                release_status: 'draft',
+                skip_upload_images: true,
+                skip_upload_screenshots: true,
+                metadata_path: 'fastlane/metadata/android'
+              )
+            end
+          end
+          EOF
+      - name: Submit to Google Play
+        script: cd fastlane && fastlane android deploy
+    publishing:
+      scripts:
+        - name: Update submission status
+          script: |
+            if [ "$CM_BUILD_STEP_STATUS" == "success" ]; then
+              STATUS="submitted"
+            else
+              STATUS="failed"
+            fi
+            echo "Updating submission status to: $STATUS"
+            curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -d "{
+                \"submissionId\": \"$SUBMISSION_ID\",
+                \"status\": \"$STATUS\",
+                \"platform\": \"android\",
+                \"buildId\": \"$CM_BUILD_ID\"
+              }"
+
+  ios-submit:
+    name: iOS App Store Submission
+    max_build_duration: 45
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      ruby: 3.2
+    scripts:
+      - name: Download artifact
+        script: |
+          mkdir -p artifacts
+          echo "Downloading IPA from: $ARTIFACT_URL"
+          curl -L -o artifacts/app.ipa "$ARTIFACT_URL"
+          ls -la artifacts/
+      - name: Setup App Store Connect credentials
+        script: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY_CONTENT" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          echo "App Store Connect credentials configured"
+      - name: Install Fastlane
+        script: gem install fastlane
+      - name: Upload to App Store Connect
+        script: |
+          cat > /tmp/api_key.json << EOF
+          {
+            "key_id": "$APP_STORE_CONNECT_API_KEY_ID",
+            "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
+            "key_filepath": "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          }
+          EOF
+          fastlane pilot upload \
+            --ipa artifacts/app.ipa \
+            --api_key_path /tmp/api_key.json \
+            --skip_waiting_for_build_processing
+    publishing:
+      scripts:
+        - name: Update submission status
+          script: |
+            if [ "$CM_BUILD_STEP_STATUS" == "success" ]; then
+              STATUS="submitted"
+            else
+              STATUS="failed"
+            fi
+            echo "Updating submission status to: $STATUS"
+            curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -d "{
+                \"submissionId\": \"$SUBMISSION_ID\",
+                \"status\": \"$STATUS\",
+                \"platform\": \"ios\",
+                \"buildId\": \"$CM_BUILD_ID\"
+              }"
