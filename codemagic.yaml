@@ -265,7 +265,7 @@ workflows:
           {
             "key_id": "$APP_STORE_CONNECT_API_KEY_ID",
             "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
-            "key_filepath": "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+            "key": "$(cat $HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8)"
           }
           EOF
           fastlane pilot upload \
@@ -291,4 +291,5 @@ workflows:
                 \"platform\": \"ios\",
                 \"buildId\": \"$CM_BUILD_ID\"
               }"
+
 
