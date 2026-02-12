@@ -4,7 +4,6 @@ workflows:
     name: Android Release Build
     max_build_duration: 60
     instance_type: linux_x2
-
     environment:
       java: 17
       node: 20
@@ -14,7 +13,6 @@ workflows:
         ANDROID_KEY_PASSWORD: $ANDROID_KEY_PASSWORD
       android_signing:
         - appship_keystore
-
     scripts:
       - name: Download and extract project
         script: |
@@ -27,29 +25,24 @@ workflows:
             rm -rf capacitor-project
           fi
           ls -la
-
       - name: Install dependencies
         script: |
           cd app
           npm ci || npm install
-
       - name: Add and sync Capacitor
         script: |
           cd app
           rm -rf android
           npx cap add android
           npx cap sync android
-
       - name: Build Android
         script: |
           cd app/android
           chmod +x gradlew
           ./gradlew assembleRelease
-
     artifacts:
       - app/android/app/build/outputs/**/*.apk
       - app/android/app/build/outputs/**/*.aab
-
     publishing:
       scripts:
         - name: Notify build result
@@ -59,28 +52,31 @@ workflows:
             else
               STATUS="failed"
             fi
+            echo "Build $STATUS - Sending webhook"
+            PAYLOAD=$(python3 -c "
+            import json
+            print(json.dumps({
+              'buildId': '$CM_BUILD_ID',
+              'status': '$STATUS',
+              'platform': 'android',
+              'workflowId': 'android-release',
+              'environment': {'variables': {'USER_APP_ID': '$USER_APP_ID'}},
+              'artefacts': [{'url': '''$CM_ARTIFACT_LINKS''', 'type': 'apk'}],
+              'finishedAt': '$(date -u +%Y-%m-%dT%H:%M:%SZ)'
+            }))
+            ")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"buildId\": \"$CM_BUILD_ID\",
-                \"status\": \"$STATUS\",
-                \"platform\": \"android\",
-                \"workflowId\": \"android-release\",
-                \"environment\": {\"variables\": {\"USER_APP_ID\": \"$USER_APP_ID\"}},
-                \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"apk\"}],
-                \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-              }"
+              -d "$PAYLOAD"
 
   ios-release:
     name: iOS Release Build
     max_build_duration: 90
     instance_type: mac_mini_m2
-
     environment:
       xcode: latest
       node: 20
       cocoapods: default
-
     scripts:
       - name: Download and extract project
         script: |
@@ -93,12 +89,10 @@ workflows:
             rm -rf capacitor-project
           fi
           ls -la
-
       - name: Install dependencies
         script: |
           cd app
           npm ci || npm install
-
       - name: Add and sync Capacitor
         script: |
           cd app
@@ -108,12 +102,10 @@ workflows:
           cd ios/App
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = ${BUNDLE_ID};/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${TEAM_ID};/g" App.xcodeproj/project.pbxproj
-
       - name: Install CocoaPods
         script: |
           cd app/ios/App
           pod install
-
       - name: Set up code signing
         script: |
           set -e
@@ -139,7 +131,6 @@ workflows:
           xcode-project use-profiles
           echo "=== Checking project signing settings ==="
           grep -c "PROVISIONING_PROFILE" App.xcodeproj/project.pbxproj || echo "WARNING: No provisioning profiles found in project!"
-
       - name: Build iOS
         script: |
           cd app/ios/App
@@ -147,11 +138,9 @@ workflows:
             --workspace App.xcworkspace \
             --scheme App \
             --archive-flags "CODE_SIGN_STYLE=Manual"
-
     artifacts:
       - app/ios/App/build/ios/ipa/*.ipa
       - app/ios/App/**/*.xcarchive
-
     publishing:
       scripts:
         - name: Notify build result
@@ -161,14 +150,19 @@ workflows:
             else
               STATUS="failed"
             fi
+            echo "Build $STATUS - Sending webhook"
+            PAYLOAD=$(python3 -c "
+            import json
+            print(json.dumps({
+              'buildId': '$CM_BUILD_ID',
+              'status': '$STATUS',
+              'platform': 'ios',
+              'workflowId': 'ios-release',
+              'environment': {'variables': {'USER_APP_ID': '$USER_APP_ID'}},
+              'artefacts': [{'url': '''$CM_ARTIFACT_LINKS''', 'type': 'ipa'}],
+              'finishedAt': '$(date -u +%Y-%m-%dT%H:%M:%SZ)'
+            }))
+            ")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"buildId\": \"$CM_BUILD_ID\",
-                \"status\": \"$STATUS\",
-                \"platform\": \"ios\",
-                \"workflowId\": \"ios-release\",
-                \"environment\": {\"variables\": {\"USER_APP_ID\": \"$USER_APP_ID\"}},
-                \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"ipa\"}],
-                \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-              }"
+              -d "$PAYLOAD"
