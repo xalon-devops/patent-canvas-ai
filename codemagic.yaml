@@ -261,13 +261,22 @@ workflows:
         script: gem install fastlane
       - name: Upload to App Store Connect
         script: |
-          cat > /tmp/api_key.json << EOF
-          {
-            "key_id": "$APP_STORE_CONNECT_API_KEY_ID",
-            "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
-            "key": "$(cat $HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8)"
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          python3 -c "
+          import json, os
+          key_path = os.path.expandvars('$KEY_FILE')
+          with open(key_path) as f:
+              key_content = f.read()
+          api_key = {
+              'key_id': os.environ.get('APP_STORE_CONNECT_API_KEY_ID', '$APP_STORE_CONNECT_API_KEY_ID'),
+              'issuer_id': os.environ.get('APP_STORE_CONNECT_ISSUER_ID', '$APP_STORE_CONNECT_ISSUER_ID'),
+              'key': key_content,
+              'in_house': False
           }
-          EOF
+          with open('/tmp/api_key.json', 'w') as f:
+              json.dump(api_key, f)
+          print('API key JSON created successfully')
+          "
           fastlane pilot upload \
             --ipa artifacts/app.ipa \
             --api_key_path /tmp/api_key.json \
@@ -291,5 +300,6 @@ workflows:
                 \"platform\": \"ios\",
                 \"buildId\": \"$CM_BUILD_ID\"
               }"
+
 
 
