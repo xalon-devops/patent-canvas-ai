@@ -2,41 +2,160 @@ workflows:
   android-release:
     name: Android Release Build
     max_build_duration: 60
+    instance_type: linux_x2
+
     environment:
-      java: 21
-      node: 22
+      java: 17
+      node: 20
+      vars:
+        ANDROID_KEYSTORE_PASSWORD: $ANDROID_KEYSTORE_PASSWORD
+        ANDROID_KEY_ALIAS: $ANDROID_KEY_ALIAS
+        ANDROID_KEY_PASSWORD: $ANDROID_KEY_PASSWORD
+      android_signing:
+        - appship_keystore
+
     scripts:
-      - name: Install dependencies
-        script: npm ci
-      - name: Build web app
-        script: npm run build
-      - name: Setup Capacitor
-        script: npx cap sync android
-      - name: Build APK
+      - name: Download and extract project
         script: |
-          cd android
+          echo "Downloading project from: $APP_ZIP_URL"
+          curl -L -o project.zip "$APP_ZIP_URL"
+          unzip -o project.zip -d ./app
+          cd app
+          if [ -d "capacitor-project" ]; then
+            mv capacitor-project/* .
+            rm -rf capacitor-project
+          fi
+          ls -la
+
+      - name: Install dependencies
+        script: |
+          cd app
+          npm ci || npm install
+
+      - name: Sync Capacitor
+        script: |
+          cd app
+          npx cap sync android
+
+      - name: Build Android
+        script: |
+          cd app/android
+          chmod +x gradlew
           ./gradlew assembleRelease
+
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - app/android/app/build/outputs/**/*.apk
+      - app/android/app/build/outputs/**/*.aab
+
+    publishing:
+      scripts:
+        - name: Notify build result
+          script: |
+            if [ "$CM_BUILD_STEP_STATUS" == "success" ]; then
+              STATUS="finished"
+            else
+              STATUS="failed"
+            fi
+            curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"buildId\": \"$CM_BUILD_ID\",
+                \"status\": \"$STATUS\",
+                \"platform\": \"android\",
+                \"workflowId\": \"android-release\",
+                \"environment\": {\"variables\": {\"USER_APP_ID\": \"$USER_APP_ID\"}},
+                \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"apk\"}],
+                \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              }"
 
   ios-release:
     name: iOS Release Build
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m2
+
     environment:
-      node: 22
       xcode: latest
+      node: 20
+      cocoapods: default
+      vars:
+        BUNDLE_ID: $BUNDLE_ID
+        TEAM_ID: $TEAM_ID
+
+    integrations:
+      app_store_connect: AppShip App Store Connect
+
     scripts:
-      - name: Install dependencies
-        script: npm ci
-      - name: Build web app
-        script: npm run build
-      - name: Setup Capacitor
-        script: npx cap sync ios
-      - name: Build IPA
+      - name: Download and extract project
         script: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -archivePath build/App.xcarchive archive
-          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportPath build -exportOptionsPlist ExportOptions.plist
+          echo "Downloading project from: $APP_ZIP_URL"
+          curl -L -o project.zip "$APP_ZIP_URL"
+          unzip -o project.zip -d ./app
+          cd app
+          if [ -d "capacitor-project" ]; then
+            mv capacitor-project/* .
+            rm -rf capacitor-project
+          fi
+          ls -la
+
+      - name: Install dependencies
+        script: |
+          cd app
+          npm ci || npm install
+
+      - name: Sync Capacitor
+        script: |
+          cd app
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd app/ios/App
+          pod install
+
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build iOS
+        script: |
+          cd app/ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build \
+            -exportOptionsPlist exportOptions.plist
+
     artifacts:
-      - ios/App/build/*.ipa
+      - app/ios/App/build/*.ipa
+      - app/ios/App/build/*.xcarchive
+
+    publishing:
+      scripts:
+        - name: Notify build result
+          script: |
+            if [ "$CM_BUILD_STEP_STATUS" == "success" ]; then
+              STATUS="finished"
+            else
+              STATUS="failed"
+            fi
+            curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"buildId\": \"$CM_BUILD_ID\",
+                \"status\": \"$STATUS\",
+                \"platform\": \"ios\",
+                \"workflowId\": \"ios-release\",
+                \"environment\": {\"variables\": {\"USER_APP_ID\": \"$USER_APP_ID\"}},
+                \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"ipa\"}],
+                \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              }"
+
