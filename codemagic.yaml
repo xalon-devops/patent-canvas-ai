@@ -116,15 +116,15 @@ workflows:
 
       - name: Set up code signing
         script: |
+          set -e
           keychain initialize
-          # Decode App Store Connect API key
           printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" | base64 -D > /tmp/AuthKey.p8
-          # Auto-generate certificate signing key if not provided
           if [ -z "$CM_CERTIFICATE_PRIVATE_KEY" ]; then
             openssl genrsa -out /tmp/cert_key.pem 2048
           else
             echo "$CM_CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
           fi
+          echo "=== Fetching signing files for $BUNDLE_ID ==="
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
@@ -132,16 +132,21 @@ workflows:
             --private-key "$(cat /tmp/AuthKey.p8)" \
             --certificate-key /tmp/cert_key.pem \
             --create
+          echo "=== Adding certificates to keychain ==="
           keychain add-certificates
+          echo "=== Applying profiles to Xcode project ==="
           cd app/ios/App
           xcode-project use-profiles
+          echo "=== Checking project signing settings ==="
+          grep -c "PROVISIONING_PROFILE" App.xcodeproj/project.pbxproj || echo "WARNING: No provisioning profiles found in project!"
 
       - name: Build iOS
         script: |
           cd app/ios/App
           xcode-project build-ipa \
             --workspace App.xcworkspace \
-            --scheme App
+            --scheme App \
+            --archive-flags "CODE_SIGN_STYLE=Manual"
 
     artifacts:
       - app/ios/App/build/ios/ipa/*.ipa
