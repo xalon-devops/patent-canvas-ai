@@ -130,7 +130,7 @@ workflows:
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --private-key "$(cat /tmp/AuthKey.p8)" \
-            --certificate-key /tmp/cert_key.pem \
+            --certificate-key "$(cat /tmp/cert_key.pem)" \
             --create
           echo "=== Adding certificates to keychain ==="
           keychain add-certificates
