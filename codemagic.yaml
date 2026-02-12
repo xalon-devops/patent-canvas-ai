@@ -33,9 +33,10 @@ workflows:
           cd app
           npm ci || npm install
 
-      - name: Sync Capacitor
+      - name: Add and sync Capacitor
         script: |
           cd app
+          npx cap add android || true
           npx cap sync android
 
       - name: Build Android
@@ -97,9 +98,10 @@ workflows:
           cd app
           npm ci || npm install
 
-      - name: Sync Capacitor
+      - name: Add and sync Capacitor
         script: |
           cd app
+          npx cap add ios || true
           npx cap sync ios
 
       - name: Install CocoaPods
@@ -157,5 +159,6 @@ workflows:
                 \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"ipa\"}],
                 \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
               }"
+
 
 
