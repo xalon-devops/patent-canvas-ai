@@ -173,7 +173,7 @@ workflows:
     instance_type: linux_x2
     environment:
       java: 17
-      ruby: 3.2
+      ruby: 3.2.9
     scripts:
       - name: Download artifact
         script: |
@@ -245,7 +245,7 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       xcode: latest
-      ruby: 3.2
+      ruby: 3.2.9
     scripts:
       - name: Download artifact
         script: |
