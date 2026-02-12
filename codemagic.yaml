@@ -117,15 +117,20 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
+          # Decode App Store Connect API key
           printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" | base64 -D > /tmp/AuthKey.p8
-          echo "Key first line: $(head -1 /tmp/AuthKey.p8)"
-          echo "Key size: $(wc -c < /tmp/AuthKey.p8) bytes"
-          echo "Bundle ID: $BUNDLE_ID"
+          # Auto-generate certificate signing key if not provided
+          if [ -z "$CM_CERTIFICATE_PRIVATE_KEY" ]; then
+            openssl genrsa -out /tmp/cert_key.pem 2048
+          else
+            echo "$CM_CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
+          fi
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --private-key "$(cat /tmp/AuthKey.p8)" \
+            --certificate-key /tmp/cert_key.pem \
             --create
           keychain add-certificates
           cd app/ios/App
