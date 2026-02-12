@@ -178,7 +178,7 @@ workflows:
         script: |
           mkdir -p artifacts
           echo "Downloading artifact from: $ARTIFACT_URL"
-          curl -L -o artifacts/app.apk "$ARTIFACT_URL"
+          curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.apk "$ARTIFACT_URL"
           if [[ "$ARTIFACT_URL" == *".aab"* ]]; then
             mv artifacts/app.apk artifacts/app.aab
           fi
@@ -249,8 +249,10 @@ workflows:
         script: |
           mkdir -p artifacts
           echo "Downloading IPA from: $ARTIFACT_URL"
-          curl -L -o artifacts/app.ipa "$ARTIFACT_URL"
+          curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.ipa "$ARTIFACT_URL"
           ls -la artifacts/
+          file artifacts/app.ipa
+          zip -T artifacts/app.ipa || echo "WARNING: IPA integrity check failed"
       - name: Setup App Store Connect credentials
         script: |
           mkdir -p ~/.appstoreconnect/private_keys
@@ -300,6 +302,7 @@ workflows:
                 \"platform\": \"ios\",
                 \"buildId\": \"$CM_BUILD_ID\"
               }"
+
 
 
 
