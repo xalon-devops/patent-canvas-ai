@@ -71,7 +71,7 @@ workflows:
                 \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
               }"
 
-  ios-release:
+      ios-release:
     name: iOS Release Build
     max_build_duration: 90
     instance_type: mac_mini_m2
@@ -127,19 +127,13 @@ workflows:
       - name: Build iOS
         script: |
           cd app/ios/App
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -archivePath build/App.xcarchive \
-            archive
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportPath build \
-            -exportOptionsPlist exportOptions.plist
+          xcode-project build-ipa \
+            --workspace App.xcworkspace \
+            --scheme App
 
     artifacts:
-      - app/ios/App/build/*.ipa
-      - app/ios/App/build/*.xcarchive
+      - app/ios/App/build/ios/ipa/*.ipa
+      - app/ios/App/**/*.xcarchive
 
     publishing:
       scripts:
