@@ -118,7 +118,12 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          echo "$APP_STORE_CONNECT_KEY_CONTENT" | base64 --decode > /tmp/AuthKey.p8
+          # Decode key using macOS-compatible flag, printf avoids trailing newline
+          printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" | base64 -D > /tmp/AuthKey.p8
+          # Debug: verify key decoded correctly
+          echo "Key first line: $(head -1 /tmp/AuthKey.p8)"
+          echo "Key size: $(wc -c < /tmp/AuthKey.p8) bytes"
+          echo "Bundle ID: $BUNDLE_ID"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
@@ -126,6 +131,7 @@ workflows:
             --private-key @/tmp/AuthKey.p8 \
             --create
           keychain add-certificates
+          cd app/ios/App
           xcode-project use-profiles
 
       - name: Build iOS
@@ -159,3 +165,4 @@ workflows:
                 \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"ipa\"}],
                 \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
               }"
+
