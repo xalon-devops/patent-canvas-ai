@@ -1,4 +1,5 @@
 workflows:
+
   android-release:
     name: Android Release Build
     max_build_duration: 60
@@ -77,12 +78,6 @@ workflows:
       xcode: latest
       node: 20
       cocoapods: default
-      vars:
-        BUNDLE_ID: $BUNDLE_ID
-        TEAM_ID: $TEAM_ID
-
-    integrations:
-      app_store_connect: AppShip App Store Connect
 
     scripts:
       - name: Download and extract project
@@ -115,8 +110,12 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
+          echo "$APP_STORE_CONNECT_KEY_CONTENT" | base64 --decode > /tmp/AuthKey.p8
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --key-id "$APP_STORE_CONNECT_KEY_ID" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key @/tmp/AuthKey.p8 \
             --create
           keychain add-certificates
           xcode-project use-profiles
@@ -158,4 +157,5 @@ workflows:
                 \"artefacts\": [{\"url\": \"$CM_ARTIFACT_LINKS\", \"type\": \"ipa\"}],
                 \"finishedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
               }"
+
 
