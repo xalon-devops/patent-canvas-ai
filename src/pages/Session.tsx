@@ -32,6 +32,8 @@ import PatentFilingChecklist from '@/components/PatentFilingChecklist';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
 import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 import { PageSEO } from '@/components/SEO';
+import PatentChatAssistant from '@/components/PatentChatAssistant';
+import ClaimStrengthAnalyzer from '@/components/ClaimStrengthAnalyzer';
 
 interface PatentSession {
   id: string;
@@ -1201,6 +1203,15 @@ const Session = () => {
                 priorArt={priorArt}
               />
               
+              {/* AI Claim Strength Analyzer */}
+              {sections.find(s => s.section_type === 'claims')?.content && (
+                <ClaimStrengthAnalyzer
+                  claimsContent={sections.find(s => s.section_type === 'claims')?.content || ''}
+                  priorArt={priorArt}
+                  inventionContext={patentSession?.idea_prompt}
+                />
+              )}
+              
               {/* Patent Glossary */}
               <PatentGlossary sections={sections} />
               
@@ -1405,4 +1416,21 @@ const PatentSectionCard: React.FC<PatentSectionCardProps> = ({
   );
 };
 
-export default Session;
+// Wrapper to include chat assistant
+const SessionWithChat = () => {
+  const [chatOpen, setChatOpen] = React.useState(false);
+  const { id } = useParams();
+  
+  return (
+    <>
+      <Session />
+      <PatentChatAssistant 
+        sessionId={id} 
+        isOpen={chatOpen} 
+        onToggle={() => setChatOpen(!chatOpen)} 
+      />
+    </>
+  );
+};
+
+export default SessionWithChat;
