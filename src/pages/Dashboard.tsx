@@ -472,10 +472,10 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            <Card className="p-4 sm:p-6 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:shadow-elegant transition-all duration-500">
+            <Card className="p-4 sm:p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-elegant transition-all duration-500">
               <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="p-2 sm:p-3 bg-emerald-100 rounded-lg flex-shrink-0">
-                  <Search className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
+                <div className="p-2 sm:p-3 bg-secondary/10 rounded-lg flex-shrink-0">
+                  <Search className="h-5 w-5 sm:h-6 sm:w-6 text-secondary" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-lg sm:text-xl font-semibold text-foreground">Check & See</h3>
@@ -484,23 +484,23 @@ const Dashboard = () => {
               </div>
               <div className="space-y-3 mb-6">
                 <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle className="h-4 w-4 text-secondary" />
                   <span>Search multiple patent databases</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle className="h-4 w-4 text-secondary" />
                   <span>AI-powered similarity analysis</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle className="h-4 w-4 text-secondary" />
                   <span>Unlimited searches with subscription</span>
                 </div>
-                <div className="text-2xl font-bold text-emerald-600 mb-2">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
+                <div className="text-2xl font-bold text-secondary mb-2">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
                 <div className="text-sm text-muted-foreground mb-4">Monthly subscription</div>
               </div>
               <Button 
                 onClick={() => navigate('/check')} 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
               >
                 <Search className="h-4 w-4 mr-2" />
                 Start Searching ({CHECK_AND_SEE_PRICE_DISPLAY}/month)
