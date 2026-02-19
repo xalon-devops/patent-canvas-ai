@@ -121,3 +121,9 @@ verify_jwt = false
 
 [functions.firecrawl-scrape]
 verify_jwt = false
+
+[functions.patent-chat]
+verify_jwt = false
+
+[functions.analyze-claims]
+verify_jwt = false

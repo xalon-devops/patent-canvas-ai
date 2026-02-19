@@ -1,0 +1,243 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Scale, Loader2, AlertTriangle, CheckCircle, Shield, Target, Eye, Zap, Lightbulb
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface ClaimScore {
+  breadth: number;
+  specificity: number;
+  enforceability: number;
+  novelty: number;
+  clarity: number;
+}
+
+interface ClaimVulnerability {
+  type: string;
+  risk: string;
+  explanation: string;
+}
+
+interface ClaimAnalysis {
+  claimNumber: number;
+  claimText: string;
+  type: string;
+  scores: ClaimScore;
+  vulnerabilities: ClaimVulnerability[];
+  suggestedRewrite?: string;
+  strategicNotes?: string;
+}
+
+interface FullAnalysis {
+  overallScore: number;
+  overallGrade: string;
+  claims: ClaimAnalysis[];
+  portfolioRecommendations: string[];
+  examinerPrediction: {
+    likelyRejections: string[];
+    suggestedPreemptiveAmendments: string[];
+  };
+}
+
+interface ClaimStrengthAnalyzerProps {
+  claimsContent: string;
+  priorArt?: any[];
+  inventionContext?: string;
+}
+
+const SCORE_LABELS: Record<keyof ClaimScore, { label: string; icon: React.ReactNode }> = {
+  breadth: { label: 'Breadth', icon: <Target className="w-3 h-3" /> },
+  specificity: { label: 'Precision', icon: <Eye className="w-3 h-3" /> },
+  enforceability: { label: 'Enforce', icon: <Shield className="w-3 h-3" /> },
+  novelty: { label: 'Novelty', icon: <Zap className="w-3 h-3" /> },
+  clarity: { label: 'Clarity', icon: <Lightbulb className="w-3 h-3" /> },
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 80) return 'text-green-600';
+  if (score >= 60) return 'text-amber-600';
+  return 'text-red-600';
+};
+
+const getProgressColor = (score: number) => {
+  if (score >= 80) return '[&>div]:bg-green-500';
+  if (score >= 60) return '[&>div]:bg-amber-500';
+  return '[&>div]:bg-red-500';
+};
+
+const getRiskColor = (risk: string) => {
+  if (risk === 'high') return 'bg-red-100 text-red-700';
+  if (risk === 'medium') return 'bg-amber-100 text-amber-700';
+  return 'bg-blue-100 text-blue-700';
+};
+
+const getGradeColor = (grade: string) => {
+  switch (grade) {
+    case 'A': return 'bg-green-500 text-white';
+    case 'B': return 'bg-blue-500 text-white';
+    case 'C': return 'bg-amber-500 text-white';
+    case 'D': return 'bg-orange-500 text-white';
+    default: return 'bg-red-500 text-white';
+  }
+};
+
+export default function ClaimStrengthAnalyzer({ claimsContent, priorArt, inventionContext }: ClaimStrengthAnalyzerProps) {
+  const [analysis, setAnalysis] = useState<FullAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [expandedClaim, setExpandedClaim] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const analyze = async () => {
+    if (!claimsContent || claimsContent.length < 30) {
+      toast({ title: 'Not enough content', description: 'Claims section needs more content to analyze.', variant: 'destructive' });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-claims', {
+        body: { claims: claimsContent, priorArt, inventionContext }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Analysis failed');
+      setAnalysis(data.analysis);
+    } catch (e: any) {
+      toast({ title: 'Analysis failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  if (!analysis) {
+    return (
+      <Button onClick={analyze} variant="outline" size="sm" disabled={isAnalyzing || !claimsContent} className="gap-1.5 text-xs">
+        {isAnalyzing ? <><Loader2 className="h-3 w-3 animate-spin" />Analyzing Claims…</> : <><Scale className="h-3 w-3" />Analyze Claim Strength</>}
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="border-primary/20 animate-in slide-in-from-top-2 duration-200">
+      <CardHeader className="p-3 pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Scale className="h-4 w-4 text-primary" />
+            Claim Strength Analysis
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className={`text-sm font-bold px-2 ${getGradeColor(analysis.overallGrade)}`}>
+              {analysis.overallGrade} · {analysis.overallScore}/100
+            </Badge>
+            <Button variant="ghost" size="sm" onClick={analyze} disabled={isAnalyzing} className="h-6 text-[10px]">
+              {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Re-analyze'}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 pt-0">
+        <ScrollArea className="max-h-[400px]">
+          <div className="space-y-3">
+            {/* Per-claim analysis */}
+            {analysis.claims.map((claim, i) => (
+              <div key={i} className="bg-muted/30 rounded-md p-2.5 space-y-2">
+                <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedClaim(expandedClaim === i ? null : i)}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] px-1.5">
+                      Claim {claim.claimNumber} · {claim.type}
+                    </Badge>
+                    <span className={`text-xs font-bold ${getScoreColor(
+                      Math.round(Object.values(claim.scores).reduce((a, b) => a + b, 0) / 5)
+                    )}`}>
+                      {Math.round(Object.values(claim.scores).reduce((a, b) => a + b, 0) / 5)}/100
+                    </span>
+                  </div>
+                  {claim.vulnerabilities.length > 0 && (
+                    <Badge className={getRiskColor(claim.vulnerabilities[0]?.risk || 'low')} >
+                      <AlertTriangle className="w-2.5 h-2.5 mr-1" />
+                      {claim.vulnerabilities.length} issue{claim.vulnerabilities.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Score bars */}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {(Object.entries(claim.scores) as [keyof ClaimScore, number][]).map(([key, val]) => (
+                    <div key={key} className="text-center">
+                      <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                        {SCORE_LABELS[key].icon}
+                        <span className="text-[9px] text-muted-foreground">{SCORE_LABELS[key].label}</span>
+                      </div>
+                      <Progress value={val} className={`h-1 ${getProgressColor(val)}`} />
+                      <span className={`text-[9px] font-medium ${getScoreColor(val)}`}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Expanded details */}
+                {expandedClaim === i && (
+                  <div className="space-y-2 pt-1 border-t border-border/50">
+                    {claim.vulnerabilities.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground mb-1">Vulnerabilities:</p>
+                        {claim.vulnerabilities.map((v, vi) => (
+                          <div key={vi} className="flex items-start gap-1.5 mb-1">
+                            <Badge className={`${getRiskColor(v.risk)} text-[9px] px-1 py-0 flex-shrink-0`}>{v.type}</Badge>
+                            <span className="text-[10px] text-muted-foreground">{v.explanation}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {claim.suggestedRewrite && (
+                      <div>
+                        <p className="text-[10px] font-medium text-primary mb-1">Suggested Rewrite:</p>
+                        <p className="text-[10px] bg-primary/5 p-2 rounded border border-primary/10 italic">{claim.suggestedRewrite}</p>
+                      </div>
+                    )}
+                    {claim.strategicNotes && (
+                      <p className="text-[10px] text-muted-foreground">💡 {claim.strategicNotes}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Examiner Prediction */}
+            {analysis.examinerPrediction && (
+              <div className="bg-destructive/5 rounded-md p-2.5">
+                <p className="text-xs font-medium flex items-center gap-1.5 mb-1.5">
+                  <Shield className="w-3 h-3 text-destructive" />
+                  Examiner Prediction
+                </p>
+                {analysis.examinerPrediction.likelyRejections.map((r, i) => (
+                  <p key={i} className="text-[10px] text-muted-foreground mb-0.5">⚠️ {r}</p>
+                ))}
+                {analysis.examinerPrediction.suggestedPreemptiveAmendments.map((a, i) => (
+                  <p key={i} className="text-[10px] text-primary mt-1">✅ {a}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Portfolio Recommendations */}
+            {analysis.portfolioRecommendations?.length > 0 && (
+              <div className="bg-accent/5 rounded-md p-2.5">
+                <p className="text-xs font-medium flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb className="w-3 h-3 text-accent" />
+                  Strategic Recommendations
+                </p>
+                {analysis.portfolioRecommendations.map((r, i) => (
+                  <p key={i} className="text-[10px] text-muted-foreground mb-0.5">→ {r}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+}

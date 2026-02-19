@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import Ideas from "./pages/Ideas";
 import Pending from "./pages/Pending";
 import Active from "./pages/Active";
+import Analytics from "./pages/Analytics";
 import NewApplication from "./pages/NewApplication";
 import Drafts from "./pages/Drafts";
 import Check from "./pages/Check";
@@ -104,6 +105,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Active />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/analytics" 
+              element={
+                <ProtectedRoute>
+                  <Analytics />
                 </ProtectedRoute>
               } 
             />
