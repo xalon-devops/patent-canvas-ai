@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary Meta Tags (defaults - react-helmet overrides per page) -->
-    <title>PatentBot™ - AI Patent Application Generator | File AI Patents for $1,000</title>
-    <meta name="description" content="File AI patent applications in minutes with PatentBot™. The #1 AI patent tool for machine learning, neural networks & AI inventions. USPTO-ready formatting. $1,000 flat fee vs $10,000+ attorneys." />
-    <meta name="keywords" content="AI patent, AI patents, AI patent application, machine learning patent, artificial intelligence patent, file AI patent, AI patent generator, AI patent software, neural network patent, deep learning patent, USPTO filing, patent search, patent drafting, intellectual property, file patent online, patent attorney alternative, DIY patent, file patent without attorney" />
+    <title>PatentBot™ - AI Patent Drafting Assistant | Pro Se Patent Tool for $1,000</title>
+    <meta name="description" content="Draft patent applications with AI assistance for $1,000 flat fee. Pro se filing tool with AI-guided interviews, prior art search, and USPTO-formatted DOCX export. Not a law firm — a drafting assistant." />
+    <meta name="keywords" content="AI patent drafting, patent application assistant, pro se patent filing, AI patent tool, prior art search, USPTO formatting, patent drafting software, DIY patent, patent claim drafting, invention disclosure" />
     <meta name="author" content="PatentBot AI" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
@@ -29,8 +29,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://patentbot-ai.com" />
     
-    <!-- Fonts: Inter (sans) + Instrument Serif (accent) -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" />
+    <!-- Fonts: Inter (sans) + Instrument Serif (accent) - display=swap for FCP -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" /></noscript>
     
     <!-- Favicon - Complete Set (Custom PatentBot favicon, NO fallbacks) -->
     <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="32x32" />
@@ -46,8 +48,8 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://patentbot-ai.com/" />
-    <meta property="og:title" content="PatentBot™ - File AI Patents for $1,000 | AI Patent Application Generator" />
-    <meta property="og:description" content="The #1 AI patent tool. File machine learning patents, neural network patents & AI invention patents in minutes. USPTO-ready. Save 90% vs patent attorneys." />
+    <meta property="og:title" content="PatentBot™ - AI Patent Drafting Assistant | $1,000 Flat Fee" />
+    <meta property="og:description" content="Draft patent applications with AI for $1,000 flat fee. Pro se filing assistant with prior art search, claims drafting, and USPTO-formatted export." />
     <meta property="og:image" content="https://patentbot-ai.com/social-preview.png" />
     <meta property="og:image:secure_url" content="https://patentbot-ai.com/social-preview.png" />
     <meta property="og:image:width" content="1200" />
@@ -60,8 +62,8 @@
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://patentbot-ai.com/" />
-    <meta name="twitter:title" content="PatentBot™ - File AI Patents for $1,000 | Machine Learning & Neural Network Patents" />
-    <meta name="twitter:description" content="The #1 AI patent tool. File machine learning patents, neural network patents & AI invention patents in minutes. USPTO-ready. Save 90%." />
+    <meta name="twitter:title" content="PatentBot™ - AI Patent Drafting Assistant | $1,000 Flat Fee" />
+    <meta name="twitter:description" content="Draft patent applications with AI for $1,000. Pro se filing assistant with prior art search. Not a law firm." />
     <meta name="twitter:image" content="https://patentbot-ai.com/social-preview.png" />
     <meta name="twitter:site" content="@patentbotai" />
     <meta name="twitter:creator" content="@patentbotai" />
@@ -72,9 +74,9 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "PatentBot - AI Patent Generator",
-      "alternateName": ["PatentBot AI", "Patent Bot", "AI Patent Generator", "AI Patent Software", "Machine Learning Patent Tool"],
+      "alternateName": ["PatentBot AI", "Patent Bot", "AI Patent Drafting Tool"],
       "url": "https://patentbot-ai.com/",
-      "description": "The #1 AI patent application generator. File AI patents, machine learning patents, and neural network patents for $1,000 flat fee.",
+      "description": "AI patent drafting assistant for pro se filers. Draft patent applications with AI guidance for $1,000 flat fee.",
       "potentialAction": {
         "@type": "SearchAction",
         "target": {
@@ -129,7 +131,7 @@
           "url": "https://patentbot-ai.com/pricing"
         }
       ],
-      "description": "The #1 AI patent application generator. File machine learning patents, neural network patents, and AI invention patents in minutes. USPTO-ready formatting. Save 90% vs patent attorneys.",
+      "description": "AI patent drafting assistant. Draft patent applications with AI guidance for $1,000 flat fee. Pro se filing tool with USPTO-formatted export.",
       "url": "https://patentbot-ai.com/",
       "logo": "https://patentbot-ai.com/logo.png",
       "image": "https://patentbot-ai.com/social-preview.png",
@@ -165,7 +167,7 @@
         "height": 512
       },
       "image": "https://patentbot-ai.com/social-preview.png",
-      "description": "The #1 AI patent application platform. File AI patents, machine learning patents, and neural network patents for $1,000 flat fee. USPTO-ready formatting.",
+      "description": "AI patent drafting assistant for pro se filers. $1,000 flat fee. Not a law firm.",
       "foundingDate": "2024",
       "sameAs": [],
       "contactPoint": {
