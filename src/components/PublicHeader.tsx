@@ -23,12 +23,10 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
         setLoading(false);
       }
     );
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -63,28 +61,25 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
       <div
         className={`
           flex items-center justify-between w-full max-w-5xl
-          rounded-2xl border px-4 sm:px-6 py-3
+          rounded-2xl border px-5 sm:px-6 py-2.5
           transition-all duration-500 ease-out
           ${scrolled
-            ? 'bg-card/90 backdrop-blur-2xl border-border/50 shadow-elegant'
-            : 'bg-card/60 backdrop-blur-xl border-border/20 shadow-card'
+            ? 'bg-card/95 backdrop-blur-2xl border-border shadow-elegant'
+            : 'bg-card/70 backdrop-blur-xl border-border/30 shadow-card'
           }
         `}
       >
         {/* Logo */}
-        <div
-          className="cursor-pointer flex-shrink-0"
-          onClick={() => navigate('/')}
-        >
+        <div className="cursor-pointer flex-shrink-0" onClick={() => navigate('/')}>
           <img
             src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png"
             alt="PatentBot AI"
-            className="h-8 sm:h-9 w-auto"
+            className="h-7 sm:h-8 w-auto"
           />
         </div>
 
-        {/* Center nav links - hidden on mobile */}
-        <nav className="hidden md:flex items-center gap-1">
+        {/* Center nav */}
+        <nav className="hidden md:flex items-center gap-0.5">
           {navLinks.map((link) => (
             <button
               key={link.label}
@@ -96,18 +91,18 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
           ))}
         </nav>
 
-        {/* Auth buttons */}
+        {/* Auth */}
         <nav className="flex items-center gap-2">
           {loading ? (
-            <div className="w-20 h-9 bg-muted/30 rounded-xl animate-pulse" />
+            <div className="w-20 h-8 bg-muted/30 rounded-xl animate-pulse" />
           ) : user ? (
             <Button
               size="sm"
-              className="rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium"
+              className="rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium h-8 text-xs px-4"
               onClick={() => navigate('/dashboard')}
             >
               Dashboard
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3 w-3" />
             </Button>
           ) : (
             <>
@@ -115,13 +110,13 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/auth?tab=signin')}
-                className="text-muted-foreground hover:text-foreground rounded-xl"
+                className="text-muted-foreground hover:text-foreground rounded-xl h-8 text-xs"
               >
                 Login
               </Button>
               <Button
                 size="sm"
-                className="rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium"
+                className="rounded-xl bg-foreground text-background hover:bg-foreground/90 font-medium h-8 text-xs px-4"
                 onClick={() => navigate('/auth?tab=signup')}
               >
                 Sign Up

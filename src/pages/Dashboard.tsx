@@ -23,14 +23,12 @@ import {
   CHECK_AND_SEE_PRICE_DISPLAY 
 } from '@/lib/pricingConstants';
 
-// Admin button - only shows for users with admin role
 function AdminButton({ userId }: { userId: string | undefined }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!userId) return;
-    
     const checkAdmin = async () => {
       const { data } = await supabase
         .from('user_roles')
@@ -38,10 +36,8 @@ function AdminButton({ userId }: { userId: string | undefined }) {
         .eq('user_id', userId)
         .eq('role', 'admin')
         .maybeSingle();
-      
       setIsAdmin(!!data);
     };
-    
     checkAdmin();
   }, [userId]);
 
@@ -80,10 +76,7 @@ const Dashboard = () => {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
-        if (!session?.user) {
-          navigate('/auth');
-        }
+        if (!session?.user) navigate('/auth');
       }
     );
 
@@ -101,23 +94,12 @@ const Dashboard = () => {
           return;
         }
 
-        // If the row doesn't exist (legacy users), create it so the setting can persist.
         if (!data) {
-          await supabase
-            .from('users')
-            .upsert(
-              {
-                id: userId,
-                email: email ?? null,
-              },
-              { onConflict: 'id' }
-            );
-
+          await supabase.from('users').upsert({ id: userId, email: email ?? null }, { onConflict: 'id' });
           setShowWelcome(true);
           return;
         }
 
-        // Show onboarding until user explicitly dismisses it (persisted in DB)
         setShowWelcome(!data.onboarding_completed_at);
       } catch {
         const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
@@ -125,510 +107,293 @@ const Dashboard = () => {
       }
     };
 
-    // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       setLoading(false);
-      toast({
-        title: "Loading timeout",
-        description: "Taking longer than expected. Please refresh if needed.",
-        variant: "default",
-      });
-    }, 10000); // 10 second timeout
+      toast({ title: "Loading timeout", description: "Taking longer than expected. Please refresh if needed." });
+    }, 10000);
 
     supabase.auth.getSession()
       .then(async ({ data: { session }, error }) => {
         clearTimeout(timeout);
         setSession(session);
         setUser(session?.user ?? null);
-
-        if (error) {
-          console.error('Session error:', error);
-          toast({
-            title: "Session Error",
-            description: error.message,
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        if (!session?.user) {
-          navigate('/auth');
-          return;
-        }
-
+        if (error) { setLoading(false); return; }
+        if (!session?.user) { navigate('/auth'); return; }
         await loadOnboardingState(session.user.id, session.user.email);
         setLoading(false);
       })
-      .catch((error) => {
-        clearTimeout(timeout);
-        console.error('Auth error:', error);
-        setLoading(false);
-        toast({
-          title: "Authentication Error",
-          description: "Please try signing in again.",
-          variant: "destructive",
-        });
-        navigate('/auth');
-      });
+      .catch(() => { clearTimeout(timeout); setLoading(false); navigate('/auth'); });
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, [navigate, toast]);
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Sign out error:', error);
-        toast({
-          title: "Sign out failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
+      await supabase.auth.signOut();
       navigate('/auth');
-    } catch (error: any) {
-      console.error('Sign out exception:', error);
-      // Force navigate to auth even if signOut fails
-      navigate('/auth');
-    }
+    } catch { navigate('/auth'); }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({
-        title: "Password mismatch",
-        description: "New password and confirmation don't match",
-        variant: "destructive",
-      });
+      toast({ title: "Password mismatch", description: "New password and confirmation don't match", variant: "destructive" });
       return;
     }
-
     if (passwordForm.newPassword.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long",
-        variant: "destructive",
-      });
+      toast({ title: "Password too short", description: "Password must be at least 6 characters long", variant: "destructive" });
       return;
     }
-
     setPasswordLoading(true);
-
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword
-      });
-
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
       if (error) throw error;
-
-      toast({
-        title: "Password updated",
-        description: "Your password has been successfully changed",
-        variant: "default",
-      });
-
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
+      toast({ title: "Password updated", description: "Your password has been successfully changed" });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsPasswordDialogOpen(false);
     } catch (error: any) {
-      toast({
-        title: "Password update failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const createNewSession = () => {
-    navigate('/new-application');
+      toast({ title: "Password update failed", description: error.message, variant: "destructive" });
+    } finally { setPasswordLoading(false); }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your patents...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm">Loading your patents...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-background">
       <PageSEO.Dashboard />
+      
       {/* Header */}
-      <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
-        <div className="safe-area px-4 sm:px-6">
-          <div className="content-width">
-            <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
-              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                <img 
-                  src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
-                  alt="PatentBot AI Logo" 
-                  className="h-10 sm:h-12 w-auto flex-shrink-0"
-                />
-                <p className="text-xs sm:text-sm text-muted-foreground hidden xs:block truncate">
-                  {user?.email}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <AdminButton userId={user?.id} />
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground hover:text-foreground p-1">
-                      <UserAvatar size="sm" />
-                      <MoreVertical className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glass border-white/10 min-w-[180px]">
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>
-                      <UserIcon className="h-4 w-4 mr-2" />
-                      Profile
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
-                      <Key className="h-4 w-4 mr-2" />
-                      Change Password
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+      <header className="border-b border-border bg-card/95 backdrop-blur-xl sticky top-0 z-50" style={{ boxShadow: 'var(--shadow-xs)' }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <img 
+                src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+                alt="PatentBot AI Logo" 
+                className="h-9 sm:h-10 w-auto flex-shrink-0 cursor-pointer"
+                onClick={() => navigate('/')}
+              />
+              <p className="text-xs text-muted-foreground hidden sm:block truncate">
+                {user?.email}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <AdminButton userId={user?.id} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground p-1.5">
+                    <UserAvatar size="sm" />
+                    <MoreVertical className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-card border border-border min-w-[180px]" style={{ boxShadow: 'var(--shadow-elegant)' }}>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <UserIcon className="h-4 w-4 mr-2" />Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings className="h-4 w-4 mr-2" />Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
+                    <Key className="h-4 w-4 mr-2" />Change Password
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Password Change Dialog */}
+      {/* Password Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md glass">
+        <DialogContent className="sm:max-w-md bg-card border border-border" style={{ boxShadow: 'var(--shadow-elegant)' }}>
           <DialogHeader className="text-center">
-            <DialogTitle className="flex items-center justify-center gap-3 text-xl">
-              <div className="p-2 bg-primary/10 rounded-xl">
+            <DialogTitle className="flex items-center justify-center gap-3 text-lg">
+              <div className="p-2 bg-primary/8 rounded-xl">
                 <Key className="h-5 w-5 text-primary" />
               </div>
               Change Password
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Enter your new password below. You don't need to enter your current password.
+            <DialogDescription className="text-muted-foreground text-sm">
+              Enter your new password below.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handlePasswordChange} className="space-y-6 mt-6">
+          <form onSubmit={handlePasswordChange} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="new-password" className="text-sm font-medium">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                placeholder="Enter new password"
-                value={passwordForm.newPassword}
-                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                required
-                minLength={6}
-                className="glass border-white/10 focus:border-primary/50 transition-all duration-200"
-              />
+              <Input id="new-password" type="password" placeholder="Enter new password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))} required minLength={6} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-sm font-medium">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="Confirm new password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                required
-                minLength={6}
-                className="glass border-white/10 focus:border-primary/50 transition-all duration-200"
-              />
+              <Label htmlFor="confirm-password" className="text-sm font-medium">Confirm Password</Label>
+              <Input id="confirm-password" type="password" placeholder="Confirm new password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))} required minLength={6} />
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsPasswordDialogOpen(false)}
-                className="flex-1 glass border-white/10"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                variant="gradient"
-                disabled={passwordLoading}
-                className="flex-1 shadow-glow"
-              >
-                {passwordLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Key className="h-4 w-4" />
-                    Update Password
-                  </>
-                )}
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsPasswordDialogOpen(false)} className="flex-1">Cancel</Button>
+              <Button type="submit" disabled={passwordLoading} className="flex-1 btn-dark">
+                {passwordLoading ? 'Updating...' : 'Update Password'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
-        <div className="content-width">
-          {/* Welcome Wizard Modal for New Users */}
-          <WelcomeWizard
-            open={showWelcome}
-            userName={user?.email}
-            onComplete={async () => {
-              // Hide immediately in UI
-              setShowWelcome(false);
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        {/* Welcome Wizard */}
+        <WelcomeWizard
+          open={showWelcome}
+          userName={user?.email}
+          onComplete={async () => {
+            setShowWelcome(false);
+            if (user?.id) {
+              const { error } = await supabase.from('users').upsert({ id: user.id, email: user.email ?? null, onboarding_completed_at: getCurrentISOString() }, { onConflict: 'id' });
+              if (error) localStorage.setItem('patentbot_welcome_dismissed', 'true');
+            } else {
+              localStorage.setItem('patentbot_welcome_dismissed', 'true');
+            }
+          }}
+        />
 
-              // Persist to database so it never shows again (upsert handles missing row)
-              if (user?.id) {
-                const { error } = await supabase
-                  .from('users')
-                  .upsert(
-                    {
-                      id: user.id,
-                      email: user.email ?? null,
-                      onboarding_completed_at: getCurrentISOString(),
-                    },
-                    { onConflict: 'id' }
-                  );
-
-                if (error) {
-                  console.error('Failed to save onboarding state:', error);
-                  // Fallback to localStorage
-                  localStorage.setItem('patentbot_welcome_dismissed', 'true');
-                }
-              } else {
-                localStorage.setItem('patentbot_welcome_dismissed', 'true');
-              }
-            }}
-          />
-
-          {/* Pricing Cards */}
-          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-6 sm:mb-8">
-            <Card className="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:shadow-glow/30 transition-all duration-500">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
-                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-semibold">File Patent Application</h3>
-                  <p className="text-sm text-muted-foreground hidden sm:block">Complete AI-guided patent drafting</p>
-                </div>
+        {/* Action Cards */}
+        <div className="grid gap-5 md:grid-cols-2 mb-10">
+          {/* File Patent */}
+          <div className="pricing-card-featured !p-6 sm:!p-8">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-primary/8 flex items-center justify-center flex-shrink-0">
+                <FileText className="h-6 w-6 text-primary" />
               </div>
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  <span>Complete patent sections generated</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  <span>Professional USPTO-ready format</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  <span>Export to DOCX/PDF</span>
-                </div>
-                <div className="text-2xl font-bold text-primary mb-2">{PATENT_APPLICATION_PRICE_DISPLAY}</div>
-                <div className="text-sm text-muted-foreground mb-4">One-time payment per application</div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">File Patent Application</h3>
+                <p className="text-sm text-muted-foreground">Complete AI-guided drafting</p>
               </div>
-              <div className="space-y-3">
-                <Button 
-                  onClick={createNewSession} 
-                  className="w-full bg-primary hover:bg-primary/90"
-                >
-                  Start New Patent ({PATENT_APPLICATION_PRICE_DISPLAY})
-                </Button>
-                <Button 
-                  onClick={() => navigate('/drafts')} 
-                  variant="outline"
-                  className="w-full"
-                >
-                  Resume Draft Applications
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-4 sm:p-6 bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20 hover:shadow-elegant transition-all duration-500">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="p-2 sm:p-3 bg-secondary/10 rounded-lg flex-shrink-0">
-                  <Search className="h-5 w-5 sm:h-6 sm:w-6 text-secondary" />
+            </div>
+            <div className="space-y-2.5 mb-6">
+              {['Complete patent sections generated', 'Professional USPTO-ready format', 'Export to DOCX/PDF'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
+                  <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>{item}</span>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-semibold text-foreground">Check & See</h3>
-                  <p className="text-sm text-muted-foreground hidden sm:block">Search for existing patents before you file</p>
-                </div>
-              </div>
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-secondary" />
-                  <span>Search multiple patent databases</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-secondary" />
-                  <span>AI-powered similarity analysis</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-foreground">
-                  <CheckCircle className="h-4 w-4 text-secondary" />
-                  <span>Unlimited searches with subscription</span>
-                </div>
-                <div className="text-2xl font-bold text-secondary mb-2">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
-                <div className="text-sm text-muted-foreground mb-4">Monthly subscription</div>
-              </div>
-              <Button 
-                onClick={() => navigate('/check')} 
-                className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Start Searching ({CHECK_AND_SEE_PRICE_DISPLAY}/month)
+              ))}
+            </div>
+            <div className="text-2xl font-bold text-foreground mb-1">{PATENT_APPLICATION_PRICE_DISPLAY}</div>
+            <p className="text-xs text-muted-foreground mb-5">One-time payment per application</p>
+            <div className="space-y-2.5">
+              <Button onClick={() => navigate('/new-application')} className="w-full btn-dark h-11 rounded-xl text-sm">
+                Start New Patent
+                <ArrowRight className="w-4 h-4" />
               </Button>
-            </Card>
-          </div>
-
-          {/* Portfolio Overview */}
-          <div className="text-center mb-6 sm:mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 bg-gradient-primary bg-clip-text text-transparent">
-              Your Patent Portfolio
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 max-w-2xl mx-auto px-2">
-              Track your applications, manage ideas, and monitor your intellectual property.
-            </p>
-          </div>
-
-          {/* Dynamic Portfolio Stats */}
-          <PortfolioStatsSection userId={user?.id} />
-
-          {/* Enhanced Navigation Menu */}
-          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8 lg:mb-12">
-            <Card 
-              className="glass group relative overflow-hidden border-accent/30 hover:border-accent/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
-              onClick={() => navigate('/ideas')}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/10 opacity-60 group-hover:opacity-80 transition-opacity" />
-              <CardContent className="relative p-4 sm:p-6 lg:p-8">
-                <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="p-3 sm:p-4 bg-accent/10 rounded-xl sm:rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg flex-shrink-0">
-                    <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">Ideas Lab</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Capture & monitor innovations</p>
-                  </div>
-                </div>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  Save invention ideas and get notified when similar patents are filed.
-                </p>
-                <div className="flex items-center gap-2 text-accent font-medium group-hover:gap-3 transition-all text-sm">
-                  <span>Explore Ideas</span>
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card 
-              className="glass group relative overflow-hidden border-blue-500/30 hover:border-blue-500/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02]"
-              onClick={() => navigate('/pending')}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-blue-500/10 opacity-60 group-hover:opacity-80 transition-opacity" />
-              <CardContent className="relative p-4 sm:p-6 lg:p-8">
-                <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="p-3 sm:p-4 bg-blue-500/10 rounded-xl sm:rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg flex-shrink-0">
-                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">Pending Patents</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Track application progress</p>
-                  </div>
-                </div>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  View applications in progress and continue drafting where you left off.
-                </p>
-                <div className="flex items-center gap-2 text-blue-500 font-medium group-hover:gap-3 transition-all text-sm">
-                  <span>View Applications</span>
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card 
-              className="glass group relative overflow-hidden border-green-500/30 hover:border-green-500/50 hover:shadow-glow transition-all duration-500 cursor-pointer transform hover:scale-[1.02] sm:col-span-2 lg:col-span-1"
-              onClick={() => navigate('/active')}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-green-500/10 opacity-60 group-hover:opacity-80 transition-opacity" />
-              <CardContent className="relative p-4 sm:p-6 lg:p-8">
-                <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="p-3 sm:p-4 bg-green-500/10 rounded-xl sm:rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-lg flex-shrink-0">
-                    <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">Active Patents</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate">Protect your IP assets</p>
-                  </div>
-                </div>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-3 sm:mb-4 line-clamp-2">
-                  View your filed patents and track maintenance deadlines.
-                </p>
-                <div className="flex items-center gap-2 text-green-500 font-medium group-hover:gap-3 transition-all text-sm">
-                  <span>Manage Portfolio</span>
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Call-to-Action Section */}
-          <div className="text-center bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 border border-primary/10">
-            <div className="max-w-2xl mx-auto">
-              <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-3 sm:mb-4 bg-gradient-primary bg-clip-text text-transparent">
-                Ready to Protect Your Innovation?
-              </h3>
-              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-6 sm:mb-8 px-2">
-                Experience the most advanced AI-powered patent drafting system. From idea to USPTO filing in minutes.
-              </p>
-              <Button 
-                onClick={createNewSession} 
-                size="lg" 
-                className="w-full sm:w-auto px-6 sm:px-12 py-4 sm:py-6 text-base sm:text-lg lg:text-xl font-bold bg-gradient-primary hover:scale-105 transform transition-all duration-300 shadow-glow hover:shadow-2xl group"
-              >
-                <Plus className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3 group-hover:rotate-90 transition-transform flex-shrink-0" />
-                <span className="truncate">Start Patent Application</span>
-                <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 ml-2 sm:ml-3 group-hover:translate-x-2 transition-transform flex-shrink-0" />
+              <Button onClick={() => navigate('/drafts')} variant="outline" className="w-full h-11 rounded-xl text-sm border-border">
+                Resume Draft Applications
               </Button>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-3 sm:mt-4 px-2">
-                Professional USPTO-ready documents • 24/7 AI assistance
-              </p>
             </div>
           </div>
+
+          {/* Check & See */}
+          <div className="pricing-card !p-6 sm:!p-8">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center flex-shrink-0">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">Check & See</h3>
+                <p className="text-sm text-muted-foreground">Search for existing patents</p>
+              </div>
+            </div>
+            <div className="space-y-2.5 mb-6">
+              {['Search multiple patent databases', 'AI-powered similarity analysis', 'Unlimited searches with subscription'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
+                  <CheckCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-2xl font-bold text-foreground mb-1">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
+            <p className="text-xs text-muted-foreground mb-5">Monthly subscription</p>
+            <Button onClick={() => navigate('/check')} variant="outline" className="w-full h-11 rounded-xl text-sm border-border">
+              <Search className="h-4 w-4" />
+              Start Searching
+            </Button>
+          </div>
+        </div>
+
+        {/* Portfolio Header */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-[-0.03em] mb-2">
+            Your Patent Portfolio
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Track your applications, manage ideas, and monitor your IP.
+          </p>
+        </div>
+
+        {/* Stats */}
+        <PortfolioStatsSection userId={user?.id} />
+
+        {/* Navigation Cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-10">
+          {[
+            { title: 'Ideas Lab', desc: 'Capture & monitor innovations', detail: 'Save invention ideas and get notified when similar patents are filed.', icon: Sparkles, path: '/ideas', cta: 'Explore Ideas' },
+            { title: 'Pending Patents', desc: 'Track application progress', detail: 'View applications in progress and continue drafting where you left off.', icon: Clock, path: '/pending', cta: 'View Applications' },
+            { title: 'Active Patents', desc: 'Protect your IP assets', detail: 'View your filed patents and track maintenance deadlines.', icon: Shield, path: '/active', cta: 'Manage Portfolio' },
+          ].map((card, i) => (
+            <div
+              key={i}
+              className="nav-card p-5 sm:p-6 group"
+              onClick={() => navigate(card.path)}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/12 transition-colors">
+                  <card.icon className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground">{card.title}</h3>
+                  <p className="text-xs text-muted-foreground">{card.desc}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-2">
+                {card.detail}
+              </p>
+              <div className="flex items-center gap-1.5 text-primary text-sm font-medium group-hover:gap-2.5 transition-all">
+                <span>{card.cta}</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="text-center bg-card border border-border rounded-2xl p-8 sm:p-12" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
+            Ready to Protect Your Innovation?
+          </h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-lg mx-auto">
+            From idea to USPTO filing — AI-powered patent drafting.
+          </p>
+          <Button 
+            onClick={() => navigate('/new-application')} 
+            className="btn-dark group px-8 py-5 h-auto text-base rounded-2xl"
+          >
+            <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform" />
+            Start Patent Application
+            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+          </Button>
         </div>
       </main>
     </div>
   );
 };
 
-// Portfolio Stats Component using centralized data hook
 function PortfolioStatsSection({ userId }: { userId: string | undefined }) {
   const { stats, loading } = usePatentData(userId);
 
@@ -636,73 +401,36 @@ function PortfolioStatsSection({ userId }: { userId: string | undefined }) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="glass animate-pulse">
-            <CardContent className="p-4 sm:p-6">
-              <div className="h-12 bg-muted/50 rounded" />
-            </CardContent>
-          </Card>
+          <div key={i} className="bg-card border border-border rounded-2xl p-5 animate-pulse" style={{ boxShadow: 'var(--shadow-xs)' }}>
+            <div className="h-12 bg-muted rounded-lg" />
+          </div>
         ))}
       </div>
     );
   }
 
+  const items = [
+    { label: 'Applications', value: stats.totalApplications, icon: FileText, color: 'text-primary' },
+    { label: 'Active Patents', value: stats.activePatents, icon: Shield, color: 'text-primary' },
+    { label: 'Ideas', value: stats.totalIdeas, icon: Lightbulb, color: 'text-primary' },
+    { label: 'Alerts', value: stats.unreadAlerts, icon: AlertTriangle, color: 'text-primary' },
+  ];
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <Card className="glass hover:shadow-glow/20 transition-all">
-        <CardContent className="p-4 sm:p-6">
+      {items.map((item, i) => (
+        <div key={i} className="bg-card border border-border rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:shadow-card" style={{ boxShadow: 'var(--shadow-xs)' }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 sm:p-3 bg-primary/10 rounded-xl">
-              <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0">
+              <item.icon className={`h-5 w-5 ${item.color}`} />
             </div>
             <div>
-              <p className="text-2xl sm:text-3xl font-bold">{stats.totalApplications}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Applications</p>
+              <p className="text-2xl font-bold text-foreground">{item.value}</p>
+              <p className="text-xs text-muted-foreground">{item.label}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass hover:shadow-glow/20 transition-all">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 sm:p-3 bg-green-500/10 rounded-xl">
-              <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
-            </div>
-            <div>
-              <p className="text-2xl sm:text-3xl font-bold">{stats.activePatents}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Active Patents</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass hover:shadow-glow/20 transition-all">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 sm:p-3 bg-accent/10 rounded-xl">
-              <Lightbulb className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
-            </div>
-            <div>
-              <p className="text-2xl sm:text-3xl font-bold">{stats.totalIdeas}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Ideas</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass hover:shadow-glow/20 transition-all">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 sm:p-3 bg-orange-500/10 rounded-xl">
-              <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
-            </div>
-            <div>
-              <p className="text-2xl sm:text-3xl font-bold">{stats.unreadAlerts}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Alerts</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      ))}
     </div>
   );
 }
