@@ -270,13 +270,32 @@ img, video, iframe, embed, object {
     box-shadow: var(--shadow-card);
   }
 
-  /* Premium card hover - Elevated */
+  /* Premium card hover - Elevated with glow border */
   .card-hover {
-    @apply transition-all duration-300;
+    @apply transition-all duration-500;
+    position: relative;
+  }
+
+  .card-hover::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, transparent 40%, hsl(var(--primary) / 0.25), hsl(var(--accent) / 0.25));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+
+  .card-hover:hover::before {
+    opacity: 1;
   }
 
   .card-hover:hover {
-    @apply border-primary/20;
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-4px);
   }
@@ -400,17 +419,36 @@ img, video, iframe, embed, object {
     background: hsl(var(--success) / 0.2);
   }
 
-  /* Feature card with icon */
+  /* Feature card with icon - TechSuite-grade */
   .feature-card {
     @apply bg-card border border-border/40 rounded-2xl p-8;
     box-shadow: var(--shadow-card);
-    transition: var(--transition-smooth);
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, transparent 40%, hsl(var(--primary) / 0.3), hsl(var(--accent) / 0.3));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+
+  .feature-card:hover::before {
+    opacity: 1;
   }
 
   .feature-card:hover {
-    @apply border-primary/20;
-    box-shadow: var(--shadow-card-hover);
-    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-hover), 0 0 40px hsl(var(--primary) / 0.08);
+    transform: translateY(-6px);
   }
 
   .feature-icon {
