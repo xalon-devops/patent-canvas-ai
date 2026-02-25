@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { ArrowRight, Check, Sparkles, Shield, Zap, FileText, Search, Clock, DollarSign, Award, ChevronRight, HelpCircle } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Shield, Zap, FileText, Search, Clock, DollarSign, Award, ChevronRight, HelpCircle, Lock, Eye, Scale } from 'lucide-react';
 import RotatingText from '@/components/RotatingText';
 import {
   Accordion,
@@ -88,48 +88,48 @@ const Index = () => {
   }
 
   const stats = [
-    { value: '90%', label: 'Cost Savings' },
-    { value: '24h', label: 'First Draft' },
-    { value: '100%', label: 'USPTO Format' },
-    { value: '∞', label: 'Revisions' }
+    { value: '90%', label: 'Lower Cost vs Attorneys' },
+    { value: '<48h', label: 'First Draft Ready' },
+    { value: '7', label: 'USPTO Sections Generated' },
+    { value: '∞', label: 'Revisions Included' }
   ];
 
   const steps = [
     {
       icon: FileText,
       number: '1',
-      title: 'AI Interview',
-      description: 'Our intelligent system conducts a thorough interview to understand your invention, extracting technical details and identifying novel aspects automatically.'
+      title: 'Describe Your Invention',
+      description: 'Our AI conducts a structured technical interview — extracting novel aspects, prior art differentiators, and claim-worthy features from your description.'
     },
     {
       icon: Search,
       number: '2',
-      title: 'Prior Art Analysis',
-      description: 'Comprehensive search across global patent databases to identify similar inventions and assess the novelty of your claims before drafting.'
+      title: 'Automated Prior Art Search',
+      description: 'Semantic search across USPTO, EPO, and WIPO databases identifies overlapping patents and scores novelty before drafting begins.'
     },
     {
       icon: Award,
       number: '3',
-      title: 'Document Generation',
-      description: 'Professional patent application with all required sections, properly formatted for USPTO submission. Download and file with confidence.'
+      title: 'Export USPTO-Formatted Draft',
+      description: 'All 7 sections (Abstract, Claims, Description, Drawings, etc.) generated as a professional DOCX you can file directly or hand to your attorney.'
     }
   ];
 
   const benefits = [
     {
       icon: Clock,
-      title: 'Save Time',
-      description: 'Complete your first draft in hours instead of weeks. Our AI interview captures technical details efficiently.'
+      title: 'Draft in Hours, Not Weeks',
+      description: 'Complete your first patent draft in under 48 hours. Our AI interview captures technical details efficiently — no scheduling, no waiting.'
     },
     {
       icon: DollarSign,
-      title: 'Reduce Costs',
-      description: 'A single flat fee for your entire application. No hourly billing, no surprise charges. Save up to 90%.'
+      title: '$1,000 Flat Fee — No Surprises',
+      description: 'One price for the entire application. No hourly billing, no retainers. Traditional firms charge $8K–$15K for the same output.'
     },
     {
       icon: Search,
-      title: 'Stay Informed',
-      description: 'Search prior art before you invest. Understand your competitive landscape and refine your claims.'
+      title: 'Know Before You File',
+      description: 'Run unlimited prior art searches ($9.99/mo) to understand your competitive landscape and strengthen your claims before committing.'
     }
   ];
 
@@ -159,7 +159,7 @@ const Index = () => {
               transition={{ duration: 0.5 }}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>AI-Powered Patent Platform</span>
+              <span>Pro Se Patent Drafting Assistant</span>
             </motion.div>
             
             {/* Headline */}
@@ -182,8 +182,7 @@ const Index = () => {
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
-              Generate USPTO-ready patent documents with AI-guided drafting. 
-              Professional quality at a fraction of traditional costs.
+              AI-assisted drafting tool that generates all 7 USPTO sections — Abstract, Claims, Description & more — for a $1,000 flat fee.
             </motion.p>
 
             {/* CTA buttons */}
@@ -197,16 +196,17 @@ const Index = () => {
                 className="btn-gradient group text-base px-8 py-6 h-auto"
                 onClick={() => handleAuthNav('signup')}
               >
-                {user ? 'Go to Dashboard' : 'Start Your Application'}
+                {user ? 'Go to Dashboard' : 'Start Free Invention Interview'}
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>
               <Button 
                 variant="outline" 
                 size="lg"
                 className="glass border-border/50 text-base px-8 py-6 h-auto hover:bg-card/80"
-                onClick={() => navigate('/demo')}
+                onClick={() => navigate('/check')}
               >
-                View Demo
+                <Search className="h-4 w-4" />
+                Run 3 Free Prior Art Searches
               </Button>
             </motion.div>
 
@@ -218,15 +218,19 @@ const Index = () => {
             >
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
-                <span>USPTO-compliant</span>
+                <span>USPTO-formatted output</span>
               </div>
               <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-primary" />
-                <span>Prior art included</span>
+                <Lock className="w-4 h-4 text-primary" />
+                <span>AES-256 encrypted</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Scale className="w-4 h-4 text-primary" />
+                <span>Pro se drafting tool</span>
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-primary" />
-                <span>Hours, not weeks</span>
+                <span>Draft in &lt;48 hours</span>
               </div>
             </motion.div>
           </motion.div>
@@ -275,10 +279,10 @@ const Index = () => {
           >
             <p className="badge-outline mb-4">Process</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
-              From idea to filing in <span className="text-gradient">three steps</span>
+              From invention to <span className="text-gradient">filed draft</span> in three steps
             </h2>
             <p className="text-muted-foreground text-base sm:text-lg">
-              A streamlined approach to patent documentation.
+              A structured approach that mirrors how patent attorneys work — at a fraction of the cost.
             </p>
           </motion.div>
 
@@ -398,7 +402,7 @@ const Index = () => {
                   className="w-full btn-gradient h-12 text-base" 
                   onClick={() => handleAuthNav('signup')}
                 >
-                  {user ? 'Go to Dashboard' : 'Get Started'}
+                  {user ? 'Go to Dashboard' : 'Start Invention Interview'}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -444,7 +448,7 @@ const Index = () => {
                 className="w-full h-12 text-base border-border/60 hover:bg-muted/50" 
                 onClick={() => handleAuthNav('signup')}
               >
-                {user ? 'Go to Dashboard' : 'Start Searching'}
+                {user ? 'Go to Dashboard' : 'Run Free Prior Art Search'}
               </Button>
             </motion.div>
           </motion.div>
@@ -580,7 +584,7 @@ const Index = () => {
                 className="btn-gradient"
                 onClick={() => handleAuthNav('signup')}
               >
-                {user ? 'Go to Dashboard' : 'Get Started Now'}
+                {user ? 'Go to Dashboard' : 'Start Drafting — $1,000'}
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -606,13 +610,14 @@ const Index = () => {
                 src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
                 alt="PatentBot" 
                 className="h-5 w-auto"
+                loading="lazy"
               />
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
-              Built for <span className="text-gradient">inventors</span>
+              Built for <span className="text-gradient">inventors who file</span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              Everything you need to protect your intellectual property, without the complexity.
+              Everything you need to draft a professional patent application, without the $15K attorney bill.
             </p>
           </motion.div>
 
@@ -636,6 +641,59 @@ const Index = () => {
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-3">{benefit.title}</h3>
                 <p className="text-muted-foreground leading-relaxed">{benefit.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Security & Privacy Section */}
+      <section className="section-spacing-sm relative bg-muted/20">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <motion.div 
+            className="text-center max-w-3xl mx-auto mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+            transition={{ duration: 0.6 }}
+          >
+            <p className="badge-outline mb-4">
+              <Lock className="w-3.5 h-3.5 mr-1" />
+              Security
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
+              Your invention data is <span className="text-gradient">never exposed</span>
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Enterprise-grade security from day one.
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={staggerContainer}
+          >
+            {[
+              { icon: Lock, title: 'AES-256 Encryption', desc: 'All data encrypted at rest and in transit' },
+              { icon: Shield, title: 'SOC 2 Infrastructure', desc: 'Hosted on compliant cloud providers' },
+              { icon: Eye, title: 'No AI Training', desc: 'Your data is never used to train models' },
+              { icon: Scale, title: 'Delete Anytime', desc: 'Full data ownership — remove everything instantly' },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                className="bg-card border border-border/40 rounded-2xl p-5 text-center"
+                variants={scaleIn}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <item.icon className="w-5 h-5 text-primary" />
+                </div>
+                <h4 className="font-semibold text-foreground text-sm mb-1">{item.title}</h4>
+                <p className="text-muted-foreground text-xs leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -757,26 +815,26 @@ const Index = () => {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
-            Ready to protect your invention?
+            Start your patent draft today
           </h2>
           <p className="text-muted-foreground text-lg sm:text-xl mb-10 max-w-2xl mx-auto">
-            Create a free account to explore. 3 prior art searches included at no cost.
+            Free account includes 3 prior art searches. No credit card required to explore.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
             <Button 
               className="btn-gradient group text-base px-8 py-6 h-auto"
               onClick={() => handleAuthNav('signup')}
             >
-              {user ? 'Go to Dashboard' : 'Create Free Account'}
+              {user ? 'Go to Dashboard' : 'Start Free Invention Interview'}
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Button>
             <Button 
               variant="ghost"
               className="text-muted-foreground hover:text-foreground text-base px-8 py-6 h-auto group"
-              onClick={() => navigate('/pricing')}
+              onClick={() => navigate('/check')}
             >
-              View Pricing
-              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              <Search className="w-4 h-4" />
+              Check Patentability Free
             </Button>
           </div>
         </motion.div>
@@ -785,11 +843,12 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-12 border-t border-border/30 bg-card/30">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
             <img 
               src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
               alt="PatentBot AI" 
               className="h-8 w-auto"
+              loading="lazy"
             />
             <p className="text-sm text-muted-foreground">
               © {getCurrentYear()} PatentBot AI. All rights reserved.
@@ -798,6 +857,16 @@ const Index = () => {
               <span className="link-subtle cursor-pointer" onClick={() => navigate('/demo')}>Demo</span>
               <span className="link-subtle cursor-pointer" onClick={() => navigate('/pricing')}>Pricing</span>
             </div>
+          </div>
+          
+          {/* Legal Disclaimer */}
+          <div className="border-t border-border/20 pt-6">
+            <p className="text-[11px] text-muted-foreground/70 text-center max-w-4xl mx-auto leading-relaxed">
+              <strong>Legal Disclaimer:</strong> PatentBot is an AI-powered drafting assistant — not a law firm and not a substitute for a registered patent attorney or agent. 
+              PatentBot does not provide legal advice, legal opinions, or attorney-client privilege. Output is intended as a pro se drafting aid or starting point for 
+              attorney review. We strongly recommend having a registered patent attorney or agent review your application before filing with the USPTO. 
+              Patent filing outcomes depend on many factors beyond document formatting. All invention data is encrypted (AES-256) and never used to train AI models.
+            </p>
           </div>
         </div>
       </footer>
