@@ -661,3 +661,214 @@ img, video, iframe, embed, object {
   box-shadow: var(--shadow-card-hover), 0 0 64px hsl(222 80% 48% / 0.1);
   transform: translateY(-2px);
 }
+
+/* ===== KPI METRIC CARDS — VC-grade dashboard ===== */
+.kpi-card {
+  @apply bg-card rounded-2xl p-5 relative overflow-hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-xs);
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kpi-card:hover {
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+
+.kpi-card .kpi-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center;
+  background: hsl(var(--primary) / 0.08);
+}
+
+.kpi-card .kpi-value {
+  @apply text-2xl sm:text-3xl font-bold tracking-tight;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.04em;
+}
+
+.kpi-card .kpi-label {
+  @apply text-xs font-medium uppercase tracking-wider;
+  color: hsl(var(--muted-foreground));
+}
+
+.kpi-card .kpi-trend {
+  @apply inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full;
+}
+
+.kpi-card .kpi-trend.up {
+  background: hsl(152 76% 40% / 0.1);
+  color: hsl(152 76% 36%);
+}
+
+.kpi-card .kpi-trend.down {
+  background: hsl(0 72% 51% / 0.1);
+  color: hsl(0 72% 46%);
+}
+
+/* ===== CHART CARDS — Clean data viz ===== */
+.chart-card {
+  @apply bg-card rounded-2xl overflow-hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-xs);
+}
+
+.chart-card .chart-header {
+  @apply px-6 py-4 flex items-center justify-between;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.chart-card .chart-header h3 {
+  @apply text-sm font-semibold flex items-center gap-2;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.01em;
+}
+
+.chart-card .chart-header p {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground));
+}
+
+.chart-card .chart-body {
+  @apply p-6;
+}
+
+/* Recharts custom tooltip */
+.chart-tooltip-premium {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-elegant) !important;
+  padding: 12px 16px !important;
+}
+
+.chart-tooltip-premium .recharts-tooltip-label {
+  @apply text-xs font-semibold mb-1;
+  color: hsl(var(--foreground)) !important;
+}
+
+.chart-tooltip-premium .recharts-tooltip-item {
+  @apply text-xs;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ===== PREMIUM CHAT UI ===== */
+.chat-container {
+  @apply bg-card rounded-2xl overflow-hidden flex flex-col;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-elegant);
+}
+
+.chat-header {
+  @apply px-4 py-3 flex items-center justify-between;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.chat-bubble-user {
+  @apply rounded-2xl rounded-br-md px-4 py-2.5 text-sm;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  max-width: 85%;
+  line-height: 1.5;
+}
+
+.chat-bubble-assistant {
+  @apply rounded-2xl rounded-bl-md px-4 py-2.5 text-sm;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  max-width: 85%;
+  line-height: 1.5;
+}
+
+.chat-input-bar {
+  @apply p-3 flex items-end gap-2;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.chat-suggestion {
+  @apply text-xs px-3 py-1.5 rounded-full font-medium cursor-pointer;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  transition: all 0.2s ease;
+}
+
+.chat-suggestion:hover {
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.2);
+}
+
+/* ===== TABLE — Premium data display ===== */
+.data-table {
+  @apply bg-card rounded-2xl overflow-hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-xs);
+}
+
+.data-table-row {
+  @apply flex items-center justify-between px-5 py-3.5;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  transition: background 0.15s ease;
+}
+
+.data-table-row:last-child {
+  border-bottom: none;
+}
+
+.data-table-row:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  @apply text-center py-12 px-6;
+}
+
+.empty-state .empty-icon {
+  @apply w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center;
+  background: hsl(var(--muted));
+}
+
+.empty-state .empty-icon svg {
+  @apply w-6 h-6;
+  color: hsl(var(--muted-foreground));
+}
+
+.empty-state h4 {
+  @apply text-sm font-semibold mb-1;
+  color: hsl(var(--foreground));
+}
+
+.empty-state p {
+  @apply text-xs max-w-xs mx-auto;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar {
+  @apply h-1.5 rounded-full overflow-hidden;
+  background: hsl(var(--muted));
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-700 ease-out;
+  background: var(--gradient-primary);
+}
+
+/* ===== SECTION HEADER — Dashboard page headers ===== */
+.page-header {
+  @apply mb-8;
+}
+
+.page-header h1 {
+  @apply text-2xl sm:text-3xl font-bold tracking-tight;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.03em;
+}
+
+.page-header p {
+  @apply text-sm mt-1;
+  color: hsl(var(--muted-foreground));
+}
