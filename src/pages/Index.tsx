@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { ArrowRight, Check, Sparkles, Shield, Zap, FileText, Search, Clock, DollarSign, Award, ChevronRight, HelpCircle } from 'lucide-react';
+import RotatingText from '@/components/RotatingText';
 import {
   Accordion,
   AccordionContent,
@@ -144,7 +145,7 @@ const Index = () => {
         <div className="orb orb-accent w-[500px] h-[500px] top-1/2 -left-60 float" style={{ animationDelay: '-2s' }} />
         <div className="orb orb-success w-[400px] h-[400px] bottom-0 right-1/4 float" style={{ animationDelay: '-4s' }} />
         
-        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-20 pb-32 sm:pt-28 sm:pb-40 lg:pt-36 lg:pb-48">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-32 pb-32 sm:pt-40 sm:pb-40 lg:pt-48 lg:pb-48">
           <motion.div 
             className="max-w-4xl mx-auto text-center"
             initial="hidden"
@@ -167,8 +168,12 @@ const Index = () => {
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
-              Patent applications,{' '}
-              <span className="text-gradient font-serif italic">reimagined</span>
+              The Smarter Way to{' '}
+              <br className="hidden sm:block" />
+              <RotatingText
+                words={['File Patents', 'Draft Claims', 'Search Prior Art', 'Protect Ideas']}
+                interval={2800}
+              />
             </motion.h1>
             
             {/* Subheadline */}
@@ -292,7 +297,7 @@ const Index = () => {
                 variants={fadeInUp}
                 transition={{ duration: 0.5, delay: index * 0.15 }}
               >
-                <div className="bg-card border border-border/50 rounded-2xl p-6 h-full hover:border-primary/30 hover:shadow-lg transition-all duration-300">
+                <div className="feature-card h-full !p-6">
                   {/* Step number + Icon row */}
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -316,7 +321,7 @@ const Index = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="section-spacing relative bg-muted/30">
+      <section id="pricing" className="section-spacing relative bg-muted/30">
         {/* Background pattern */}
         <div className="absolute inset-0 grid-pattern opacity-50" />
         
@@ -584,7 +589,7 @@ const Index = () => {
       </section>
 
       {/* Why PatentBot - Features */}
-      <section className="section-spacing relative">
+      <section id="features" className="section-spacing relative">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           {/* Section header */}
           <motion.div 
@@ -638,7 +643,7 @@ const Index = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="section-spacing relative bg-muted/20">
+      <section id="faq" className="section-spacing relative bg-muted/20">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
           {/* Section header */}
           <motion.div 
