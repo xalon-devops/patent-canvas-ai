@@ -20,9 +20,8 @@ import {
   CHECK_AND_SEE_PRICE_DISPLAY
 } from '@/lib/pricingConstants';
 
-// Animation variants
 const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0 }
 };
 
@@ -36,14 +35,14 @@ const staggerContainer = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.1
+      staggerChildren: 0.08,
+      delayChildren: 0.05
     }
   }
 };
 
 const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
+  hidden: { opacity: 0, scale: 0.95 },
   visible: { opacity: 1, scale: 1 }
 };
 
@@ -88,30 +87,30 @@ const Index = () => {
   }
 
   const stats = [
-    { value: '90%', label: 'Lower Cost vs Attorneys' },
-    { value: '<48h', label: 'First Draft Ready' },
-    { value: '7', label: 'USPTO Sections Generated' },
-    { value: '∞', label: 'Revisions Included' }
+    { value: '90%', label: 'Lower Cost' },
+    { value: '<48h', label: 'First Draft' },
+    { value: '7', label: 'Sections' },
+    { value: '∞', label: 'Revisions' }
   ];
 
   const steps = [
     {
       icon: FileText,
-      number: '1',
+      number: '01',
       title: 'Describe Your Invention',
-      description: 'Our AI conducts a structured technical interview — extracting novel aspects, prior art differentiators, and claim-worthy features from your description.'
+      description: 'Our AI conducts a structured technical interview — extracting novel aspects, prior art differentiators, and claim-worthy features.'
     },
     {
       icon: Search,
-      number: '2',
+      number: '02',
       title: 'Automated Prior Art Search',
-      description: 'Semantic search across USPTO, EPO, and WIPO databases identifies overlapping patents and scores novelty before drafting begins.'
+      description: 'Semantic search across USPTO, EPO, and WIPO databases identifies overlapping patents and scores novelty before drafting.'
     },
     {
       icon: Award,
-      number: '3',
+      number: '03',
       title: 'Export USPTO-Formatted Draft',
-      description: 'All 7 sections (Abstract, Claims, Description, Drawings, etc.) generated as a professional DOCX you can file directly or hand to your attorney.'
+      description: 'All 7 sections generated as a professional DOCX you can file directly or hand to your attorney for review.'
     }
   ];
 
@@ -119,17 +118,17 @@ const Index = () => {
     {
       icon: Clock,
       title: 'Draft in Hours, Not Weeks',
-      description: 'Complete your first patent draft in under 48 hours. Our AI interview captures technical details efficiently — no scheduling, no waiting.'
+      description: 'Complete your first patent draft in under 48 hours. Our AI interview captures technical details efficiently.'
     },
     {
       icon: DollarSign,
-      title: '$1,000 Flat Fee — No Surprises',
-      description: 'One price for the entire application. No hourly billing, no retainers. Traditional firms charge $8K–$15K for the same output.'
+      title: '$1,000 Flat Fee',
+      description: 'One price for the entire application. No hourly billing. Traditional firms charge $8K–$15K for the same output.'
     },
     {
       icon: Search,
       title: 'Know Before You File',
-      description: 'Run unlimited prior art searches ($9.99/mo) to understand your competitive landscape and strengthen your claims before committing.'
+      description: 'Run unlimited prior art searches ($9.99/mo) to understand your competitive landscape before committing.'
     }
   ];
 
@@ -138,21 +137,18 @@ const Index = () => {
       <PageSEO.Home />
       <PublicHeader />
       
-      {/* Hero Section - Premium with depth */}
+      {/* ===== HERO ===== */}
       <section className="relative hero-gradient overflow-hidden">
-        {/* Background orbs for depth */}
         <div className="orb orb-primary w-[600px] h-[600px] -top-40 -right-40 float" />
-        <div className="orb orb-accent w-[500px] h-[500px] top-1/2 -left-60 float" style={{ animationDelay: '-2s' }} />
-        <div className="orb orb-success w-[400px] h-[400px] bottom-0 right-1/4 float" style={{ animationDelay: '-4s' }} />
+        <div className="orb orb-accent w-[500px] h-[500px] top-1/2 -left-60 float" style={{ animationDelay: '-3s' }} />
         
-        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-32 pb-32 sm:pt-40 sm:pb-40 lg:pt-48 lg:pb-48">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-36 pb-32 sm:pt-44 sm:pb-40 lg:pt-52 lg:pb-48">
           <motion.div 
             className="max-w-4xl mx-auto text-center"
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
           >
-            {/* Badge */}
             <motion.div 
               className="inline-flex items-center gap-2 badge-outline mb-8"
               variants={fadeInUp}
@@ -162,9 +158,8 @@ const Index = () => {
               <span>Pro Se Patent Drafting Assistant</span>
             </motion.div>
             
-            {/* Headline */}
             <motion.h1 
-              className="text-4xl sm:text-5xl lg:text-7xl font-bold text-foreground leading-[1.1] tracking-tight mb-6"
+              className="text-4xl sm:text-5xl lg:text-7xl font-bold text-foreground leading-[1.08] tracking-[-0.04em] mb-6"
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
@@ -176,33 +171,31 @@ const Index = () => {
               />
             </motion.h1>
             
-            {/* Subheadline */}
             <motion.p 
-              className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto"
+              className="text-lg sm:text-xl text-muted-foreground leading-relaxed mb-12 max-w-2xl mx-auto"
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
               AI-assisted drafting tool that generates all 7 USPTO sections — Abstract, Claims, Description & more — for a $1,000 flat fee.
             </motion.p>
 
-            {/* CTA buttons */}
             <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
+              className="flex flex-col sm:flex-row gap-3 justify-center mb-16"
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
               <Button 
                 size="lg"
-                className="btn-gradient group text-base px-8 py-6 h-auto"
+                className="btn-dark group text-base px-8 py-6 h-auto rounded-2xl"
                 onClick={() => handleAuthNav('signup')}
               >
                 {user ? 'Go to Dashboard' : 'Start Free Invention Interview'}
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
               <Button 
                 variant="outline" 
                 size="lg"
-                className="glass border-border/50 text-base px-8 py-6 h-auto hover:bg-card/80"
+                className="text-base px-8 py-6 h-auto rounded-2xl border-border bg-card hover:bg-muted/50"
                 onClick={() => navigate('/check')}
               >
                 <Search className="h-4 w-4" />
@@ -210,41 +203,34 @@ const Index = () => {
               </Button>
             </motion.div>
 
-            {/* Trust indicators */}
             <motion.div 
-              className="flex flex-wrap justify-center gap-6 sm:gap-10 text-sm text-muted-foreground"
+              className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground"
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-primary" />
-                <span>USPTO-formatted output</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-primary" />
-                <span>AES-256 encrypted</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Scale className="w-4 h-4 text-primary" />
-                <span>Pro se drafting tool</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <span>Draft in &lt;48 hours</span>
-              </div>
+              {[
+                { icon: Shield, text: 'USPTO-formatted output' },
+                { icon: Lock, text: 'AES-256 encrypted' },
+                { icon: Scale, text: 'Pro se drafting tool' },
+                { icon: Zap, text: 'Draft in <48 hours' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <item.icon className="w-4 h-4 text-primary" />
+                  <span>{item.text}</span>
+                </div>
+              ))}
             </motion.div>
           </motion.div>
         </div>
 
-        {/* Gradient fade to next section */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
       </section>
 
-      {/* Stats Section */}
+      {/* ===== STATS ===== */}
       <section className="relative -mt-16 z-20">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+        <div className="max-w-5xl mx-auto px-5 sm:px-8">
           <motion.div 
-            className="glass-strong rounded-3xl p-8 sm:p-12 grid grid-cols-2 md:grid-cols-4 gap-8"
+            className="glass-strong rounded-2xl p-8 sm:p-10 grid grid-cols-2 md:grid-cols-4 gap-8"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -255,7 +241,7 @@ const Index = () => {
                 key={index}
                 className="stat-card"
                 variants={scaleIn}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.4, delay: index * 0.08 }}
               >
                 <div className="stat-value">{stat.value}</div>
                 <div className="stat-label">{stat.label}</div>
@@ -265,30 +251,28 @@ const Index = () => {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="section-spacing-sm relative overflow-hidden">
-        <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8">
-          {/* Section header */}
+      {/* ===== HOW IT WORKS ===== */}
+      <section className="section-spacing-sm relative">
+        <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8">
           <motion.div 
-            className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
+            className="text-center max-w-3xl mx-auto mb-16"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
             variants={fadeInUp}
             transition={{ duration: 0.6 }}
           >
-            <p className="badge-outline mb-4">Process</p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight mb-4">
-              From invention to <span className="text-gradient">filed draft</span> in three steps
+            <p className="badge-outline mb-4">How It Works</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-[-0.03em] mb-4">
+              From idea to <span className="text-gradient">filed draft</span>
             </h2>
-            <p className="text-muted-foreground text-base sm:text-lg">
-              A structured approach that mirrors how patent attorneys work — at a fraction of the cost.
+            <p className="text-muted-foreground text-lg">
+              A structured approach that mirrors how patent attorneys work.
             </p>
           </motion.div>
 
-          {/* Steps - Clean horizontal layout */}
           <motion.div 
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -297,42 +281,31 @@ const Index = () => {
             {steps.map((step, index) => (
               <motion.div 
                 key={index}
-                className="relative"
+                className="feature-card !p-6 sm:!p-8"
                 variants={fadeInUp}
-                transition={{ duration: 0.5, delay: index * 0.15 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <div className="feature-card h-full !p-6">
-                  {/* Step number + Icon row */}
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                      {step.number}
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <step.icon className="w-5 h-5 text-primary" />
-                    </div>
+                <div className="flex items-center gap-4 mb-5">
+                  <span className="text-3xl font-bold text-primary/20 tracking-tighter">{step.number}</span>
+                  <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center">
+                    <step.icon className="w-5 h-5 text-primary" />
                   </div>
-                  
-                  {/* Title */}
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
-                  
-                  {/* Description */}
-                  <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
                 </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">{step.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
               </motion.div>
             ))}
           </motion.div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="section-spacing relative bg-muted/30">
-        {/* Background pattern */}
-        <div className="absolute inset-0 grid-pattern opacity-50" />
+      {/* ===== PRICING ===== */}
+      <section id="pricing" className="section-spacing relative">
+        <div className="absolute inset-0 grid-pattern opacity-40" />
         
-        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8">
-          {/* Section header */}
+        <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8">
           <motion.div 
-            className="text-center max-w-3xl mx-auto mb-20"
+            className="text-center max-w-3xl mx-auto mb-16"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -340,93 +313,84 @@ const Index = () => {
             transition={{ duration: 0.6 }}
           >
             <p className="badge-outline mb-4">Pricing</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-[-0.03em] mb-5">
               Transparent, <span className="text-gradient">simple pricing</span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              No hidden fees. No hourly billing. Clear value for your investment.
+              No hidden fees. No hourly billing.
             </p>
           </motion.div>
 
-          {/* Pricing cards */}
           <motion.div 
-            className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto"
+            className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
             variants={staggerContainer}
           >
-            {/* Patent Application - Featured */}
+            {/* Patent Application */}
             <motion.div 
-              className="relative group"
+              className="pricing-card-featured"
               variants={fadeInUp}
               transition={{ duration: 0.6 }}
             >
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-accent rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-500" />
-              <div className="relative bg-card rounded-3xl p-8 sm:p-10 border border-primary/20 h-full">
-                {/* Popular badge */}
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="badge-premium">Most Popular</span>
-                </div>
-                
-                <div className="mb-8 pt-2">
-                  <h3 className="text-2xl font-bold text-foreground mb-2">Patent Application</h3>
-                  <p className="text-muted-foreground">
-                    Complete AI-guided patent drafting
-                  </p>
-                </div>
-                
-                <div className="mb-8">
-                  <span className="text-5xl font-bold text-foreground">{PATENT_APPLICATION_PRICE_DISPLAY}</span>
-                  <span className="text-muted-foreground ml-2">one-time</span>
-                </div>
-
-                <ul className="space-y-4 mb-10">
-                  {[
-                    'AI-guided interview process',
-                    'Comprehensive prior art search',
-                    'Full patent draft (all sections)',
-                    'DOCX/PDF export for filing',
-                    'Unlimited revisions'
-                  ].map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-foreground">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="h-3 w-3 text-primary" />
-                      </div>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button 
-                  className="w-full btn-gradient h-12 text-base" 
-                  onClick={() => handleAuthNav('signup')}
-                >
-                  {user ? 'Go to Dashboard' : 'Start Invention Interview'}
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                <span className="badge-premium">Most Popular</span>
               </div>
+              
+              <div className="mb-8 pt-2">
+                <h3 className="text-xl font-bold text-foreground mb-1">Patent Application</h3>
+                <p className="text-muted-foreground text-sm">Complete AI-guided patent drafting</p>
+              </div>
+              
+              <div className="mb-8">
+                <span className="text-5xl font-bold text-foreground tracking-tight">{PATENT_APPLICATION_PRICE_DISPLAY}</span>
+                <span className="text-muted-foreground ml-2 text-sm">one-time</span>
+              </div>
+
+              <ul className="space-y-3.5 mb-10">
+                {[
+                  'AI-guided interview process',
+                  'Comprehensive prior art search',
+                  'Full patent draft (all sections)',
+                  'DOCX/PDF export for filing',
+                  'Unlimited revisions'
+                ].map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3 text-foreground text-sm">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Check className="h-3 w-3 text-primary" />
+                    </div>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button 
+                className="w-full btn-dark h-12 text-sm rounded-xl" 
+                onClick={() => handleAuthNav('signup')}
+              >
+                {user ? 'Go to Dashboard' : 'Start Invention Interview'}
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </motion.div>
 
             {/* Check & See */}
             <motion.div 
-              className="bg-card rounded-3xl p-8 sm:p-10 border border-border/60 h-full card-hover"
+              className="pricing-card"
               variants={fadeInUp}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              transition={{ duration: 0.6, delay: 0.08 }}
             >
               <div className="mb-8">
-                <h3 className="text-2xl font-bold text-foreground mb-2">Check & See</h3>
-                <p className="text-muted-foreground">
-                  Prior art search subscription
-                </p>
+                <h3 className="text-xl font-bold text-foreground mb-1">Check & See</h3>
+                <p className="text-muted-foreground text-sm">Prior art search subscription</p>
               </div>
               
               <div className="mb-8">
-                <span className="text-5xl font-bold text-foreground">{CHECK_AND_SEE_PRICE_DISPLAY}</span>
-                <span className="text-muted-foreground ml-2">/month</span>
+                <span className="text-5xl font-bold text-foreground tracking-tight">{CHECK_AND_SEE_PRICE_DISPLAY}</span>
+                <span className="text-muted-foreground ml-2 text-sm">/month</span>
               </div>
 
-              <ul className="space-y-4 mb-10">
+              <ul className="space-y-3.5 mb-10">
                 {[
                   'Unlimited patent searches',
                   'Similarity analysis reports',
@@ -434,7 +398,7 @@ const Index = () => {
                   'AI-powered novelty assessment',
                   'Cancel anytime'
                 ].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-muted-foreground">
+                  <li key={i} className="flex items-start gap-3 text-muted-foreground text-sm">
                     <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Check className="h-3 w-3 text-muted-foreground" />
                     </div>
@@ -445,7 +409,7 @@ const Index = () => {
 
               <Button 
                 variant="outline"
-                className="w-full h-12 text-base border-border/60 hover:bg-muted/50" 
+                className="w-full h-12 text-sm rounded-xl border-border hover:bg-muted/50" 
                 onClick={() => handleAuthNav('signup')}
               >
                 {user ? 'Go to Dashboard' : 'Run Free Prior Art Search'}
@@ -455,9 +419,9 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Comparison Table Section */}
+      {/* ===== COMPARISON ===== */}
       <section className="section-spacing-sm relative">
-        <div className="max-w-5xl mx-auto px-5 sm:px-8">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <motion.div 
             className="text-center max-w-3xl mx-auto mb-12"
             initial="hidden"
@@ -467,12 +431,9 @@ const Index = () => {
             transition={{ duration: 0.6 }}
           >
             <p className="badge-outline mb-4">Compare</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-[-0.03em] mb-4">
               PatentBot vs <span className="text-gradient">Traditional Firms</span>
             </h2>
-            <p className="text-muted-foreground text-lg">
-              See how much you can save in time and money.
-            </p>
           </motion.div>
 
           <motion.div
@@ -481,24 +442,25 @@ const Index = () => {
             viewport={{ once: true, margin: "-50px" }}
             variants={fadeInUp}
             transition={{ duration: 0.6 }}
-            className="overflow-hidden rounded-2xl border border-border/60 bg-card"
+            className="overflow-hidden rounded-2xl border border-border bg-card"
+            style={{ boxShadow: 'var(--shadow-card)' }}
           >
             <table className="w-full text-xs sm:text-sm">
               <thead>
-                <tr className="border-b border-border/60">
-                  <th className="text-left p-2.5 sm:p-4 text-muted-foreground font-medium uppercase tracking-wider text-[10px] sm:text-xs">Feature</th>
-                  <th className="p-2.5 sm:p-4 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                <tr className="border-b border-border">
+                  <th className="text-left p-3 sm:p-4 text-muted-foreground font-medium uppercase tracking-wider text-[10px] sm:text-xs">Feature</th>
+                  <th className="p-3 sm:p-4 text-center">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-foreground flex items-center justify-center">
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-background" />
                       </div>
-                      <span className="font-bold text-foreground text-[10px] sm:text-xs">PatentBot</span>
+                      <span className="font-semibold text-foreground text-[10px] sm:text-xs">PatentBot</span>
                     </div>
                   </th>
-                  <th className="p-2.5 sm:p-4 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-muted flex items-center justify-center">
-                        <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+                  <th className="p-3 sm:p-4 text-center">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-muted flex items-center justify-center">
+                        <Award className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                       </div>
                       <span className="font-medium text-muted-foreground text-[10px] sm:text-xs">Traditional</span>
                     </div>
@@ -506,82 +468,58 @@ const Index = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-border/40">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Cost</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <span className="text-base sm:text-xl font-bold text-gradient">$1,000</span>
-                    <span className="block text-[9px] sm:text-xs text-muted-foreground">flat fee</span>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <span className="text-base sm:text-xl font-bold text-muted-foreground">$8K–$15K+</span>
-                    <span className="block text-[9px] sm:text-xs text-muted-foreground">hourly</span>
-                  </td>
-                </tr>
-                <tr className="border-b border-border/40 bg-muted/20">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">First Draft</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <span className="text-base sm:text-xl font-bold text-gradient">24h</span>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <span className="text-base sm:text-xl font-bold text-muted-foreground">2–4 wks</span>
-                  </td>
-                </tr>
-                <tr className="border-b border-border/40">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Prior Art</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <div className="inline-flex items-center gap-1">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="font-semibold text-foreground">Included</span>
-                    </div>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground">$1.5K–$3K extra</td>
-                </tr>
-                <tr className="border-b border-border/40 bg-muted/20">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">Revisions</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <div className="inline-flex items-center gap-1">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="font-semibold text-foreground">Unlimited</span>
-                    </div>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground">$200–$500/hr</td>
-                </tr>
-                <tr className="border-b border-border/40">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">USPTO Format</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Check className="w-3 h-3 text-primary" />
-                    </div>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center mx-auto">
-                      <Check className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                  </td>
-                </tr>
-                <tr className="bg-muted/20">
-                  <td className="p-2.5 sm:p-4 font-medium text-foreground">24/7 Access</td>
-                  <td className="p-2.5 sm:p-4 text-center">
-                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Check className="w-3 h-3 text-primary" />
-                    </div>
-                  </td>
-                  <td className="p-2.5 sm:p-4 text-center text-muted-foreground text-[10px] sm:text-xs">Business hrs</td>
-                </tr>
+                {[
+                  { label: 'Cost', pb: '$1,000', pbSub: 'flat fee', trad: '$8K–$15K+', tradSub: 'hourly' },
+                  { label: 'First Draft', pb: '24h', trad: '2–4 wks' },
+                  { label: 'Prior Art', pb: 'Included', pbCheck: true, trad: '$1.5K–$3K extra' },
+                  { label: 'Revisions', pb: 'Unlimited', pbCheck: true, trad: '$200–$500/hr' },
+                  { label: 'USPTO Format', pbCheck: true, tradCheck: true },
+                  { label: '24/7 Access', pbCheck: true, trad: 'Business hrs' },
+                ].map((row, i) => (
+                  <tr key={i} className={`border-b border-border/40 ${i % 2 === 1 ? 'bg-muted/20' : ''}`}>
+                    <td className="p-3 sm:p-4 font-medium text-foreground">{row.label}</td>
+                    <td className="p-3 sm:p-4 text-center">
+                      {row.pbCheck && !row.pb ? (
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                          <Check className="w-3 h-3 text-primary" />
+                        </div>
+                      ) : row.pbCheck && row.pb ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Check className="w-3 h-3 text-primary" />
+                          </div>
+                          <span className="font-semibold text-foreground">{row.pb}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-lg sm:text-xl font-bold text-gradient">{row.pb}</span>
+                          {row.pbSub && <span className="block text-[9px] sm:text-xs text-muted-foreground">{row.pbSub}</span>}
+                        </>
+                      )}
+                    </td>
+                    <td className="p-3 sm:p-4 text-center">
+                      {row.tradCheck ? (
+                        <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center mx-auto">
+                          <Check className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <>
+                          <span className={`${row.tradSub ? 'text-lg sm:text-xl font-bold' : ''} text-muted-foreground`}>{row.trad}</span>
+                          {row.tradSub && <span className="block text-[9px] sm:text-xs text-muted-foreground">{row.tradSub}</span>}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
 
-            {/* Bottom CTA */}
-            <div className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-t border-border/40 text-center">
-              <p className="text-muted-foreground mb-4">
+            <div className="p-6 bg-muted/30 border-t border-border/40 text-center">
+              <p className="text-muted-foreground mb-4 text-sm">
                 Save up to <span className="font-bold text-foreground">90%</span> compared to traditional patent firms
               </p>
               <Button 
-                className="btn-gradient"
+                className="btn-dark rounded-xl"
                 onClick={() => handleAuthNav('signup')}
               >
                 {user ? 'Go to Dashboard' : 'Start Drafting — $1,000'}
@@ -592,12 +530,11 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Why PatentBot - Features */}
+      {/* ===== WHY PATENTBOT ===== */}
       <section id="features" className="section-spacing relative">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8">
-          {/* Section header */}
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
           <motion.div 
-            className="text-center max-w-3xl mx-auto mb-20"
+            className="text-center max-w-3xl mx-auto mb-16"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
@@ -613,17 +550,16 @@ const Index = () => {
                 loading="lazy"
               />
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-[-0.03em] mb-5">
               Built for <span className="text-gradient">inventors who file</span>
             </h2>
             <p className="text-muted-foreground text-lg">
-              Everything you need to draft a professional patent application, without the $15K attorney bill.
+              Everything you need to draft a professional patent application.
             </p>
           </motion.div>
 
-          {/* Benefits grid */}
           <motion.div 
-            className="grid md:grid-cols-3 gap-8"
+            className="grid md:grid-cols-3 gap-5"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
@@ -634,22 +570,22 @@ const Index = () => {
                 key={index}
                 className="feature-card"
                 variants={fadeInUp}
-                transition={{ duration: 0.5, delay: index * 0.15 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
               >
                 <div className="feature-icon">
                   <benefit.icon />
                 </div>
-                <h3 className="text-xl font-semibold text-foreground mb-3">{benefit.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{benefit.description}</p>
+                <h3 className="text-lg font-semibold text-foreground mb-2">{benefit.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{benefit.description}</p>
               </motion.div>
             ))}
           </motion.div>
         </div>
       </section>
 
-      {/* Security & Privacy Section */}
-      <section className="section-spacing-sm relative bg-muted/20">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+      {/* ===== SECURITY ===== */}
+      <section className="section-spacing-sm relative bg-muted/30">
+        <div className="max-w-5xl mx-auto px-5 sm:px-8">
           <motion.div 
             className="text-center max-w-3xl mx-auto mb-12"
             initial="hidden"
@@ -659,37 +595,35 @@ const Index = () => {
             transition={{ duration: 0.6 }}
           >
             <p className="badge-outline mb-4">
-              <Lock className="w-3.5 h-3.5 mr-1" />
+              <Lock className="w-3.5 h-3.5 mr-1.5" />
               Security
             </p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-[-0.03em] mb-4">
               Your invention data is <span className="text-gradient">never exposed</span>
             </h2>
-            <p className="text-muted-foreground text-lg">
-              Enterprise-grade security from day one.
-            </p>
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
             variants={staggerContainer}
           >
             {[
-              { icon: Lock, title: 'AES-256 Encryption', desc: 'All data encrypted at rest and in transit' },
+              { icon: Lock, title: 'AES-256 Encryption', desc: 'Data encrypted at rest and in transit' },
               { icon: Shield, title: 'SOC 2 Infrastructure', desc: 'Hosted on compliant cloud providers' },
               { icon: Eye, title: 'No AI Training', desc: 'Your data is never used to train models' },
-              { icon: Scale, title: 'Delete Anytime', desc: 'Full data ownership — remove everything instantly' },
+              { icon: Scale, title: 'Delete Anytime', desc: 'Full data ownership and control' },
             ].map((item, i) => (
               <motion.div
                 key={i}
-                className="bg-card border border-border/40 rounded-2xl p-5 text-center"
+                className="bg-card border border-border rounded-2xl p-5 text-center"
+                style={{ boxShadow: 'var(--shadow-xs)' }}
                 variants={scaleIn}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
               >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center mx-auto mb-3">
                   <item.icon className="w-5 h-5 text-primary" />
                 </div>
                 <h4 className="font-semibold text-foreground text-sm mb-1">{item.title}</h4>
@@ -700,10 +634,9 @@ const Index = () => {
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section id="faq" className="section-spacing relative bg-muted/20">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8">
-          {/* Section header */}
+      {/* ===== FAQ ===== */}
+      <section id="faq" className="section-spacing relative">
+        <div className="max-w-3xl mx-auto px-5 sm:px-8">
           <motion.div 
             className="text-center max-w-3xl mx-auto mb-16"
             initial="hidden"
@@ -713,18 +646,14 @@ const Index = () => {
             transition={{ duration: 0.6 }}
           >
             <p className="badge-outline mb-4">
-              <HelpCircle className="w-3.5 h-3.5 mr-1" />
+              <HelpCircle className="w-3.5 h-3.5 mr-1.5" />
               FAQ
             </p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
-              Frequently asked <span className="text-gradient">questions</span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-[-0.03em] mb-4">
+              Frequently asked questions
             </h2>
-            <p className="text-muted-foreground text-lg">
-              Everything you need to know about our patent application process.
-            </p>
           </motion.div>
 
-          {/* FAQ Accordion */}
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -732,105 +661,60 @@ const Index = () => {
             variants={fadeInUp}
             transition={{ duration: 0.6 }}
           >
-            <Accordion type="single" collapsible className="space-y-4">
-              <AccordionItem value="item-1" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  What types of patents can PatentBot help with?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  PatentBot specializes in utility patents, which cover new and useful processes, machines, manufactures, and compositions of matter. This includes software patents, mechanical inventions, chemical compositions, and business methods. We currently focus on provisional and non-provisional utility patent applications for the USPTO.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-2" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  How long does it take to generate a patent application?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  Most patent applications are generated within 24-48 hours after completing the AI interview process. The interview itself typically takes 30-60 minutes depending on the complexity of your invention. You can complete it in multiple sessions if needed.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-3" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  Do I still need a patent attorney?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  While PatentBot generates professional-quality patent applications, we recommend having a registered patent attorney or agent review your application before filing, especially for complex inventions or if you're new to the patent process. Our output is designed to give attorneys a strong starting point, potentially reducing their billable hours significantly.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-4" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  What is included in the prior art search?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  Our prior art search covers the USPTO database, EPO (European Patent Office), WIPO (World Intellectual Property Organization), and major international patent databases. We use AI-powered semantic search to identify similar inventions, analyze claim overlap, and provide a novelty assessment with similarity scores for each result.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-5" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  Is my invention idea kept confidential?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  Absolutely. Your invention details are encrypted and stored securely. We never share your information with third parties, and our systems are designed with attorney-client privilege standards in mind. All data is stored on SOC 2 compliant infrastructure and you can delete your data at any time.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-6" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  What format will my patent application be in?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  Your patent application is generated in USPTO-compliant format and can be downloaded as both DOCX and PDF files. The document includes all required sections: title, abstract, background, summary, detailed description, claims, and drawing descriptions. The formatting follows USPTO guidelines so you can file directly or share with your attorney.
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-7" className="bg-card border border-border/60 rounded-2xl px-6 data-[state=open]:shadow-lg transition-shadow">
-                <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-6">
-                  Can I make revisions after the draft is generated?
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
-                  Yes! Unlimited revisions are included with every patent application. You can edit any section directly in our editor, request AI-powered enhancements, or regenerate specific sections based on new information. Your application is never "locked" — iterate as much as you need before filing.
-                </AccordionContent>
-              </AccordionItem>
+            <Accordion type="single" collapsible className="space-y-3">
+              {[
+                { q: 'What types of patents can PatentBot help with?', a: 'PatentBot specializes in utility patents, which cover new and useful processes, machines, manufactures, and compositions of matter. This includes software patents, mechanical inventions, chemical compositions, and business methods.' },
+                { q: 'How long does it take to generate a patent application?', a: 'Most patent applications are generated within 24-48 hours after completing the AI interview process. The interview itself typically takes 30-60 minutes depending on the complexity of your invention.' },
+                { q: 'Do I still need a patent attorney?', a: 'While PatentBot generates professional-quality patent applications, we recommend having a registered patent attorney or agent review your application before filing. Our output is designed to give attorneys a strong starting point, reducing their billable hours significantly.' },
+                { q: 'What is included in the prior art search?', a: 'Our prior art search covers the USPTO, EPO, WIPO, and major international patent databases. We use AI-powered semantic search to identify similar inventions, analyze claim overlap, and provide a novelty assessment with similarity scores.' },
+                { q: 'Is my invention idea kept confidential?', a: 'Absolutely. Your invention details are encrypted (AES-256) and stored securely. We never share your information with third parties. All data is stored on SOC 2 compliant infrastructure and you can delete your data at any time.' },
+                { q: 'What format will my patent application be in?', a: 'Your patent application is generated in USPTO-compliant format and can be downloaded as both DOCX and PDF files. The document includes all required sections: title, abstract, background, summary, detailed description, claims, and drawing descriptions.' },
+                { q: 'Can I make revisions after the draft is generated?', a: 'Yes! Unlimited revisions are included with every patent application. You can edit any section directly in our editor, request AI-powered enhancements, or regenerate specific sections.' },
+              ].map((faq, i) => (
+                <AccordionItem key={i} value={`item-${i}`} className="bg-card border border-border rounded-2xl px-6 data-[state=open]:shadow-card transition-shadow">
+                  <AccordionTrigger className="text-left text-foreground font-semibold hover:no-underline py-5 text-sm sm:text-base">
+                    {faq.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground pb-5 leading-relaxed text-sm">
+                    {faq.a}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
             </Accordion>
           </motion.div>
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* ===== FINAL CTA ===== */}
       <section className="section-spacing relative overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-muted/30 via-background to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
         <div className="orb orb-primary w-[500px] h-[500px] top-0 left-1/2 -translate-x-1/2 pulse-glow" />
         
         <motion.div 
-          className="relative z-10 max-w-4xl mx-auto px-5 sm:px-8 text-center"
+          className="relative z-10 max-w-3xl mx-auto px-5 sm:px-8 text-center"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
           variants={fadeInUp}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-tight mb-6">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground tracking-[-0.03em] mb-5">
             Start your patent draft today
           </h2>
-          <p className="text-muted-foreground text-lg sm:text-xl mb-10 max-w-2xl mx-auto">
-            Free account includes 3 prior art searches. No credit card required to explore.
+          <p className="text-muted-foreground text-lg mb-10 max-w-xl mx-auto">
+            Free account includes 3 prior art searches. No credit card required.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button 
-              className="btn-gradient group text-base px-8 py-6 h-auto"
+              className="btn-dark group text-base px-8 py-6 h-auto rounded-2xl"
               onClick={() => handleAuthNav('signup')}
             >
               {user ? 'Go to Dashboard' : 'Start Free Invention Interview'}
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
             <Button 
               variant="ghost"
-              className="text-muted-foreground hover:text-foreground text-base px-8 py-6 h-auto group"
+              className="text-muted-foreground hover:text-foreground text-base px-8 py-6 h-auto rounded-2xl group"
               onClick={() => navigate('/check')}
             >
               <Search className="w-4 h-4" />
@@ -840,14 +724,14 @@ const Index = () => {
         </motion.div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-border/30 bg-card/30">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+      {/* ===== FOOTER ===== */}
+      <footer className="py-12 border-t border-border bg-card/50">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
             <img 
               src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
               alt="PatentBot AI" 
-              className="h-8 w-auto"
+              className="h-7 w-auto"
               loading="lazy"
             />
             <p className="text-sm text-muted-foreground">
@@ -859,9 +743,8 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Legal Disclaimer */}
-          <div className="border-t border-border/20 pt-6">
-            <p className="text-[11px] text-muted-foreground/70 text-center max-w-4xl mx-auto leading-relaxed">
+          <div className="border-t border-border/40 pt-6">
+            <p className="text-[11px] text-muted-foreground/60 text-center max-w-4xl mx-auto leading-relaxed">
               <strong>Legal Disclaimer:</strong> PatentBot is an AI-powered drafting assistant — not a law firm and not a substitute for a registered patent attorney or agent. 
               PatentBot does not provide legal advice, legal opinions, or attorney-client privilege. Output is intended as a pro se drafting aid or starting point for 
               attorney review. We strongly recommend having a registered patent attorney or agent review your application before filing with the USPTO. 
