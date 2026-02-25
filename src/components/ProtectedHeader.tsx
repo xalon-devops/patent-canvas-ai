@@ -62,94 +62,89 @@ export const ProtectedHeader: React.FC<ProtectedHeaderProps> = ({
   const isDashboard = location.pathname === '/dashboard';
 
   return (
-    <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
-      <div className="safe-area px-4 sm:px-6">
-        <div className="content-width">
-          <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
-            {/* Left side: Back button or Logo */}
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-              {isDashboard ? (
-                <>
-                  <img 
-                    src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
-                    alt="PatentBot AI Logo" 
-                    className="h-10 sm:h-12 w-auto flex-shrink-0 cursor-pointer"
-                    onClick={() => navigate('/')}
-                  />
-                  {userEmail && (
-                    <p className="text-xs sm:text-sm text-muted-foreground hidden xs:block truncate">
-                      {userEmail}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(backTo)}
-                    className="gap-2 hover:scale-105 transition-transform"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    {!compactBack && <span className="hidden sm:inline">{backLabel}</span>}
-                  </Button>
-                  {title && (
-                    <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
-                      {title}
-                    </h1>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Right side: custom children + user menu */}
-            <div className="flex items-center gap-2">
-              {/* Admin link (if admin) */}
-              {isAdmin && location.pathname !== '/admin' && (
+    <header className="border-b border-border bg-card/95 backdrop-blur-xl sticky top-0 z-50" style={{ boxShadow: 'var(--shadow-xs)' }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
+          {/* Left side */}
+          <div className="flex items-center gap-3 min-w-0">
+            {isDashboard ? (
+              <>
+                <img 
+                  src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
+                  alt="PatentBot AI Logo" 
+                  className="h-9 sm:h-10 w-auto flex-shrink-0 cursor-pointer"
+                  onClick={() => navigate('/')}
+                />
+                {userEmail && (
+                  <p className="text-xs text-muted-foreground hidden sm:block truncate">
+                    {userEmail}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/admin')}
-                  className="text-muted-foreground hover:text-foreground hidden sm:flex"
+                  onClick={() => navigate(backTo)}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <Shield className="h-4 w-4" />
-                  Admin
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  {!compactBack && <span className="hidden sm:inline">{backLabel}</span>}
                 </Button>
-              )}
+                {title && (
+                  <>
+                    <div className="w-px h-5 bg-border" />
+                    <h1 className="text-base sm:text-lg font-semibold text-foreground truncate tracking-tight">
+                      {title}
+                    </h1>
+                  </>
+                )}
+              </>
+            )}
+          </div>
 
-              {children}
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {isAdmin && location.pathname !== '/admin' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/admin')}
+                className="text-muted-foreground hover:text-foreground hidden sm:flex gap-1.5 text-xs"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Admin
+              </Button>
+            )}
 
-              {/* User dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground hover:text-foreground p-1">
-                    <UserAvatar size="sm" />
-                    <MoreVertical className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="glass border-white/10 min-w-[180px]">
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <UserIcon className="h-4 w-4 mr-2" />
-                    Profile
+            {children}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground p-1.5">
+                  <UserAvatar size="sm" />
+                  <MoreVertical className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-card border border-border min-w-[180px]" style={{ boxShadow: 'var(--shadow-elegant)' }}>
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <UserIcon className="h-4 w-4 mr-2" />Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="h-4 w-4 mr-2" />Settings
+                </DropdownMenuItem>
+                {onPasswordChange && (
+                  <DropdownMenuItem onClick={onPasswordChange}>
+                    <Key className="h-4 w-4 mr-2" />Change Password
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/settings')}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                  {onPasswordChange && (
-                    <DropdownMenuItem onClick={onPasswordChange}>
-                      <Key className="h-4 w-4 mr-2" />
-                      Change Password
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

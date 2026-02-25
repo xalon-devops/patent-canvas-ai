@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -15,10 +13,10 @@ type ChatMode = 'general' | 'claims' | 'examiner' | 'prior-art';
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patent-chat`;
 
 const MODE_CONFIG: Record<ChatMode, { label: string; icon: React.ReactNode; description: string }> = {
-  general: { label: 'General', icon: <Bot className="w-3 h-3" />, description: 'Patent strategy & advice' },
-  claims: { label: 'Claims', icon: <Scale className="w-3 h-3" />, description: 'Claim drafting & analysis' },
-  examiner: { label: 'Examiner', icon: <Shield className="w-3 h-3" />, description: 'Predict Office Actions' },
-  'prior-art': { label: 'Prior Art', icon: <Search className="w-3 h-3" />, description: 'Differentiation help' },
+  general: { label: 'General', icon: <Bot className="w-3.5 h-3.5" />, description: 'Patent strategy & advice' },
+  claims: { label: 'Claims', icon: <Scale className="w-3.5 h-3.5" />, description: 'Claim drafting & analysis' },
+  examiner: { label: 'Examiner', icon: <Shield className="w-3.5 h-3.5" />, description: 'Predict Office Actions' },
+  'prior-art': { label: 'Prior Art', icon: <Search className="w-3.5 h-3.5" />, description: 'Differentiation help' },
 };
 
 interface PatentChatAssistantProps {
@@ -100,7 +98,6 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
       }
     }
 
-    // Final flush
     if (textBuffer.trim()) {
       for (let raw of textBuffer.split('\n')) {
         if (!raw || raw.startsWith(':') || raw.trim() === '' || !raw.startsWith('data: ')) continue;
@@ -141,35 +138,38 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
 
   if (!isOpen) {
     return (
-      <Button
+      <button
         onClick={onToggle}
-        className="fixed bottom-4 right-4 z-50 rounded-full w-12 h-12 p-0 bg-gradient-primary shadow-glow"
+        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center bg-foreground text-background transition-all duration-300 hover:scale-105"
+        style={{ boxShadow: '0 4px 24px hsl(220 20% 10% / 0.25)' }}
       >
         <MessageSquare className="w-5 h-5" />
-      </Button>
+      </button>
     );
   }
 
   return (
-    <Card className="fixed bottom-4 right-4 z-50 w-[380px] sm:w-[420px] shadow-2xl border-primary/20 flex flex-col bg-card overflow-hidden"
-      style={{ height: isMinimized ? 'auto' : '560px' }}>
+    <div
+      className="fixed bottom-5 right-5 z-50 w-[380px] sm:w-[420px] chat-container"
+      style={{ height: isMinimized ? 'auto' : '560px' }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-gradient-to-r from-primary/5 to-secondary/5">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-primary/10 rounded-lg">
-            <Bot className="w-4 h-4 text-primary" />
+      <div className="chat-header">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-foreground flex items-center justify-center">
+            <Bot className="w-4 h-4 text-background" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold">Patent AI Assistant</h3>
+            <h3 className="text-sm font-semibold text-foreground">Patent AI</h3>
             <p className="text-[10px] text-muted-foreground">{MODE_CONFIG[mode].description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsMinimized(!isMinimized)}>
-            {isMinimized ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsMinimized(!isMinimized)}>
+            {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
           </Button>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onToggle}>
-            <X className="w-3 h-3" />
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={onToggle}>
+            <X className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
@@ -177,45 +177,50 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
       {!isMinimized && (
         <>
           {/* Mode selector */}
-          <div className="flex gap-1 p-2 border-b overflow-x-auto">
+          <div className="flex gap-1 px-3 py-2 border-b border-border overflow-x-auto">
             {(Object.entries(MODE_CONFIG) as [ChatMode, typeof MODE_CONFIG[ChatMode]][]).map(([key, cfg]) => (
-              <Button
+              <button
                 key={key}
-                variant={mode === key ? 'default' : 'ghost'}
-                size="sm"
-                className={`gap-1 text-[10px] h-6 px-2 flex-shrink-0 ${mode === key ? 'bg-primary text-primary-foreground' : ''}`}
+                className={`flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-all flex-shrink-0 ${
+                  mode === key
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
                 onClick={() => setMode(key)}
               >
                 {cfg.icon}
                 {cfg.label}
-              </Button>
+              </button>
             ))}
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-3" ref={scrollRef as any}>
+          <ScrollArea className="flex-1 px-3 py-3" ref={scrollRef as any}>
             {messages.length === 0 ? (
-              <div className="text-center py-8 space-y-2">
-                <Bot className="w-8 h-8 text-muted-foreground mx-auto" />
-                <p className="text-xs text-muted-foreground">
-                  Ask me anything about your patent — claims, prior art, prosecution strategy, or USPTO compliance.
-                </p>
-                <div className="flex flex-wrap gap-1 justify-center pt-2">
+              <div className="text-center py-10 space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mx-auto">
+                  <Bot className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">How can I help?</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ask about claims, prior art, prosecution, or compliance.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5 justify-center pt-1">
                   {[
                     'Strengthen my claims',
                     'Predict examiner objections',
                     'Differentiate from prior art',
                     'Improve abstract',
                   ].map(suggestion => (
-                    <Button
+                    <button
                       key={suggestion}
-                      variant="outline"
-                      size="sm"
-                      className="text-[10px] h-6 px-2"
+                      className="chat-suggestion"
                       onClick={() => { setInput(suggestion); textareaRef.current?.focus(); }}
                     >
                       {suggestion}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -224,17 +229,13 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'assistant' && (
-                      <div className="p-1 bg-primary/10 rounded-full h-6 w-6 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Bot className="w-3 h-3 text-primary" />
+                      <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Bot className="w-3 h-3 text-muted-foreground" />
                       </div>
                     )}
-                    <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted/50'
-                    }`}>
+                    <div className={msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'}>
                       {msg.role === 'assistant' ? (
-                        <div className="prose prose-xs max-w-none dark:prose-invert [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-[10px] [&_pre]:text-[10px]">
+                        <div className="prose prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_code]:text-[11px] [&_pre]:text-[11px]">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                       ) : (
@@ -242,19 +243,23 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
                       )}
                     </div>
                     {msg.role === 'user' && (
-                      <div className="p-1 bg-secondary/10 rounded-full h-6 w-6 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <User className="w-3 h-3 text-secondary" />
+                      <div className="w-6 h-6 rounded-lg bg-foreground flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <User className="w-3 h-3 text-background" />
                       </div>
                     )}
                   </div>
                 ))}
                 {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
                   <div className="flex gap-2">
-                    <div className="p-1 bg-primary/10 rounded-full h-6 w-6 flex items-center justify-center">
-                      <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                    <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center">
+                      <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
                     </div>
-                    <div className="bg-muted/50 rounded-lg px-3 py-2">
-                      <span className="text-xs text-muted-foreground">Thinking…</span>
+                    <div className="chat-bubble-assistant">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -263,29 +268,26 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
           </ScrollArea>
 
           {/* Input */}
-          <div className="p-2 border-t">
-            <div className="flex gap-2">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about claims, prior art, prosecution…"
-                className="min-h-[36px] max-h-[80px] text-xs resize-none"
-                rows={1}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                size="sm"
-                className="h-9 w-9 p-0 flex-shrink-0"
-              >
-                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              </Button>
-            </div>
+          <div className="chat-input-bar">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about claims, prior art…"
+              className="min-h-[36px] max-h-[80px] text-sm resize-none border-border bg-muted/30 rounded-xl"
+              rows={1}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="w-9 h-9 rounded-xl bg-foreground text-background flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all hover:scale-105"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
           </div>
         </>
       )}
-    </Card>
+    </div>
   );
 }
