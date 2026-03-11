@@ -85,7 +85,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
 
   const toggleActive = async (monitor: TrademarkMonitor) => {
     try {
-      await supabase
+      await (supabase as any)
         .from('trademark_monitoring')
         .update({ is_active: !monitor.is_active })
         .eq('id', monitor.id);
