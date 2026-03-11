@@ -222,17 +222,30 @@ export default function TrademarkCheck() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Website / URL (optional)</label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={markUrl}
-                  onChange={e => setMarkUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="text-base pl-9"
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={markUrl}
+                    onChange={e => setMarkUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="text-base pl-9"
+                    onKeyDown={e => e.key === 'Enter' && markUrl.trim() && handleScrapeUrl()}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  onClick={handleScrapeUrl}
+                  disabled={!markUrl.trim() || scraping}
+                  className="shrink-0"
+                >
+                  {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  {scraping ? 'Scraping...' : 'Scrape'}
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Link to your brand's website or product page for context.</p>
+              <p className="text-xs text-muted-foreground mt-1">Paste your brand's URL and click Scrape to auto-fill the description.</p>
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
