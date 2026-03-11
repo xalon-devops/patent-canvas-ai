@@ -11,7 +11,7 @@ import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe
 } from 'lucide-react';
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
