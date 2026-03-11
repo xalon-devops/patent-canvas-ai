@@ -63,17 +63,45 @@ export default function TrademarkCheck() {
     if (!markUrl.trim()) return;
     setScraping(true);
     try {
+      // Step 1: Scrape the URL
       const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
         body: { url: markUrl.trim(), options: { formats: ['markdown'], onlyMainContent: true } },
       });
       if (error) throw error;
       const markdown = data?.data?.markdown || data?.markdown || '';
-      if (markdown) {
-        const truncated = markdown.substring(0, 3000);
-        setMarkDescription(truncated);
-        toast({ title: 'URL scraped', description: 'Website content added to description.' });
-      } else {
+      if (!markdown) {
         toast({ title: 'No content found', description: 'Could not extract content from that URL.', variant: 'destructive' });
+        return;
+      }
+
+      // Step 2: Analyze with AI to extract brand info
+      toast({ title: 'Analyzing...', description: 'Extracting brand information from website.' });
+      const { data: analysis, error: analysisError } = await supabase.functions.invoke('analyze-brand-url', {
+        body: { scraped_content: markdown, url: markUrl.trim() },
+      });
+
+      if (analysisError) {
+        console.error('Analysis error, using raw content:', analysisError);
+        setMarkDescription(markdown.substring(0, 500));
+      } else if (analysis?.success) {
+        // Auto-fill brand name if empty
+        if (!markName.trim() && analysis.brand_name) {
+          setMarkName(analysis.brand_name);
+        }
+        // Set the AI-generated description
+        setMarkDescription(analysis.description || markdown.substring(0, 500));
+        // Auto-select suggested Nice classes
+        if (analysis.suggested_nice_classes?.length > 0) {
+          const validClasses = analysis.suggested_nice_classes.filter((c: string) =>
+            NICE_CLASS_OPTIONS.some(opt => opt.value === c)
+          );
+          if (validClasses.length > 0) {
+            setSelectedClasses(prev => [...new Set([...prev, ...validClasses])]);
+          }
+        }
+        toast({ title: 'Brand analyzed', description: `Extracted info${analysis.brand_name ? ` for "${analysis.brand_name}"` : ''}.` });
+      } else {
+        setMarkDescription(markdown.substring(0, 500));
       }
     } catch (err: any) {
       console.error('Scrape error:', err);
