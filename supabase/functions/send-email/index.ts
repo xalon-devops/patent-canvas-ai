@@ -31,7 +31,8 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
-    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode } = await req.json();
+    const requestBody = await req.json();
+    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode, amount, paymentType, applicationTitle } = requestBody;
     logStep("Request parsed", { type });
 
     let emailData: {
