@@ -502,7 +502,18 @@ export default function TrademarkCheck() {
               </Card>
             </div>
 
-            {/* Results List */}
+            {/* Download Report Button */}
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={generateOpinionReport}
+                disabled={generatingReport}
+                variant="outline"
+                className="gap-2"
+              >
+                {generatingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {generatingReport ? 'Generating Report...' : 'Download Clearance Opinion (DOCX)'}
+              </Button>
+            </div>
             <div className="space-y-3">
               {results.map((result, idx) => (
                 <Card
