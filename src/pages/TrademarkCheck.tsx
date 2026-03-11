@@ -50,6 +50,7 @@ export default function TrademarkCheck() {
   const [markDescription, setMarkDescription] = useState('');
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [results, setResults] = useState<TrademarkResult[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
