@@ -12,6 +12,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag, PenTool, Radar } from 'lucide-react';
 
 import { usePatentData } from '@/hooks/usePatentData';
+import PriorArtMonitoringDashboard from '@/components/PriorArtMonitoringDashboard';
+import TrademarkMonitoringDashboard from '@/components/TrademarkMonitoringDashboard';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { WelcomeWizard } from '@/components/WelcomeWizard';
 import { PageSEO } from '@/components/SEO';
