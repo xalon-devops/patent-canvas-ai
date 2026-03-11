@@ -11,7 +11,7 @@ import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe
 } from 'lucide-react';
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
@@ -48,6 +48,7 @@ const NICE_CLASS_OPTIONS = [
 export default function TrademarkCheck() {
   const [markName, setMarkName] = useState('');
   const [markDescription, setMarkDescription] = useState('');
+  const [markUrl, setMarkUrl] = useState('');
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [results, setResults] = useState<TrademarkResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -82,6 +83,7 @@ export default function TrademarkCheck() {
           body: JSON.stringify({
             mark_name: markName.trim(),
             mark_description: markDescription.trim() || undefined,
+            mark_url: markUrl.trim() || undefined,
             nice_classes: selectedClasses.length > 0 ? selectedClasses : undefined,
           }),
         }
@@ -192,6 +194,20 @@ export default function TrademarkCheck() {
                 className="text-base"
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Website / URL (optional)</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={markUrl}
+                  onChange={e => setMarkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="text-base pl-9"
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Link to your brand's website or product page for context.</p>
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
