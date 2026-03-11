@@ -11,7 +11,7 @@ import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText
 } from 'lucide-react';
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
@@ -197,9 +197,149 @@ export default function TrademarkCheck() {
     );
   };
 
+  const [generatingReport, setGeneratingReport] = useState(false);
+
   const highRisk = results.filter(r => r.similarity_score >= 0.7).length;
   const medRisk = results.filter(r => r.similarity_score >= 0.4 && r.similarity_score < 0.7).length;
   const lowRisk = results.filter(r => r.similarity_score < 0.4).length;
+
+  const generateOpinionReport = async () => {
+    if (results.length === 0) return;
+    setGeneratingReport(true);
+    try {
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const overallRisk = highRisk > 0 ? 'HIGH' : medRisk > 0 ? 'MODERATE' : 'LOW';
+      const overallColor = highRisk > 0 ? 'FF0000' : medRisk > 0 ? 'FFA500' : '008000';
+
+      const children: any[] = [
+        new Paragraph({ text: 'TRADEMARK CLEARANCE OPINION', heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+        new Paragraph({ text: 'Confidential Attorney Work Product', alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: 'Confidential Attorney Work Product', italics: true, color: '888888' })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [
+          new TextRun({ text: 'Prepared by: ', bold: true }), new TextRun({ text: 'PatentBot AI™ Trademark Analysis Engine' }),
+        ]}),
+        new Paragraph({ spacing: { after: 100 }, children: [
+          new TextRun({ text: 'Date: ', bold: true }), new TextRun({ text: today }),
+        ]}),
+        new Paragraph({ spacing: { after: 100 }, children: [
+          new TextRun({ text: 'Subject Mark: ', bold: true }), new TextRun({ text: `"${markName}"`, bold: true, size: 28 }),
+        ]}),
+        new Paragraph({ spacing: { after: 100 }, children: [
+          new TextRun({ text: 'Description: ', bold: true }), new TextRun({ text: markDescription || 'Not specified' }),
+        ]}),
+        new Paragraph({ spacing: { after: 100 }, children: [
+          new TextRun({ text: 'Nice Classes: ', bold: true }), new TextRun({ text: selectedClasses.length > 0 ? selectedClasses.join(', ') : 'Not specified' }),
+        ]}),
+        new Paragraph({ text: '', spacing: { after: 200 } }),
+
+        // Executive Summary
+        new Paragraph({ text: 'I. EXECUTIVE SUMMARY', heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 200 } }),
+        new Paragraph({ spacing: { after: 100 }, children: [
+          new TextRun({ text: 'Overall Risk Assessment: ', bold: true }),
+          new TextRun({ text: overallRisk, bold: true, color: overallColor, size: 28 }),
+        ]}),
+        new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED, children: [
+          new TextRun({ text: `Our search identified ${results.length} potentially conflicting marks, of which ${highRisk} present high risk, ${medRisk} present moderate risk, and ${lowRisk} present low risk of confusion under the DuPont factors analysis. ${
+            highRisk > 0 ? 'We recommend consulting with a trademark attorney before proceeding with registration due to significant conflicts identified.' :
+            medRisk > 0 ? 'While no critical conflicts were found, some marks warrant attention. Proceeding with registration is possible but should be done with awareness of the moderate-risk marks identified.' :
+            'The proposed mark appears to be relatively clear for registration. No significant conflicts were identified in our search.'
+          }` }),
+        ]}),
+
+        // Methodology
+        new Paragraph({ text: 'II. SEARCH METHODOLOGY', heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 200 } }),
+        new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED, children: [
+          new TextRun({ text: 'This clearance search was conducted using a multi-source parallel search strategy that queries the USPTO Trademark Electronic Search System (TESS), Trademarkia database, and additional web sources for registered and common-law marks. Each identified mark was analyzed for likelihood of confusion under the DuPont factors, including: (1) similarity of marks in sight, sound, and meaning; (2) relatedness of goods/services; (3) similarity of trade channels; (4) conditions of purchase; and (5) fame of the existing mark.' }),
+        ]}),
+
+        // Detailed Analysis
+        new Paragraph({ text: 'III. DETAILED CONFLICT ANALYSIS', heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 200 } }),
+      ];
+
+      // Add each result
+      results.forEach((result, idx) => {
+        const riskLevel = result.verdict === 'HIGH_RISK' ? 'HIGH RISK' :
+          result.verdict === 'MODERATE_RISK' ? 'MODERATE RISK' :
+          result.verdict === 'LIKELY_CLEAR' ? 'LIKELY CLEAR' : 'LOW RISK';
+        const riskColor = result.verdict === 'HIGH_RISK' ? 'FF0000' :
+          result.verdict === 'MODERATE_RISK' ? 'FFA500' : '008000';
+
+        children.push(
+          new Paragraph({ text: `${idx + 1}. ${result.mark_name}`, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 100 } }),
+          new Paragraph({ spacing: { after: 50 }, children: [
+            new TextRun({ text: 'Risk Level: ', bold: true }),
+            new TextRun({ text: riskLevel, bold: true, color: riskColor }),
+            new TextRun({ text: `  |  Similarity: ${Math.round(result.similarity_score * 100)}%` }),
+          ]}),
+        );
+        if (result.owner) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Owner: ', bold: true }), new TextRun({ text: result.owner })] }));
+        if (result.registration_number) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Registration #: ', bold: true }), new TextRun({ text: result.registration_number })] }));
+        if (result.serial_number) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Serial #: ', bold: true }), new TextRun({ text: result.serial_number })] }));
+        if (result.status) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Status: ', bold: true }), new TextRun({ text: result.status })] }));
+        if (result.nice_classes?.length > 0) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Nice Classes: ', bold: true }), new TextRun({ text: result.nice_classes.join(', ') })] }));
+        if (result.goods_services) children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Goods/Services: ', bold: true }), new TextRun({ text: result.goods_services })] }));
+
+        if (result.verdict_summary) {
+          children.push(new Paragraph({ text: '', spacing: { after: 50 } }));
+          children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Verdict: ', bold: true }), new TextRun({ text: result.verdict_summary })] }));
+        }
+        if (result.likelihood_of_confusion) {
+          children.push(new Paragraph({ spacing: { after: 50 }, children: [new TextRun({ text: 'Likelihood of Confusion: ', bold: true }), new TextRun({ text: result.likelihood_of_confusion })] }));
+        }
+
+        if (result.conflict_analysis?.length > 0) {
+          children.push(new Paragraph({ text: 'Risk Factors:', spacing: { before: 100, after: 50 }, children: [new TextRun({ text: 'Risk Factors:', bold: true, color: 'CC0000' })] }));
+          result.conflict_analysis.forEach(c => {
+            children.push(new Paragraph({ spacing: { after: 30 }, indent: { left: 360 }, children: [new TextRun({ text: `• ${c}` })] }));
+          });
+        }
+        if (result.differentiation_points?.length > 0) {
+          children.push(new Paragraph({ text: 'Points in Your Favor:', spacing: { before: 100, after: 50 }, children: [new TextRun({ text: 'Points in Your Favor:', bold: true, color: '008000' })] }));
+          result.differentiation_points.forEach(d => {
+            children.push(new Paragraph({ spacing: { after: 30 }, indent: { left: 360 }, children: [new TextRun({ text: `• ${d}` })] }));
+          });
+        }
+        if (result.recommendation) {
+          children.push(new Paragraph({ spacing: { before: 100, after: 100 }, children: [new TextRun({ text: 'Recommendation: ', bold: true }), new TextRun({ text: result.recommendation, italics: true })] }));
+        }
+      });
+
+      // Conclusion
+      children.push(
+        new Paragraph({ text: 'IV. CONCLUSION & RECOMMENDATIONS', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
+        new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED, children: [
+          new TextRun({ text: highRisk > 0
+            ? `Based on our analysis, the proposed mark "${markName}" faces significant obstacles to registration due to ${highRisk} high-risk conflict(s) identified. We strongly recommend consulting with a licensed trademark attorney before filing. Consider modifying the mark name, narrowing the goods/services description, or selecting different Nice classes to reduce conflict risk.`
+            : medRisk > 0
+            ? `The proposed mark "${markName}" shows moderate clearance potential. While ${medRisk} moderate-risk mark(s) were identified, none present insurmountable barriers to registration. We recommend proceeding with registration while being prepared to respond to potential Office Actions. A response strategy should be developed for the moderate-risk marks identified.`
+            : `The proposed mark "${markName}" appears to have strong clearance potential. No significant conflicts were identified in our comprehensive search. We recommend proceeding with the trademark application. However, this opinion is based on available database records and should be supplemented with attorney review.`
+          }),
+        ]}),
+        new Paragraph({ text: '', spacing: { after: 200 } }),
+        new Paragraph({ text: 'DISCLAIMER', heading: HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } }),
+        new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED, children: [
+          new TextRun({ text: 'This trademark clearance opinion is generated by PatentBot AI™ and is provided as a preliminary research aid only. It does not constitute legal advice and is not a substitute for a comprehensive trademark clearance opinion from a licensed trademark attorney. Results may not include all conflicting marks, including state registrations, common-law marks, or pending applications filed after the search date. Always consult a trademark attorney before filing an application with the USPTO.', italics: true, color: '666666', size: 18 }),
+        ]}),
+      );
+
+      const doc = new Document({ sections: [{ properties: {}, children }] });
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Trademark-Opinion-${markName.replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({ title: 'Report downloaded', description: 'Your trademark clearance opinion has been saved as a DOCX file.' });
+    } catch (err: any) {
+      console.error('Report generation error:', err);
+      toast({ title: 'Report failed', description: err.message || 'Failed to generate report.', variant: 'destructive' });
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -362,7 +502,18 @@ export default function TrademarkCheck() {
               </Card>
             </div>
 
-            {/* Results List */}
+            {/* Download Report Button */}
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={generateOpinionReport}
+                disabled={generatingReport}
+                variant="outline"
+                className="gap-2"
+              >
+                {generatingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {generatingReport ? 'Generating Report...' : 'Download Clearance Opinion (DOCX)'}
+              </Button>
+            </div>
             <div className="space-y-3">
               {results.map((result, idx) => (
                 <Card
