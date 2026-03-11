@@ -113,20 +113,24 @@ serve(async (req) => {
     // For service calls, skip search record creation and just return results
     const isFullSearch = !isServiceCall;
 
-    // Create search record
-    const { data: searchRecord, error: searchError } = await supabaseClient
-      .from('trademark_searches')
-      .insert({
-        user_id: userId,
-        mark_name: mark_name.trim(),
-        mark_description: mark_description?.trim() || null,
-        nice_classes: nice_classes || [],
-        search_type: 'wordmark',
-      })
-      .select()
-      .single();
+    // Create search record (only for user-facing calls)
+    let searchRecord: any = null;
+    if (isFullSearch && userId) {
+      const { data, error: searchError } = await supabaseClient
+        .from('trademark_searches')
+        .insert({
+          user_id: userId,
+          mark_name: mark_name.trim(),
+          mark_description: mark_description?.trim() || null,
+          nice_classes: nice_classes || [],
+          search_type: 'wordmark',
+        })
+        .select()
+        .single();
 
-    if (searchError) throw new Error('Failed to create search record');
+      if (searchError) throw new Error('Failed to create search record');
+      searchRecord = data;
+    }
 
     // Search with Perplexity
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
