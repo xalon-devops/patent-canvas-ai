@@ -23,29 +23,37 @@ serve(async (req) => {
       });
     }
 
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Authenticate user
-    const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
-
-    if (!user) {
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name);
+    const userId = claimsData.claims.sub as string;
+    // Fetch full user for email if needed
+    const { data: { user } } = await supabaseClient.auth.getUser(token);
+
+    console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
 
     // Admin check
     const { data: adminRole } = await supabaseClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
     const isAdmin = !!adminRole;
@@ -54,7 +62,7 @@ serve(async (req) => {
     const { data: subscription } = await supabaseClient
       .from('subscriptions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
     const hasActiveSubscription = !!subscription || isAdmin;
@@ -63,13 +71,13 @@ serve(async (req) => {
     let { data: credits } = await supabaseClient
       .from('user_search_credits')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (!credits) {
       const { data: newCredits, error: createError } = await supabaseClient
         .from('user_search_credits')
-        .insert({ user_id: user.id, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
+        .insert({ user_id: userId, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
         .select()
         .single();
       if (createError) throw new Error('Failed to initialize search credits');
@@ -88,14 +96,14 @@ serve(async (req) => {
 
     // Deduct credit if free trial
     if (!hasActiveSubscription && hasCredits) {
-      await supabaseClient.rpc('decrement_search_credit', { _user_id: user.id });
+      await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
     }
 
     // Create search record
     const { data: searchRecord, error: searchError } = await supabaseClient
       .from('trademark_searches')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         mark_name: mark_name.trim(),
         mark_description: mark_description?.trim() || null,
         nice_classes: nice_classes || [],
