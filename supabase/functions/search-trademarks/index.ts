@@ -62,7 +62,7 @@ serve(async (req) => {
     const { data: subscription } = await supabaseClient
       .from('subscriptions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
     const hasActiveSubscription = !!subscription || isAdmin;
