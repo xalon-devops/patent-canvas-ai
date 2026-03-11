@@ -33,9 +33,11 @@ const Auth = () => {
     if (authType === 'confirmed') {
       toast({ title: "Email Verified!", description: "Your email has been verified. You can now sign in." });
     } else if (authType === 'recovery') {
-      toast({ title: "Reset Your Password", description: "Enter your new password below." });
+      // Redirect to dedicated reset password page
+      navigate('/reset-password', { replace: true });
+      return;
     }
-  }, [authType, toast]);
+  }, [authType, toast, navigate]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
