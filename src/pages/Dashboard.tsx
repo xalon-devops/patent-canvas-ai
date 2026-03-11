@@ -22,6 +22,7 @@ import {
   PATENT_APPLICATION_PRICE_DISPLAY, 
   CHECK_AND_SEE_PRICE_DISPLAY,
   TRADEMARK_SEARCH_PRICE_DISPLAY,
+  TRADEMARK_FILING_PRICE_DISPLAY,
 } from '@/lib/pricingConstants';
 
 function AdminButton({ userId }: { userId: string | undefined }) {
