@@ -669,17 +669,29 @@ function isLikelyBrandPage(title: string, url: string, description: string, quer
 
 function cleanMarkName(name: string, queryMark: string): string {
   if (!name) return queryMark;
+  let cleaned = name;
+  // Remove bracket prefixes like [PDF], [DOC], [XLS], [PPT], [HTML], etc.
+  cleaned = cleaned.replace(/^\s*\[[A-Z]{2,5}\]\s*/gi, '');
+  // Remove trailing bracket tags
+  cleaned = cleaned.replace(/\s*\[[A-Z]{2,5}\]\s*$/gi, '');
+  // Remove inline bracket tags
+  cleaned = cleaned.replace(/\s*\[[A-Z]{2,5}\]\s*/gi, ' ');
+  // Remove "..." or "…" at start/end
+  cleaned = cleaned.replace(/^[.…]+|[.…]+$/g, '').trim();
   const suffixPatterns = [
-    /\s+(?:review|reviews|pricing|software|app|platform|tool|service)\s*.*$/i,
+    /\s+(?:review|reviews|pricing|software|app|platform|tool|service|guide|tutorial|overview|features?|comparison)\s*.*$/i,
     /\s+(?:brings?|launches?|announces?|introduces?)\s+.*$/i,
     /\s+\d{4}\s*$/,
     /\s+[-–|:].+$/,
     /\s+(?:on|at|for|from|with)\s+.*$/i,
   ];
-  let cleaned = name;
   for (const pattern of suffixPatterns) {
     cleaned = cleaned.replace(pattern, '').trim();
   }
+  // Also strip common file-type words
+  cleaned = cleaned.replace(/\b(?:pdf|doc|docx|xlsx|pptx?)\b/gi, '').trim();
+  // Remove double spaces
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
   return cleaned.length >= 2 ? cleaned : queryMark;
 }
 
