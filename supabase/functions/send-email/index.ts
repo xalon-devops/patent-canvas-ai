@@ -285,6 +285,7 @@ serve(async (req) => {
         };
         break;
 
+      case 'payment_received': {
         const formattedAmount = amount ? `$${(amount / 100).toFixed(2)}` : '$1,000.00';
         
         emailData = {
