@@ -47,7 +47,7 @@ serve(async (req) => {
     // Fetch full user for email if needed
     const { data: { user } } = await supabaseClient.auth.getUser(token);
 
-    console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name);
+    console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
 
     // Admin check
     const { data: adminRole } = await supabaseClient
