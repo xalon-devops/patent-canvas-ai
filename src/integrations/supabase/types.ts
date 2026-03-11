@@ -731,6 +731,110 @@ export type Database = {
         }
         Relationships: []
       }
+      trademark_results: {
+        Row: {
+          conflict_analysis: string[] | null
+          created_at: string
+          differentiation_points: string[] | null
+          filing_date: string | null
+          goods_services: string | null
+          id: string
+          mark_name: string | null
+          nice_classes: string[] | null
+          owner: string | null
+          registration_date: string | null
+          registration_number: string | null
+          search_id: string
+          serial_number: string | null
+          similarity_score: number | null
+          source: string | null
+          status: string | null
+          url: string | null
+        }
+        Insert: {
+          conflict_analysis?: string[] | null
+          created_at?: string
+          differentiation_points?: string[] | null
+          filing_date?: string | null
+          goods_services?: string | null
+          id?: string
+          mark_name?: string | null
+          nice_classes?: string[] | null
+          owner?: string | null
+          registration_date?: string | null
+          registration_number?: string | null
+          search_id: string
+          serial_number?: string | null
+          similarity_score?: number | null
+          source?: string | null
+          status?: string | null
+          url?: string | null
+        }
+        Update: {
+          conflict_analysis?: string[] | null
+          created_at?: string
+          differentiation_points?: string[] | null
+          filing_date?: string | null
+          goods_services?: string | null
+          id?: string
+          mark_name?: string | null
+          nice_classes?: string[] | null
+          owner?: string | null
+          registration_date?: string | null
+          registration_number?: string | null
+          search_id?: string
+          serial_number?: string | null
+          similarity_score?: number | null
+          source?: string | null
+          status?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trademark_results_search_id_fkey"
+            columns: ["search_id"]
+            isOneToOne: false
+            referencedRelation: "trademark_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trademark_searches: {
+        Row: {
+          created_at: string
+          id: string
+          mark_description: string | null
+          mark_name: string
+          nice_classes: string[] | null
+          results_count: number | null
+          search_type: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mark_description?: string | null
+          mark_name: string
+          nice_classes?: string[] | null
+          results_count?: number | null
+          search_type?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mark_description?: string | null
+          mark_name?: string
+          nice_classes?: string[] | null
+          results_count?: number | null
+          search_type?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
