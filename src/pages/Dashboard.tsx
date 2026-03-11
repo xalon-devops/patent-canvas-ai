@@ -354,6 +354,33 @@ const Dashboard = () => {
               Search Trademarks
             </Button>
           </div>
+
+          {/* Trademark Filing */}
+          <div className="pricing-card !p-6 sm:!p-8">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center flex-shrink-0">
+                <PenTool className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">Trademark Filing</h3>
+                <p className="text-sm text-muted-foreground">AI-guided application</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-5">
+              {['AI goods/services classification', 'Filing readiness review', 'Specimen guidance'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
+                  <CheckCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_FILING_PRICE_DISPLAY}</div>
+            <p className="text-xs text-muted-foreground mb-4">Per application</p>
+            <Button onClick={() => navigate('/trademark-application')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
+              <PenTool className="h-4 w-4" />
+              Draft Application
+            </Button>
+          </div>
         </div>
 
         {/* Portfolio Header */}
