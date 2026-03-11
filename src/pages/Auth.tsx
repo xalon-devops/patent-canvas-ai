@@ -67,6 +67,8 @@ const Auth = () => {
         toast({ title: "Check your email", description: "We've sent you a confirmation link." });
       } else if (data.user && data.session) {
         trackSignupComplete(data.user.id, email);
+        // Send welcome email (fire and forget)
+        supabase.functions.invoke('send-email', { body: { type: 'welcome', userId: data.user.id, userEmail: email, userName: email.split('@')[0] } }).catch(() => {});
       }
     } catch {
       toast({ title: "Sign up failed", description: "An unexpected error occurred.", variant: "destructive" });
