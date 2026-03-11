@@ -811,6 +811,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_search_credit: { Args: { _user_id: string }; Returns: boolean }
       get_database_schema: { Args: never; Returns: Json }
       has_role: {
         Args: {
