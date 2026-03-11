@@ -81,12 +81,12 @@ serve(async (req) => {
           user_id: userId,
           stripe_subscription_id: subscription.id,
           status: subscription.status,
-          plan: session.metadata?.plan || 'check_and_see',
+          plan: session.metadata?.plan_type || 'check_and_see',
           current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
           current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'stripe_subscription_id'
+          onConflict: 'user_id'
         });
 
       if (subError) {
