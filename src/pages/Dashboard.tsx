@@ -268,7 +268,7 @@ const Dashboard = () => {
         />
 
         {/* Action Cards */}
-        <div className="grid gap-5 md:grid-cols-3 mb-10">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-10">
           {/* File Patent */}
           <div className="pricing-card-featured !p-6 sm:!p-8">
             <div className="flex items-center gap-4 mb-5">
