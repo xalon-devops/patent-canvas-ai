@@ -800,6 +800,75 @@ export type Database = {
         }
         Relationships: []
       }
+      trademark_monitoring: {
+        Row: {
+          created_at: string
+          highest_similarity_score: number | null
+          id: string
+          is_active: boolean | null
+          last_search_at: string
+          mark_name: string
+          monitoring_data: Json | null
+          new_results_count: number | null
+          next_search_at: string | null
+          nice_classes: string[] | null
+          results_found: number | null
+          search_query: string
+          trademark_application_id: string | null
+          trademark_search_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          highest_similarity_score?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_search_at?: string
+          mark_name: string
+          monitoring_data?: Json | null
+          new_results_count?: number | null
+          next_search_at?: string | null
+          nice_classes?: string[] | null
+          results_found?: number | null
+          search_query: string
+          trademark_application_id?: string | null
+          trademark_search_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          highest_similarity_score?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_search_at?: string
+          mark_name?: string
+          monitoring_data?: Json | null
+          new_results_count?: number | null
+          next_search_at?: string | null
+          nice_classes?: string[] | null
+          results_found?: number | null
+          search_query?: string
+          trademark_application_id?: string | null
+          trademark_search_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trademark_monitoring_trademark_application_id_fkey"
+            columns: ["trademark_application_id"]
+            isOneToOne: false
+            referencedRelation: "trademark_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trademark_monitoring_trademark_search_id_fkey"
+            columns: ["trademark_search_id"]
+            isOneToOne: false
+            referencedRelation: "trademark_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trademark_results: {
         Row: {
           conflict_analysis: string[] | null
