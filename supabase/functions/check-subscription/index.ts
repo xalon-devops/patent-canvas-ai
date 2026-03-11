@@ -95,32 +95,38 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
+    // Check for BOTH active and trialing subscriptions (7-day free trial)
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
-      limit: 1,
+      limit: 10,
     });
     
-    const hasActiveSub = subscriptions.data.length > 0;
+    // Find the first active or trialing subscription
+    const activeSub = subscriptions.data.find(
+      s => s.status === 'active' || s.status === 'trialing'
+    );
+    
+    const hasActiveSub = !!activeSub;
     let plan = "free";
     let currentPeriodStart = null;
     let currentPeriodEnd = null;
     let stripeSubscriptionId = null;
+    let subStatus = "inactive";
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      stripeSubscriptionId = subscription.id;
-      currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
-      currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      plan = "check_and_see"; // Check & See subscription plan
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: currentPeriodEnd });
+    if (hasActiveSub && activeSub) {
+      stripeSubscriptionId = activeSub.id;
+      currentPeriodStart = new Date(activeSub.current_period_start * 1000).toISOString();
+      currentPeriodEnd = new Date(activeSub.current_period_end * 1000).toISOString();
+      plan = "check_and_see";
+      subStatus = activeSub.status; // preserves 'active' or 'trialing'
+      logStep("Active/trialing subscription found", { subscriptionId: activeSub.id, status: activeSub.status, endDate: currentPeriodEnd });
     } else {
-      logStep("No active subscription found");
+      logStep("No active or trialing subscription found");
     }
 
     await supabaseClient.from("subscriptions").upsert({
       user_id: user.id,
-      status: hasActiveSub ? "active" : "inactive",
+      status: subStatus,
       plan,
       current_period_start: currentPeriodStart,
       current_period_end: currentPeriodEnd,
