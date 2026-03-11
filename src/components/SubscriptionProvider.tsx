@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -30,46 +30,34 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkSubscription = async () => {
-    if (!user) return;
-    
+  const checkSubscription = useCallback(async () => {
     try {
       const { data, error } = await supabase.functions.invoke('check-subscription');
-      
       if (error) {
         console.error('Error checking subscription:', error);
         setSubscription({ subscribed: false, plan: 'free' });
         return;
       }
-      
       setSubscription(data);
     } catch (error) {
       console.error('Error checking subscription:', error);
       setSubscription({ subscribed: false, plan: 'free' });
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await checkSubscription();
-        } else {
-          setSubscription(null);
-        }
-        
+    // IMPORTANT: No async calls inside onAuthStateChange
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (!session?.user) {
+        setSubscription(null);
         setLoading(false);
       }
-    );
+    });
 
-    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        checkSubscription();
-      } else {
+      if (!session?.user) {
         setLoading(false);
       }
     });
@@ -77,21 +65,15 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => authSubscription.unsubscribe();
   }, []);
 
+  // Fetch subscription when user changes (separate effect, no async in callback)
   useEffect(() => {
     if (user) {
-      checkSubscription();
+      checkSubscription().finally(() => setLoading(false));
     }
-  }, [user]);
-
-  const value = {
-    user,
-    subscription,
-    loading,
-    checkSubscription,
-  };
+  }, [user?.id, checkSubscription]);
 
   return (
-    <SubscriptionContext.Provider value={value}>
+    <SubscriptionContext.Provider value={{ user, subscription, loading, checkSubscription }}>
       {children}
     </SubscriptionContext.Provider>
   );
