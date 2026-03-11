@@ -74,7 +74,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             .eq('user_id', user.id)
             .maybeSingle();
 
-          if (!error && data?.status === 'active' && data?.plan !== 'free') {
+          if (!error && (data?.status === 'active' || data?.status === 'trialing') && data?.plan !== 'free') {
             allowed = true;
             type = 'premium';
           }
