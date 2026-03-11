@@ -42,21 +42,27 @@ serve(async (req) => {
       customer: session.customer
     });
 
-    // Get user ID from session metadata or customer email
+    // Get user ID from session metadata first (fastest), then fallback to email lookup
+    let userId = session.metadata?.user_id;
     const userEmail = session.customer_details?.email;
-    if (!userEmail) {
-      throw new Error('No customer email found in session');
-    }
-
-    // Find user by email
-    const { data: authData } = await supabase.auth.admin.listUsers();
-    const user = authData?.users.find(u => u.email === userEmail);
     
-    if (!user) {
-      throw new Error('User not found');
+    if (!userId && !userEmail) {
+      throw new Error('No user ID or customer email found in session');
     }
 
-    const userId = user.id;
+    if (!userId && userEmail) {
+      // Lookup by email using admin API (efficient single lookup)
+      const { data: usersByEmail } = await supabase.auth.admin.listUsers({
+        filter: `email.eq.${userEmail}`,
+        page: 1,
+        perPage: 1,
+      });
+      const user = usersByEmail?.users?.[0];
+      if (!user) throw new Error('User not found for email: ' + userEmail);
+      userId = user.id;
+    }
+
+    console.log('Resolved userId:', userId);
 
     // Handle subscription payment
     if (session.mode === 'subscription' && session.subscription) {
