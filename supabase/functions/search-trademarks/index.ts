@@ -279,56 +279,50 @@ async function searchTrademarksWithPerplexity(
         messages: [
           {
             role: 'system',
-            content: `You are a trademark attorney conducting a comprehensive trademark clearance search. Your task is to find REAL, EXISTING trademarks registered with the USPTO that could conflict with a proposed mark.
+            content: `You are a trademark research assistant. Search the web for existing trademarks and brands that could conflict with a proposed mark.
 
-CRITICAL SEARCH INSTRUCTIONS:
-1. Search the USPTO TESS (Trademark Electronic Search System) database
-2. Look for marks that are phonetically similar, visually similar, or have similar meaning
-3. Focus on marks in the same or related Nice Classification classes
-4. Include both LIVE and DEAD marks (dead marks still inform clearance)
-5. Consider common law trademarks and state registrations
-6. Look for marks from major brands AND small businesses
+SEARCH APPROACH:
+1. Search for existing companies, products, and brands using this name or similar names
+2. Search for USPTO trademark registrations mentioning this name
+3. Look for well-known brands with similar names in similar industries
+4. Check trademark databases like USPTO TSDR, Trademarkia, and other public sources
+5. Include both registered trademarks and well-known unregistered brands
 
-LIKELIHOOD OF CONFUSION FACTORS (DuPont factors):
-- Similarity of marks (sound, appearance, meaning)
-- Similarity of goods/services
-- Strength of the prior mark
-- Evidence of actual confusion
-- Channels of trade
+CRITICAL: You MUST return a JSON array even if you find potential conflicts through general web knowledge. If a well-known company uses this name (e.g., "Homebase" the HR company), include it.
 
-OUTPUT FORMAT - Return ONLY a valid JSON array:
+OUTPUT FORMAT - Return ONLY a valid JSON array (no markdown, no code blocks, no explanation):
 [
   {
-    "mark_name": "Exact registered trademark name",
-    "registration_number": "USPTO registration number (e.g., 1234567)",
-    "serial_number": "USPTO serial number (e.g., 88123456)",
-    "status": "LIVE or DEAD",
-    "owner": "Trademark owner name",
-    "filing_date": "YYYY-MM-DD",
-    "registration_date": "YYYY-MM-DD or null if pending",
+    "mark_name": "Name of the existing brand/trademark",
+    "registration_number": "Registration number if known, or null",
+    "serial_number": "Serial number if known, or null",
+    "status": "LIVE, DEAD, or ACTIVE",
+    "owner": "Company or person who owns it",
+    "filing_date": null,
+    "registration_date": null,
     "nice_classes": ["009", "042"],
-    "goods_services": "Brief description of goods/services",
-    "conflict_analysis": ["Specific conflict reason 1", "Specific conflict reason 2"],
-    "differentiation_points": ["Key difference 1", "Key difference 2"],
-    "url": "https://tsdr.uspto.gov/#caseNumber=XXXXXXX&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch"
+    "goods_services": "What the brand sells or does",
+    "conflict_analysis": ["Why this conflicts with the proposed mark"],
+    "differentiation_points": ["How the proposed mark differs"],
+    "url": "URL to trademark record or company website"
   }
 ]
 
-MANDATORY: Only include trademarks you can verify exist in USPTO records. Never fabricate registration numbers. Include 5-15 potentially conflicting marks.`
+Return 5-15 results. Include well-known brands even without exact registration numbers. NEVER return an empty array - there are always similar marks to consider. Do NOT wrap in markdown code blocks.`
           },
           {
             role: 'user',
-            content: `PROPOSED TRADEMARK TO CLEAR:
+            content: `Find existing trademarks and brands that could conflict with this proposed trademark:
 
 Mark Name: "${markName}"
 Description: ${description || 'Not provided'}
 ${classInfo}
 
-Find existing USPTO trademarks that could block registration of this mark. Focus on:
-1. Identical or nearly identical marks
-2. Phonetically similar marks (sound-alikes)
-3. Marks with similar meaning or commercial impression
-4. Marks in the same or related goods/services classes`
+Search for:
+1. Companies or products already using "${markName}" or very similar names
+2. Registered trademarks with similar names in related industries
+3. Well-known brands that sound alike or have similar meaning
+4. Any brand in classes ${niceClasses.join(', ') || 'relevant to this business'} with a confusingly similar name`
           }
         ],
         max_tokens: 4000,
