@@ -31,7 +31,8 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
-    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode } = await req.json();
+    const requestBody = await req.json();
+    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode, amount, paymentType, applicationTitle } = requestBody;
     logStep("Request parsed", { type });
 
     let emailData: {
@@ -284,8 +285,6 @@ serve(async (req) => {
         };
         break;
 
-      case 'payment_received':
-        const { amount, paymentType, applicationTitle } = await req.json().catch(() => ({}));
         const formattedAmount = amount ? `$${(amount / 100).toFixed(2)}` : '$1,000.00';
         
         emailData = {
