@@ -94,70 +94,66 @@ export default function PatentProgressTracker({ sections }: PatentProgressTracke
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'complete':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-3 h-3 text-green-500" />;
       case 'incomplete':
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+        return <AlertTriangle className="w-3 h-3 text-yellow-500" />;
       default:
-        return <Circle className="w-4 h-4 text-muted-foreground" />;
+        return <Circle className="w-3 h-3 text-muted-foreground" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'complete':
-        return <Badge variant="default" className="bg-green-500/10 text-green-600 hover:bg-green-500/20">Complete</Badge>;
+        return <Badge variant="default" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 text-[10px] px-1.5 py-0">Done</Badge>;
       case 'incomplete':
-        return <Badge variant="default" className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20">Needs More</Badge>;
+        return <Badge variant="default" className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 text-[10px] px-1.5 py-0">Low</Badge>;
       default:
-        return <Badge variant="secondary">Missing</Badge>;
+        return <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Missing</Badge>;
     }
   };
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-background to-muted/20">
-      <CardHeader className="pb-3">
+      <CardHeader className="p-2 sm:p-3 pb-1.5">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Target className="w-5 h-5 text-primary" />
-            Application Progress
+          <CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
+            <Target className="w-3 h-3 text-primary" />
+            Progress
           </CardTitle>
-          <span className={cn("text-2xl font-bold", getProgressColor(progress.percentage))}>
+          <span className={cn("text-sm font-bold", getProgressColor(progress.percentage))}>
             {progress.percentage}%
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="p-2 sm:p-3 pt-0 space-y-2">
         {/* Progress Bar */}
-        <div className="space-y-2">
-          <Progress value={progress.percentage} className="h-3" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{progress.completed} of {progress.total} required sections complete</span>
-            <span>{progress.total - progress.completed} remaining</span>
+        <div className="space-y-1">
+          <Progress value={progress.percentage} className="h-1" />
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>{progress.completed}/{progress.total} req sections</span>
+            <span>{progress.total - progress.completed} left</span>
           </div>
         </div>
 
         {/* Missing Elements Alert */}
         {missingElements.length > 0 && (
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-900 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Missing Required Elements
+          <div className="rounded-md border border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-900 p-1.5">
+            <div className="flex items-center gap-1 mb-1">
+              <AlertTriangle className="w-3 h-3 text-yellow-600" />
+              <span className="text-[10px] font-medium text-yellow-800 dark:text-yellow-200">
+                Missing Required
               </span>
             </div>
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
               {missingElements.map(element => {
                 const { status, wordCount } = getSectionStatus(element);
                 return (
-                  <li key={element.type} className="flex items-center justify-between text-sm">
-                    <span className="text-yellow-700 dark:text-yellow-300">
-                      • {element.title}
-                      {status === 'incomplete' && (
-                        <span className="text-xs ml-1">
-                          ({wordCount}/{element.minWords} words)
-                        </span>
-                      )}
-                    </span>
+                  <li key={element.type} className="text-[10px] text-yellow-700 dark:text-yellow-300 line-clamp-1">
+                    • {element.title}
+                    {status === 'incomplete' && (
+                      <span className="ml-1 text-muted-foreground">({wordCount}/{element.minWords}w)</span>
+                    )}
                   </li>
                 );
               })}
@@ -166,41 +162,34 @@ export default function PatentProgressTracker({ sections }: PatentProgressTracke
         )}
 
         {/* Section Checklist */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <ListChecks className="w-4 h-4" />
-            Section Checklist
+        <div className="space-y-1">
+          <div className="flex items-center gap-1 text-[10px] font-medium">
+            <ListChecks className="w-3 h-3" />
+            Checklist
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             {SECTION_REQUIREMENTS.map(req => {
               const { status, wordCount } = getSectionStatus(req);
               return (
                 <div 
                   key={req.type}
                   className={cn(
-                    "flex items-center justify-between p-2 rounded-lg border transition-colors",
+                    "flex items-center justify-between px-1.5 py-1 rounded border",
                     status === 'complete' && "bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-900",
                     status === 'incomplete' && "bg-yellow-50/50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900",
                     status === 'missing' && "bg-muted/30 border-border"
                   )}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     {getStatusIcon(status)}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{req.title}</span>
-                        {!req.required && (
-                          <Badge variant="outline" className="text-xs">Optional</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">{req.description}</p>
-                    </div>
+                    <span className="text-[11px] font-medium truncate">{req.title}</span>
+                    {!req.required && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">Opt</Badge>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {status !== 'missing' && (
-                      <span className="text-xs text-muted-foreground">
-                        {wordCount} words
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">{wordCount}w</span>
                     )}
                     {getStatusBadge(status)}
                   </div>
@@ -212,16 +201,12 @@ export default function PatentProgressTracker({ sections }: PatentProgressTracke
 
         {/* Ready to File Indicator */}
         {progress.percentage === 100 && (
-          <div className="rounded-lg border border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900 p-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+          <div className="rounded-md border border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900 p-1.5">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
               <div>
-                <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                  Ready for Review
-                </span>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  All required sections are complete. Review and export your application.
-                </p>
+                <span className="text-[11px] font-medium text-green-800 dark:text-green-200">Ready for Review</span>
+                <p className="text-[10px] text-green-600 dark:text-green-400">All required sections complete.</p>
               </div>
             </div>
           </div>
