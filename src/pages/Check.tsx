@@ -36,7 +36,7 @@ const Check = () => {
   const { toast } = useToast();
 
   // Derived state from centralized hook
-  const hasSubscription = subscription?.status === 'active';
+  const hasSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
   const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? FREE_SEARCHES_LIMIT;
 
   // Redirect if not authenticated

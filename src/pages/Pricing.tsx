@@ -118,7 +118,7 @@ const Pricing = () => {
     }
   };
 
-  const isPremium = userSubscription?.status === 'active' && userSubscription?.plan !== 'free';
+  const isPremium = (userSubscription?.status === 'active' || userSubscription?.status === 'trialing') && userSubscription?.plan !== 'free';
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
