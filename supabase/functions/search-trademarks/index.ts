@@ -77,7 +77,7 @@ serve(async (req) => {
     if (!credits) {
       const { data: newCredits, error: createError } = await supabaseClient
         .from('user_search_credits')
-        .insert({ user_id: user.id, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
+        .insert({ user_id: userId, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
         .select()
         .single();
       if (createError) throw new Error('Failed to initialize search credits');
