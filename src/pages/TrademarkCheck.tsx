@@ -208,6 +208,7 @@ export default function TrademarkCheck() {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">Link to your brand's website or product page for context.</p>
+            </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
               <Textarea
