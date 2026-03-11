@@ -32,6 +32,12 @@ const Auth = () => {
   useEffect(() => {
     if (authType === 'confirmed') {
       toast({ title: "Email Verified!", description: "Your email has been verified. You can now sign in." });
+      // Send welcome email on first confirmation (fire and forget)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          supabase.functions.invoke('send-email', { body: { type: 'welcome', userId: session.user.id, userEmail: session.user.email, userName: session.user.email?.split('@')[0] } }).catch(() => {});
+        }
+      });
     } else if (authType === 'recovery') {
       // Redirect to dedicated reset password page
       navigate('/reset-password', { replace: true });
