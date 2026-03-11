@@ -200,6 +200,10 @@ Be honest and practical. If marks are in completely different industries with di
         similarity_score: similarity,
         conflict_analysis: conflictAnalysis,
         differentiation_points: differentiationPoints,
+        verdict: result._verdict || null,
+        verdict_summary: result._verdict_summary || null,
+        likelihood_of_confusion: result._likelihood || null,
+        recommendation: result._recommendation || null,
         source: result.source || 'USPTO',
         url: result.url,
       };
