@@ -71,7 +71,7 @@ serve(async (req) => {
     let { data: credits } = await supabaseClient
       .from('user_search_credits')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (!credits) {
