@@ -32,6 +32,10 @@ interface TrademarkResult {
   similarity_score: number;
   conflict_analysis: string[];
   differentiation_points: string[];
+  verdict: string | null;
+  verdict_summary: string | null;
+  likelihood_of_confusion: string | null;
+  recommendation: string | null;
   source: string;
   url: string | null;
 }
