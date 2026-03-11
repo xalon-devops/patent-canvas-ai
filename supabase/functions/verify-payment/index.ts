@@ -155,7 +155,7 @@ serve(async (req) => {
           status: session.payment_status === 'paid' ? 'completed' : 'pending',
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'stripe_session_id'
+          onConflict: 'application_id'
         });
 
       if (paymentError) {
