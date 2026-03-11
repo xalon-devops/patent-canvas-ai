@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag } from 'lucide-react';
 
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
@@ -20,7 +20,8 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { 
   PATENT_APPLICATION_PRICE_DISPLAY, 
-  CHECK_AND_SEE_PRICE_DISPLAY 
+  CHECK_AND_SEE_PRICE_DISPLAY,
+  TRADEMARK_SEARCH_PRICE_DISPLAY,
 } from '@/lib/pricingConstants';
 
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -266,7 +267,7 @@ const Dashboard = () => {
         />
 
         {/* Action Cards */}
-        <div className="grid gap-5 md:grid-cols-2 mb-10">
+        <div className="grid gap-5 md:grid-cols-3 mb-10">
           {/* File Patent */}
           <div className="pricing-card-featured !p-6 sm:!p-8">
             <div className="flex items-center gap-4 mb-5">
@@ -274,12 +275,12 @@ const Dashboard = () => {
                 <FileText className="h-6 w-6 text-primary" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-foreground">File Patent Application</h3>
-                <p className="text-sm text-muted-foreground">Complete AI-guided drafting</p>
+                <h3 className="text-lg font-semibold text-foreground">File Patent</h3>
+                <p className="text-sm text-muted-foreground">AI-guided drafting</p>
               </div>
             </div>
-            <div className="space-y-2.5 mb-6">
-              {['Complete patent sections generated', 'Professional USPTO-ready format', 'Export to DOCX/PDF'].map((item, i) => (
+            <div className="space-y-2 mb-5">
+              {['USPTO-ready patent sections', 'Export to DOCX/PDF'].map((item, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
                   <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
                   <span>{item}</span>
@@ -287,14 +288,14 @@ const Dashboard = () => {
               ))}
             </div>
             <div className="text-2xl font-bold text-foreground mb-1">{PATENT_APPLICATION_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-5">One-time payment per application</p>
-            <div className="space-y-2.5">
-              <Button onClick={() => navigate('/new-application')} className="w-full btn-dark h-11 rounded-xl text-sm">
+            <p className="text-xs text-muted-foreground mb-4">One-time per application</p>
+            <div className="space-y-2">
+              <Button onClick={() => navigate('/new-application')} className="w-full btn-dark h-10 rounded-xl text-sm">
                 Start New Patent
                 <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button onClick={() => navigate('/drafts')} variant="outline" className="w-full h-11 rounded-xl text-sm border-border">
-                Resume Draft Applications
+              <Button onClick={() => navigate('/drafts')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
+                Resume Drafts
               </Button>
             </div>
           </div>
@@ -306,12 +307,12 @@ const Dashboard = () => {
                 <Search className="h-6 w-6 text-muted-foreground" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-foreground">Check & See</h3>
-                <p className="text-sm text-muted-foreground">Search for existing patents</p>
+                <h3 className="text-lg font-semibold text-foreground">Patent Search</h3>
+                <p className="text-sm text-muted-foreground">Check & See</p>
               </div>
             </div>
-            <div className="space-y-2.5 mb-6">
-              {['Search multiple patent databases', 'AI-powered similarity analysis', 'Unlimited searches with subscription'].map((item, i) => (
+            <div className="space-y-2 mb-5">
+              {['Multi-database search', 'AI similarity analysis'].map((item, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
                   <CheckCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span>{item}</span>
@@ -319,10 +320,37 @@ const Dashboard = () => {
               ))}
             </div>
             <div className="text-2xl font-bold text-foreground mb-1">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-5">Monthly subscription</p>
-            <Button onClick={() => navigate('/check')} variant="outline" className="w-full h-11 rounded-xl text-sm border-border">
+            <p className="text-xs text-muted-foreground mb-4">Monthly subscription</p>
+            <Button onClick={() => navigate('/check')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <Search className="h-4 w-4" />
-              Start Searching
+              Search Patents
+            </Button>
+          </div>
+
+          {/* Trademark Search */}
+          <div className="pricing-card !p-6 sm:!p-8">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center flex-shrink-0">
+                <Tag className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">Trademark Search</h3>
+                <p className="text-sm text-muted-foreground">Clearance check</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-5">
+              {['USPTO TESS search', 'Conflict risk analysis'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
+                  <CheckCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_SEARCH_PRICE_DISPLAY}</div>
+            <p className="text-xs text-muted-foreground mb-4">Monthly subscription</p>
+            <Button onClick={() => navigate('/trademark-check')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
+              <Tag className="h-4 w-4" />
+              Search Trademarks
             </Button>
           </div>
         </div>

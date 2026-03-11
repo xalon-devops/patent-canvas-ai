@@ -26,6 +26,7 @@ import Analytics from "./pages/Analytics";
 import NewApplication from "./pages/NewApplication";
 import Drafts from "./pages/Drafts";
 import Check from "./pages/Check";
+import TrademarkCheck from "./pages/TrademarkCheck";
 import IdeaDetail from "./pages/IdeaDetail";
 import PaymentReturn from "./pages/PaymentReturn";
 import SelectSupabaseProject from "./pages/SelectSupabaseProject";
@@ -193,6 +194,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Claims />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/trademark-check" 
+              element={
+                <ProtectedRoute>
+                  <TrademarkCheck />
                 </ProtectedRoute>
               } 
             />
