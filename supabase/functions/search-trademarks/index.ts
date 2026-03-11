@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { mark_name, mark_description, nice_classes } = await req.json();
+    const { mark_name, mark_description, nice_classes, skip_credit_check } = await req.json();
 
     if (!mark_name?.trim()) {
       return new Response(JSON.stringify({ success: false, error: 'Trademark name is required' }), {
