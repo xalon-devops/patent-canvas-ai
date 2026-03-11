@@ -40,7 +40,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
   const fetchMonitors = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('trademark_monitoring')
         .select('*')
         .eq('user_id', userId)
