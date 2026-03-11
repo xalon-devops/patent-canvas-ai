@@ -110,6 +110,9 @@ serve(async (req) => {
       console.log('[TRADEMARK SEARCH] Service call - skipping auth/credits for mark:', mark_name);
     }
 
+    // For service calls, skip search record creation and just return results
+    const isFullSearch = !isServiceCall;
+
     // Create search record
     const { data: searchRecord, error: searchError } = await supabaseClient
       .from('trademark_searches')
