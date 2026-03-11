@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.52.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const logStep = (step: string, details?: any) => {
@@ -33,7 +33,7 @@ serve(async (req) => {
 
     logStep("Received monitoring request", { monitorId, markName, searchQuery });
 
-    // Call the existing search-trademarks function
+    // Call the existing search-trademarks function with service role
     const searchResponse = await fetch(
       `${Deno.env.get("SUPABASE_URL")}/functions/v1/search-trademarks`,
       {

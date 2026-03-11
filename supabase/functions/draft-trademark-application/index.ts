@@ -25,13 +25,13 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
     const { action, application_id, data } = await req.json();
 
@@ -42,7 +42,7 @@ serve(async (req) => {
       });
     }
 
-    // Action: classify_goods — AI suggests Nice classes and goods/services descriptions
+    // Action: classify_goods
     if (action === 'classify_goods') {
       const { mark_name, mark_description, business_description } = data;
 
@@ -77,7 +77,7 @@ Return ONLY valid JSON:
       });
     }
 
-    // Action: review_application — AI reviews the full application for completeness
+    // Action: review_application
     if (action === 'review_application') {
       if (!application_id) {
         return new Response(JSON.stringify({ error: 'application_id required' }), {
@@ -104,11 +104,11 @@ Return ONLY valid JSON:
           content: `You are a USPTO trademark filing expert. Review this trademark application for completeness and potential issues. Return ONLY valid JSON:
 {
   "overall_score": 85,
-  "readiness": "ready" | "needs_work" | "incomplete",
+  "readiness": "ready",
   "sections": [
     {
       "name": "Mark Information",
-      "status": "complete" | "needs_revision" | "missing",
+      "status": "complete",
       "score": 90,
       "feedback": "Specific feedback",
       "suggestions": ["Suggestion 1"]
@@ -117,7 +117,7 @@ Return ONLY valid JSON:
   "filing_checklist": [
     {"item": "Filing requirement", "met": true, "note": "Details"}
   ],
-  "estimated_office_action_risk": "low" | "medium" | "high",
+  "estimated_office_action_risk": "low",
   "risk_factors": ["Risk 1"]
 }`
         },
@@ -141,7 +141,7 @@ Return ONLY valid JSON:
       });
     }
 
-    // Action: generate_specimen_guidance — AI provides specimen guidance
+    // Action: specimen_guidance
     if (action === 'specimen_guidance') {
       const { mark_name, mark_type, nice_classes, filing_basis } = data;
 
