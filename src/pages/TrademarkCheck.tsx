@@ -65,6 +65,7 @@ export default function TrademarkCheck() {
 
     setLoading(true);
     setResults([]);
+    setHasSearched(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
