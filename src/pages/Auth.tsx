@@ -95,7 +95,7 @@ const Auth = () => {
       setResetEmailSent(true);
       toast({ title: "Reset email sent!", description: "Check your inbox for a password reset link." });
     } catch {
-      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${APP_DOMAIN}/auth?type=recovery` });
+      const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${APP_DOMAIN}/reset-password` });
       if (supabaseError) { toast({ title: "Failed to send reset email", description: supabaseError.message, variant: "destructive" }); }
       else { setResetEmailSent(true); toast({ title: "Reset email sent!", description: "Check your inbox for a password reset link." }); }
     } finally { setLoading(false); }
