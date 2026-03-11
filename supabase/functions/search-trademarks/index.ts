@@ -132,7 +132,7 @@ serve(async (req) => {
       let conflictAnalysis = result.conflict_analysis || [];
       let differentiationPoints = result.differentiation_points || [];
 
-      if (OPENAI_API_KEY && conflictAnalysis.length === 0) {
+      if (OPENAI_API_KEY) {
         try {
           const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -140,8 +140,27 @@ serve(async (req) => {
             body: JSON.stringify({
               model: 'gpt-4o-mini',
               messages: [
-                { role: 'system', content: 'Analyze trademark conflict likelihood. Return JSON only: {"conflicts":["specific conflict 1","specific conflict 2"],"differentiators":["key difference 1","key difference 2"]}. 2-3 items each.' },
-                { role: 'user', content: `NEW MARK: "${mark_name}" - ${mark_description || 'No description'}\nNice Classes: ${classInfo || 'Not specified'}\n\nEXISTING MARK: "${result.mark_name}" owned by ${result.owner || 'Unknown'}\nGoods/Services: ${result.goods_services || 'Unknown'}\nNice Classes: ${(result.nice_classes || []).join(', ') || 'Unknown'}` }
+                { role: 'system', content: `You are a USPTO trademark attorney analyzing likelihood of confusion between two marks. Apply the DuPont factors:
+
+1. Similarity of marks (sight, sound, meaning)
+2. Relatedness of goods/services
+3. Similarity of trade channels
+4. Conditions of purchase (sophisticated vs impulse buyers)
+5. Fame of the existing mark
+6. Actual confusion evidence
+
+Return JSON only:
+{
+  "verdict": "HIGH_RISK" | "MODERATE_RISK" | "LOW_RISK" | "LIKELY_CLEAR",
+  "verdict_summary": "One sentence explaining whether this mark would likely block registration and why",
+  "likelihood_of_confusion": "A 2-3 sentence attorney-style assessment of whether USPTO would find likelihood of confusion",
+  "conflicts": ["specific DuPont factor concern 1", "specific concern 2"],
+  "differentiators": ["key legal difference that helps the applicant 1", "difference 2"],
+  "recommendation": "One clear action item: e.g. 'Proceed with caution' or 'Consider a different name' or 'Low risk - different industry'"
+}
+
+Be honest and practical. If marks are in completely different industries with different consumers, say so. Dead/abandoned marks are lower risk. Different Nice classes with unrelated goods = lower risk.` },
+                { role: 'user', content: `NEW MARK: "${mark_name}" for: ${mark_description || 'No description provided'}\nNice Classes: ${classInfo || 'Not specified'}\n\nEXISTING MARK: "${result.mark_name}" owned by ${result.owner || 'Unknown'}\nStatus: ${result.status || 'Unknown'}\nGoods/Services: ${result.goods_services || 'Unknown'}\nNice Classes: ${(result.nice_classes || []).join(', ') || 'Unknown'}` }
               ],
               temperature: 0.3,
             }),
@@ -153,8 +172,12 @@ serve(async (req) => {
               const jsonMatch = text.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
-                conflictAnalysis = parsed.conflicts || [];
-                differentiationPoints = parsed.differentiators || [];
+                conflictAnalysis = parsed.conflicts || conflictAnalysis;
+                differentiationPoints = parsed.differentiators || differentiationPoints;
+                result._verdict = parsed.verdict || null;
+                result._verdict_summary = parsed.verdict_summary || null;
+                result._likelihood = parsed.likelihood_of_confusion || null;
+                result._recommendation = parsed.recommendation || null;
               }
             } catch {}
           }
@@ -177,6 +200,10 @@ serve(async (req) => {
         similarity_score: similarity,
         conflict_analysis: conflictAnalysis,
         differentiation_points: differentiationPoints,
+        verdict: result._verdict || null,
+        verdict_summary: result._verdict_summary || null,
+        likelihood_of_confusion: result._likelihood || null,
+        recommendation: result._recommendation || null,
         source: result.source || 'USPTO',
         url: result.url,
       };
