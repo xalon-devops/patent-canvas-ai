@@ -195,8 +195,7 @@ serve(async (req) => {
       // Calculate similarity
       const similarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
 
-      analyzedResults.push({
-        search_id: searchRecord.id,
+      const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: result.registration_number,
         serial_number: result.serial_number,
@@ -211,33 +210,37 @@ serve(async (req) => {
         differentiation_points: differentiationPoints,
         source: result.source || 'USPTO',
         url: result.url,
-      });
+      };
+      if (searchRecord) {
+        resultEntry.search_id = searchRecord.id;
+      }
+      analyzedResults.push(resultEntry);
     }
 
     // Sort by similarity
     analyzedResults.sort((a, b) => b.similarity_score - a.similarity_score);
 
-    // Store results
-    if (analyzedResults.length > 0) {
+    // Store results (only for user-facing calls with a search record)
+    if (searchRecord && analyzedResults.length > 0) {
       await supabaseClient
         .from('trademark_results')
         .insert(analyzedResults.slice(0, 15));
-    }
 
-    // Update search record
-    await supabaseClient
-      .from('trademark_searches')
-      .update({ results_count: analyzedResults.length })
-      .eq('id', searchRecord.id);
+      // Update search record
+      await supabaseClient
+        .from('trademark_searches')
+        .update({ results_count: analyzedResults.length })
+        .eq('id', searchRecord.id);
+    }
 
     console.log(`[TRADEMARK SEARCH] Complete: ${analyzedResults.length} results`);
 
     return new Response(JSON.stringify({
       success: true,
-      search_id: searchRecord.id,
+      search_id: searchRecord?.id || null,
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
-      search_credits_remaining: hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining || 1) - 1),
+      search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining || 1) - 1)),
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
