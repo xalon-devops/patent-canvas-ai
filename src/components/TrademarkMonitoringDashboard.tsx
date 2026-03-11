@@ -124,7 +124,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
 
   const deleteMonitor = async (id: string) => {
     try {
-      await supabase.from('trademark_monitoring').delete().eq('id', id);
+      await (supabase as any).from('trademark_monitoring').delete().eq('id', id);
       setMonitors(prev => prev.filter(m => m.id !== id));
       toast({ title: 'Monitor removed' });
     } catch (e: any) {
