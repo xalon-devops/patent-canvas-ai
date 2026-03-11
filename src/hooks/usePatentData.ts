@@ -206,7 +206,7 @@ export function usePatentData(userId: string | undefined) {
       .from('subscriptions')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'trialing'])
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') throw error;
