@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag, PenTool } from 'lucide-react';
 
 import { usePatentData } from '@/hooks/usePatentData';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
@@ -22,6 +22,7 @@ import {
   PATENT_APPLICATION_PRICE_DISPLAY, 
   CHECK_AND_SEE_PRICE_DISPLAY,
   TRADEMARK_SEARCH_PRICE_DISPLAY,
+  TRADEMARK_FILING_PRICE_DISPLAY,
 } from '@/lib/pricingConstants';
 
 function AdminButton({ userId }: { userId: string | undefined }) {
@@ -267,7 +268,7 @@ const Dashboard = () => {
         />
 
         {/* Action Cards */}
-        <div className="grid gap-5 md:grid-cols-3 mb-10">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-10">
           {/* File Patent */}
           <div className="pricing-card-featured !p-6 sm:!p-8">
             <div className="flex items-center gap-4 mb-5">
@@ -351,6 +352,33 @@ const Dashboard = () => {
             <Button onClick={() => navigate('/trademark-check')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <Tag className="h-4 w-4" />
               Search Trademarks
+            </Button>
+          </div>
+
+          {/* Trademark Filing */}
+          <div className="pricing-card !p-6 sm:!p-8">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center flex-shrink-0">
+                <PenTool className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">Trademark Filing</h3>
+                <p className="text-sm text-muted-foreground">AI-guided application</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-5">
+              {['AI goods/services classification', 'Filing readiness review', 'Specimen guidance'].map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-foreground">
+                  <CheckCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_FILING_PRICE_DISPLAY}</div>
+            <p className="text-xs text-muted-foreground mb-4">Per application</p>
+            <Button onClick={() => navigate('/trademark-application')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
+              <PenTool className="h-4 w-4" />
+              Draft Application
             </Button>
           </div>
         </div>

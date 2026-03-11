@@ -731,6 +731,75 @@ export type Database = {
         }
         Relationships: []
       }
+      trademark_applications: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          filing_basis: string
+          first_use_commerce_date: string | null
+          first_use_date: string | null
+          goods_services: Json | null
+          id: string
+          mark_description: string | null
+          mark_name: string
+          mark_type: string
+          nice_classes: string[] | null
+          owner_address: Json | null
+          owner_name: string | null
+          owner_type: string | null
+          specimen_description: string | null
+          specimen_file_path: string | null
+          status: string | null
+          step_completed: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          filing_basis?: string
+          first_use_commerce_date?: string | null
+          first_use_date?: string | null
+          goods_services?: Json | null
+          id?: string
+          mark_description?: string | null
+          mark_name: string
+          mark_type?: string
+          nice_classes?: string[] | null
+          owner_address?: Json | null
+          owner_name?: string | null
+          owner_type?: string | null
+          specimen_description?: string | null
+          specimen_file_path?: string | null
+          status?: string | null
+          step_completed?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          filing_basis?: string
+          first_use_commerce_date?: string | null
+          first_use_date?: string | null
+          goods_services?: Json | null
+          id?: string
+          mark_description?: string | null
+          mark_name?: string
+          mark_type?: string
+          nice_classes?: string[] | null
+          owner_address?: Json | null
+          owner_name?: string | null
+          owner_type?: string | null
+          specimen_description?: string | null
+          specimen_file_path?: string | null
+          status?: string | null
+          step_completed?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trademark_results: {
         Row: {
           conflict_analysis: string[] | null
