@@ -27,6 +27,7 @@ import NewApplication from "./pages/NewApplication";
 import Drafts from "./pages/Drafts";
 import Check from "./pages/Check";
 import TrademarkCheck from "./pages/TrademarkCheck";
+import TrademarkApplication from "./pages/TrademarkApplication";
 import IdeaDetail from "./pages/IdeaDetail";
 import PaymentReturn from "./pages/PaymentReturn";
 import SelectSupabaseProject from "./pages/SelectSupabaseProject";
