@@ -20,7 +20,8 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { 
   PATENT_APPLICATION_PRICE_DISPLAY, 
-  CHECK_AND_SEE_PRICE_DISPLAY 
+  CHECK_AND_SEE_PRICE_DISPLAY,
+  TRADEMARK_SEARCH_PRICE_DISPLAY,
 } from '@/lib/pricingConstants';
 
 function AdminButton({ userId }: { userId: string | undefined }) {
