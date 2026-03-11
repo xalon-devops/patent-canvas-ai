@@ -27,6 +27,20 @@ export const STRIPE_PATENT_APPLICATION_PRICE_ID = 'price_1RdXGjKFoovQj4C2M0KxKh8
 /** Stripe Price ID for Check & See subscription */
 export const STRIPE_CHECK_AND_SEE_PRICE_ID = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
 
+// ===== TRADEMARK PRICING =====
+
+/** Trademark Search monthly subscription (in cents for Stripe) */
+export const TRADEMARK_SEARCH_PRICE_CENTS = 499; // $4.99
+
+/** Trademark Search monthly subscription (display value) */
+export const TRADEMARK_SEARCH_PRICE = 4.99;
+
+/** Trademark Filing one-time fee (in cents for Stripe) */
+export const TRADEMARK_FILING_PRICE_CENTS = 50000; // $500.00
+
+/** Trademark Filing one-time fee (display value) */
+export const TRADEMARK_FILING_PRICE = 500;
+
 // ===== FORMATTED DISPLAY STRINGS =====
 
 /** Formatted patent application price for display */
@@ -40,6 +54,15 @@ export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$9.99/month';
 
 /** Formatted Check & See price with short period */
 export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$9.99/mo';
+
+/** Formatted trademark search price for display */
+export const TRADEMARK_SEARCH_PRICE_DISPLAY = '$4.99';
+
+/** Formatted trademark search price with period */
+export const TRADEMARK_SEARCH_PRICE_DISPLAY_MO = '$4.99/mo';
+
+/** Formatted trademark filing price for display */
+export const TRADEMARK_FILING_PRICE_DISPLAY = '$500';
 
 // ===== PATENT VALUATION =====
 
