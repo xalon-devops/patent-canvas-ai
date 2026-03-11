@@ -110,20 +110,27 @@ serve(async (req) => {
       console.log('[TRADEMARK SEARCH] Service call - skipping auth/credits for mark:', mark_name);
     }
 
-    // Create search record
-    const { data: searchRecord, error: searchError } = await supabaseClient
-      .from('trademark_searches')
-      .insert({
-        user_id: userId,
-        mark_name: mark_name.trim(),
-        mark_description: mark_description?.trim() || null,
-        nice_classes: nice_classes || [],
-        search_type: 'wordmark',
-      })
-      .select()
-      .single();
+    // For service calls, skip search record creation and just return results
+    const isFullSearch = !isServiceCall;
 
-    if (searchError) throw new Error('Failed to create search record');
+    // Create search record (only for user-facing calls)
+    let searchRecord: any = null;
+    if (isFullSearch && userId) {
+      const { data, error: searchError } = await supabaseClient
+        .from('trademark_searches')
+        .insert({
+          user_id: userId,
+          mark_name: mark_name.trim(),
+          mark_description: mark_description?.trim() || null,
+          nice_classes: nice_classes || [],
+          search_type: 'wordmark',
+        })
+        .select()
+        .single();
+
+      if (searchError) throw new Error('Failed to create search record');
+      searchRecord = data;
+    }
 
     // Search with Perplexity
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
@@ -188,8 +195,7 @@ serve(async (req) => {
       // Calculate similarity
       const similarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
 
-      analyzedResults.push({
-        search_id: searchRecord.id,
+      const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: result.registration_number,
         serial_number: result.serial_number,
@@ -204,33 +210,37 @@ serve(async (req) => {
         differentiation_points: differentiationPoints,
         source: result.source || 'USPTO',
         url: result.url,
-      });
+      };
+      if (searchRecord) {
+        resultEntry.search_id = searchRecord.id;
+      }
+      analyzedResults.push(resultEntry);
     }
 
     // Sort by similarity
     analyzedResults.sort((a, b) => b.similarity_score - a.similarity_score);
 
-    // Store results
-    if (analyzedResults.length > 0) {
+    // Store results (only for user-facing calls with a search record)
+    if (searchRecord && analyzedResults.length > 0) {
       await supabaseClient
         .from('trademark_results')
         .insert(analyzedResults.slice(0, 15));
-    }
 
-    // Update search record
-    await supabaseClient
-      .from('trademark_searches')
-      .update({ results_count: analyzedResults.length })
-      .eq('id', searchRecord.id);
+      // Update search record
+      await supabaseClient
+        .from('trademark_searches')
+        .update({ results_count: analyzedResults.length })
+        .eq('id', searchRecord.id);
+    }
 
     console.log(`[TRADEMARK SEARCH] Complete: ${analyzedResults.length} results`);
 
     return new Response(JSON.stringify({
       success: true,
-      search_id: searchRecord.id,
+      search_id: searchRecord?.id || null,
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
-      search_credits_remaining: hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining || 1) - 1),
+      search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining || 1) - 1)),
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

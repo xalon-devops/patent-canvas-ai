@@ -40,7 +40,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
   const fetchMonitors = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('trademark_monitoring')
         .select('*')
         .eq('user_id', userId)
@@ -85,7 +85,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
 
   const toggleActive = async (monitor: TrademarkMonitor) => {
     try {
-      await supabase
+      await (supabase as any)
         .from('trademark_monitoring')
         .update({ is_active: !monitor.is_active })
         .eq('id', monitor.id);
@@ -124,7 +124,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
 
   const deleteMonitor = async (id: string) => {
     try {
-      await supabase.from('trademark_monitoring').delete().eq('id', id);
+      await (supabase as any).from('trademark_monitoring').delete().eq('id', id);
       setMonitors(prev => prev.filter(m => m.id !== id));
       toast({ title: 'Monitor removed' });
     } catch (e: any) {
