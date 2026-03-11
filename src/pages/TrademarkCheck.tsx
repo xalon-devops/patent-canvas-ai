@@ -398,12 +398,15 @@ export default function TrademarkCheck() {
         )}
 
         {/* No results message */}
-        {!loading && results.length === 0 && markName && (
+        {!loading && hasSearched && results.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center">
               <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">Search for "{markName}"</h3>
-              <p className="text-sm text-muted-foreground">Click "Search Trademarks" to begin your clearance search.</p>
+              <h3 className="text-lg font-semibold text-foreground mb-1">No Conflicts Found!</h3>
+              <p className="text-sm text-muted-foreground">
+                No conflicting trademarks were found for "{markName}". This is a positive sign for registration,
+                but we still recommend consulting a trademark attorney.
+              </p>
             </CardContent>
           </Card>
         )}
