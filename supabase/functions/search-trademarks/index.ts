@@ -36,8 +36,6 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-
-    // If called internally with service_role key and skip_credit_check, bypass auth/credits
     const isServiceCall = skip_credit_check && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     let userId: string | null = null;
@@ -55,37 +53,22 @@ serve(async (req) => {
       userId = userData.user.id;
       console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
 
-      // Admin check
       const { data: adminRole } = await supabaseClient
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
+        .from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle();
       const isAdmin = !!adminRole;
 
-      // Check subscription
       const { data: subscription } = await supabaseClient
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
+        .from('subscriptions').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle();
       hasActiveSubscription = !!subscription || isAdmin;
 
-      // Check credits
       let { data: credits } = await supabaseClient
-        .from('user_search_credits')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .from('user_search_credits').select('*').eq('user_id', userId).maybeSingle();
 
       if (!credits) {
         const { data: newCredits, error: createError } = await supabaseClient
           .from('user_search_credits')
           .insert({ user_id: userId, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
-          .select()
-          .single();
+          .select().single();
         if (createError) throw new Error('Failed to initialize search credits');
         credits = newCredits;
       }
@@ -95,13 +78,11 @@ serve(async (req) => {
 
       if (!hasActiveSubscription && !hasCredits) {
         return new Response(JSON.stringify({
-          success: false,
-          error: 'No search credits remaining. Please subscribe to continue.',
+          success: false, error: 'No search credits remaining. Please subscribe to continue.',
           requires_subscription: true
         }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      // Deduct credit if free trial
       if (!hasActiveSubscription && hasCredits) {
         await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
         creditsRemaining = Math.max(0, (creditsRemaining ?? 1) - 1);
@@ -110,41 +91,44 @@ serve(async (req) => {
       console.log('[TRADEMARK SEARCH] Service call - skipping auth/credits for mark:', mark_name);
     }
 
-    // Create search record (only for user-facing calls)
+    // Create search record
     let searchRecord: any = null;
     if (!isServiceCall && userId) {
       const { data, error: searchError } = await supabaseClient
         .from('trademark_searches')
         .insert({
-          user_id: userId,
-          mark_name: mark_name.trim(),
+          user_id: userId, mark_name: mark_name.trim(),
           mark_description: mark_description?.trim() || null,
-          nice_classes: nice_classes || [],
-          search_type: 'wordmark',
-        })
-        .select()
-        .single();
-
+          nice_classes: nice_classes || [], search_type: 'wordmark',
+        }).select().single();
       if (searchError) throw new Error('Failed to create search record');
       searchRecord = data;
     }
 
-    // Search with Perplexity
+    // ========== MULTI-SOURCE TRADEMARK SEARCH ==========
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
 
-    const results = await searchTrademarksWithPerplexity(
-      mark_name.trim(),
-      mark_description || '',
-      nice_classes || [],
-      PERPLEXITY_API_KEY
-    );
+    const classInfo = (nice_classes || []).length > 0 ? nice_classes.join(', ') : '';
+    const trimmedName = mark_name.trim();
 
-    console.log(`[TRADEMARK SEARCH] Perplexity returned ${results.length} results`);
+    // Run searches in parallel
+    const [perplexityResults, firecrawlResults, trademarkiaResults] = await Promise.all([
+      searchWithPerplexity(trimmedName, mark_description || '', nice_classes || [], PERPLEXITY_API_KEY),
+      searchWithFirecrawl(trimmedName, classInfo, FIRECRAWL_API_KEY),
+      scrapeTrademarkia(trimmedName, classInfo, FIRECRAWL_API_KEY),
+    ]);
+
+    console.log(`[TRADEMARK SEARCH] Sources: Perplexity=${perplexityResults.length}, Firecrawl=${firecrawlResults.length}, Trademarkia=${trademarkiaResults.length}`);
+
+    // Merge and deduplicate
+    const allResults = [...perplexityResults, ...firecrawlResults, ...trademarkiaResults];
+    const deduped = deduplicateResults(allResults);
 
     // Analyze conflicts with OpenAI
     const analyzedResults = [];
-    for (const result of results.slice(0, 20)) {
+    for (const result of deduped.slice(0, 20)) {
       let conflictAnalysis = result.conflict_analysis || [];
       let differentiationPoints = result.differentiation_points || [];
 
@@ -152,26 +136,16 @@ serve(async (req) => {
         try {
           const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'gpt-4o-mini',
               messages: [
-                {
-                  role: 'system',
-                  content: 'Analyze trademark conflict likelihood. Return JSON only: {"conflicts":["specific conflict 1","specific conflict 2"],"differentiators":["key difference 1","key difference 2"]}. 2-3 items each. Be specific about likelihood of confusion.'
-                },
-                {
-                  role: 'user',
-                  content: `NEW MARK: "${mark_name}" - ${mark_description || 'No description'}\nNice Classes: ${(nice_classes || []).join(', ') || 'Not specified'}\n\nEXISTING MARK: "${result.mark_name}" owned by ${result.owner || 'Unknown'}\nGoods/Services: ${result.goods_services || 'Unknown'}\nNice Classes: ${(result.nice_classes || []).join(', ') || 'Unknown'}`
-                }
+                { role: 'system', content: 'Analyze trademark conflict likelihood. Return JSON only: {"conflicts":["specific conflict 1","specific conflict 2"],"differentiators":["key difference 1","key difference 2"]}. 2-3 items each.' },
+                { role: 'user', content: `NEW MARK: "${mark_name}" - ${mark_description || 'No description'}\nNice Classes: ${classInfo || 'Not specified'}\n\nEXISTING MARK: "${result.mark_name}" owned by ${result.owner || 'Unknown'}\nGoods/Services: ${result.goods_services || 'Unknown'}\nNice Classes: ${(result.nice_classes || []).join(', ') || 'Unknown'}` }
               ],
               temperature: 0.3,
             }),
           });
-
           if (analysisResponse.ok) {
             const analysisData = await analysisResponse.json();
             const text = analysisData.choices?.[0]?.message?.content || '{}';
@@ -189,9 +163,7 @@ serve(async (req) => {
         }
       }
 
-      // Calculate similarity
       const similarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
-
       const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: result.registration_number,
@@ -208,26 +180,15 @@ serve(async (req) => {
         source: result.source || 'USPTO',
         url: result.url,
       };
-      if (searchRecord) {
-        resultEntry.search_id = searchRecord.id;
-      }
+      if (searchRecord) resultEntry.search_id = searchRecord.id;
       analyzedResults.push(resultEntry);
     }
 
-    // Sort by similarity
     analyzedResults.sort((a, b) => b.similarity_score - a.similarity_score);
 
-    // Store results (only for user-facing calls with a search record)
     if (searchRecord && analyzedResults.length > 0) {
-      await supabaseClient
-        .from('trademark_results')
-        .insert(analyzedResults.slice(0, 15));
-
-      // Update search record
-      await supabaseClient
-        .from('trademark_searches')
-        .update({ results_count: analyzedResults.length })
-        .eq('id', searchRecord.id);
+      await supabaseClient.from('trademark_results').insert(analyzedResults.slice(0, 15));
+      await supabaseClient.from('trademark_searches').update({ results_count: analyzedResults.length }).eq('id', searchRecord.id);
     }
 
     console.log(`[TRADEMARK SEARCH] Complete: ${analyzedResults.length} results`);
@@ -238,42 +199,26 @@ serve(async (req) => {
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
       search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : creditsRemaining),
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     console.error('[TRADEMARK SEARCH] Error:', error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
-async function searchTrademarksWithPerplexity(
-  markName: string,
-  description: string,
-  niceClasses: string[],
-  apiKey: string | undefined
-): Promise<any[]> {
-  if (!apiKey) {
-    console.log('[Perplexity TM] No API key, skipping');
-    return [];
-  }
+// ==================== SOURCE 1: PERPLEXITY ====================
+async function searchWithPerplexity(markName: string, description: string, niceClasses: string[], apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) return [];
 
   try {
-    const classInfo = niceClasses.length > 0
-      ? `Nice Classification classes: ${niceClasses.join(', ')}`
-      : 'All relevant classes';
+    const classInfo = niceClasses.length > 0 ? `Nice classes: ${niceClasses.join(', ')}` : '';
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'sonar-pro',
         messages: [
@@ -282,47 +227,35 @@ async function searchTrademarksWithPerplexity(
             content: `You are a trademark research assistant. Search the web for existing trademarks and brands that could conflict with a proposed mark.
 
 SEARCH APPROACH:
-1. Search for existing companies, products, and brands using this name or similar names
-2. Search for USPTO trademark registrations mentioning this name
-3. Look for well-known brands with similar names in similar industries
-4. Check trademark databases like USPTO TSDR, Trademarkia, and other public sources
-5. Include both registered trademarks and well-known unregistered brands
+1. Search for companies, products, and brands using this name or similar names
+2. Look for USPTO trademark registrations on Trademarkia, USPTO TSDR, or other public records
+3. Include well-known brands with similar names in similar industries
+4. Include both registered trademarks AND well-known unregistered brands
 
-CRITICAL: You MUST return a JSON array even if you find potential conflicts through general web knowledge. If a well-known company uses this name (e.g., "Homebase" the HR company), include it.
+CRITICAL: Return ONLY a raw JSON array. No markdown code blocks. No explanation text. Just the array.
 
-OUTPUT FORMAT - Return ONLY a valid JSON array (no markdown, no code blocks, no explanation):
 [
   {
-    "mark_name": "Name of the existing brand/trademark",
+    "mark_name": "Name of existing brand/trademark",
     "registration_number": "Registration number if known, or null",
     "serial_number": "Serial number if known, or null",
-    "status": "LIVE, DEAD, or ACTIVE",
+    "status": "LIVE or DEAD or ACTIVE",
     "owner": "Company or person who owns it",
     "filing_date": null,
     "registration_date": null,
-    "nice_classes": ["009", "042"],
+    "nice_classes": ["009"],
     "goods_services": "What the brand sells or does",
-    "conflict_analysis": ["Why this conflicts with the proposed mark"],
-    "differentiation_points": ["How the proposed mark differs"],
+    "conflict_analysis": ["Why this conflicts"],
+    "differentiation_points": ["How it differs"],
     "url": "URL to trademark record or company website"
   }
 ]
 
-Return 5-15 results. Include well-known brands even without exact registration numbers. NEVER return an empty array - there are always similar marks to consider. Do NOT wrap in markdown code blocks.`
+Return 5-15 results. NEVER return empty array. Include well-known brands even without exact registration numbers.`
           },
           {
             role: 'user',
-            content: `Find existing trademarks and brands that could conflict with this proposed trademark:
-
-Mark Name: "${markName}"
-Description: ${description || 'Not provided'}
-${classInfo}
-
-Search for:
-1. Companies or products already using "${markName}" or very similar names
-2. Registered trademarks with similar names in related industries
-3. Well-known brands that sound alike or have similar meaning
-4. Any brand in classes ${niceClasses.join(', ') || 'relevant to this business'} with a confusingly similar name`
+            content: `Find existing trademarks and brands that conflict with: "${markName}"\nDescription: ${description || 'Not provided'}\n${classInfo}\n\nSearch for companies using "${markName}" or similar names. Include ANY brand that could cause confusion.`
           }
         ],
         max_tokens: 4000,
@@ -338,81 +271,355 @@ Search for:
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
-    
     console.log('[Perplexity TM] Response length:', content.length);
-    console.log('[Perplexity TM] Response preview:', content.substring(0, 500));
 
-    try {
-      // Try to extract JSON array - handle markdown code blocks too
-      let jsonStr = '';
-      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (codeBlockMatch) {
-        jsonStr = codeBlockMatch[1].trim();
-      } else {
-        const arrayMatch = content.match(/\[[\s\S]*\]/);
-        if (arrayMatch) {
-          jsonStr = arrayMatch[0];
-        }
-      }
-
-      if (jsonStr) {
-        const marks = JSON.parse(jsonStr);
-        console.log('[Perplexity TM] Parsed', marks.length, 'marks from JSON');
-        return marks.filter((m: any) => m.mark_name).map((m: any) => ({
-          mark_name: m.mark_name,
-          registration_number: m.registration_number || null,
-          serial_number: m.serial_number || null,
-          status: m.status || 'Unknown',
-          owner: m.owner || 'Unknown',
-          filing_date: m.filing_date || null,
-          registration_date: m.registration_date || null,
-          nice_classes: m.nice_classes || [],
-          goods_services: m.goods_services || null,
-          conflict_analysis: m.conflict_analysis || [],
-          differentiation_points: m.differentiation_points || [],
-          source: 'USPTO',
-          url: m.url || (m.serial_number
-            ? `https://tsdr.uspto.gov/#caseNumber=${m.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`
-            : null),
-        }));
-      } else {
-        console.error('[Perplexity TM] No JSON array found in response. Full content:', content.substring(0, 1000));
-      }
-    } catch (e) {
-      console.error('[Perplexity TM] JSON parse error:', e);
-      console.error('[Perplexity TM] Content that failed:', content.substring(0, 1000));
-    }
-
-    return [];
+    return parseJsonResults(content, 'Perplexity');
   } catch (error) {
     console.error('[Perplexity TM] Error:', error);
     return [];
   }
 }
 
+// ==================== SOURCE 2: FIRECRAWL WEB SEARCH ====================
+async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) return [];
+
+  try {
+    const queries = [
+      `"${markName}" trademark registration USPTO`,
+      `"${markName}" brand company ${classInfo ? 'software technology' : ''}`,
+    ];
+
+    const allResults: any[] = [];
+
+    for (const query of queries) {
+      try {
+        const response = await fetch('https://api.firecrawl.dev/v1/search', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, limit: 10 }),
+        });
+
+        if (!response.ok) {
+          console.error('[Firecrawl TM] Search error:', response.status);
+          continue;
+        }
+
+        const data = await response.json();
+        const searchResults = data?.data || data?.results || [];
+
+        for (const item of searchResults) {
+          const title = item.title || '';
+          const url = item.url || '';
+          const description = item.description || '';
+
+          // Extract trademark info from Trademarkia, USPTO, or other trademark sites
+          if (url.includes('trademarkia.com') || url.includes('uspto.gov') || url.includes('tmhunt.com')) {
+            const extracted = extractTrademarkFromSearchResult(title, description, url, markName);
+            if (extracted) allResults.push(extracted);
+          } else if (title.toLowerCase().includes(markName.toLowerCase()) || description.toLowerCase().includes('trademark')) {
+            // General brand/company mention
+            allResults.push({
+              mark_name: extractBrandName(title, markName),
+              registration_number: null,
+              serial_number: extractSerialNumber(description + ' ' + title),
+              status: 'ACTIVE',
+              owner: extractOwner(description),
+              filing_date: null,
+              registration_date: null,
+              nice_classes: [],
+              goods_services: description.substring(0, 200),
+              conflict_analysis: [],
+              differentiation_points: [],
+              source: 'Web Search',
+              url: url,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[Firecrawl TM] Query error:', e);
+      }
+    }
+
+    console.log(`[Firecrawl TM] Found ${allResults.length} results`);
+    return allResults;
+  } catch (error) {
+    console.error('[Firecrawl TM] Error:', error);
+    return [];
+  }
+}
+
+// ==================== SOURCE 3: TRADEMARKIA SCRAPE ====================
+async function scrapeTrademarkia(markName: string, classInfo: string, apiKey: string | undefined): Promise<any[]> {
+  if (!apiKey) return [];
+
+  try {
+    const searchUrl = `https://www.trademarkia.com/search?q=${encodeURIComponent(markName)}`;
+    console.log('[Trademarkia] Scraping:', searchUrl);
+
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: searchUrl,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        waitFor: 3000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Trademarkia] Scrape error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const markdown = data?.data?.markdown || data?.markdown || '';
+    
+    if (!markdown || markdown.length < 100) {
+      console.log('[Trademarkia] No meaningful content scraped');
+      return [];
+    }
+
+    console.log('[Trademarkia] Scraped content length:', markdown.length);
+    return parseTrademarkiaResults(markdown, markName);
+  } catch (error) {
+    console.error('[Trademarkia] Error:', error);
+    return [];
+  }
+}
+
+// ==================== PARSING HELPERS ====================
+
+function parseJsonResults(content: string, source: string): any[] {
+  try {
+    // Try markdown code blocks first
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    let jsonStr = '';
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const arrayMatch = content.match(/\[[\s\S]*\]/);
+      if (arrayMatch) jsonStr = arrayMatch[0];
+    }
+
+    if (jsonStr) {
+      const marks = JSON.parse(jsonStr);
+      console.log(`[${source}] Parsed ${marks.length} marks`);
+      return marks.filter((m: any) => m.mark_name).map((m: any) => ({
+        mark_name: m.mark_name,
+        registration_number: m.registration_number || null,
+        serial_number: m.serial_number || null,
+        status: m.status || 'Unknown',
+        owner: m.owner || 'Unknown',
+        filing_date: m.filing_date || null,
+        registration_date: m.registration_date || null,
+        nice_classes: m.nice_classes || [],
+        goods_services: m.goods_services || null,
+        conflict_analysis: m.conflict_analysis || [],
+        differentiation_points: m.differentiation_points || [],
+        source: m.source || 'USPTO',
+        url: m.url || (m.serial_number
+          ? `https://tsdr.uspto.gov/#caseNumber=${m.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`
+          : null),
+      }));
+    } else {
+      console.error(`[${source}] No JSON array found. Preview:`, content.substring(0, 500));
+    }
+  } catch (e) {
+    console.error(`[${source}] JSON parse error:`, e);
+  }
+  return [];
+}
+
+function parseTrademarkiaResults(markdown: string, queryMark: string): any[] {
+  const results: any[] = [];
+  
+  // Trademarkia typically shows results as lines with mark name, serial number, owner, status, class
+  // Pattern: "MARK_NAME" or "Mark Name - Serial Number - Owner - Status"
+  const lines = markdown.split('\n').filter(l => l.trim().length > 0);
+  
+  let currentMark: any = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Look for serial numbers (pattern: 5-8 digit numbers often prefixed with serial/SN)
+    const serialMatch = trimmed.match(/(?:Serial|SN|#)\s*(?:No\.?\s*)?(\d{5,8})/i) || trimmed.match(/\b(\d{7,8})\b/);
+    
+    // Look for registration numbers
+    const regMatch = trimmed.match(/(?:Reg|Registration)\s*(?:No\.?\s*)?(\d{5,8})/i);
+    
+    // Look for status indicators
+    const isLive = /\b(live|active|registered)\b/i.test(trimmed);
+    const isDead = /\b(dead|cancelled|abandoned|expired)\b/i.test(trimmed);
+    
+    // Look for class info
+    const classMatch = trimmed.match(/(?:Class|IC)\s*(?:0?)(\d{1,3})/gi);
+    
+    // Look for mark names that could be similar to our query
+    const lowerTrimmed = trimmed.toLowerCase();
+    const lowerQuery = queryMark.toLowerCase();
+    
+    if (lowerTrimmed.includes(lowerQuery) || levenshtein(lowerTrimmed.substring(0, lowerQuery.length + 5), lowerQuery) <= 3) {
+      // This line likely contains a trademark name
+      if (currentMark) results.push(currentMark);
+      
+      currentMark = {
+        mark_name: extractMarkNameFromLine(trimmed, queryMark),
+        registration_number: regMatch ? regMatch[1] : null,
+        serial_number: serialMatch ? serialMatch[1] : null,
+        status: isLive ? 'LIVE' : isDead ? 'DEAD' : 'Unknown',
+        owner: null,
+        filing_date: null,
+        registration_date: null,
+        nice_classes: classMatch ? classMatch.map(c => c.replace(/\D/g, '').padStart(3, '0')) : [],
+        goods_services: null,
+        conflict_analysis: [],
+        differentiation_points: [],
+        source: 'Trademarkia',
+        url: `https://www.trademarkia.com/search?q=${encodeURIComponent(queryMark)}`,
+      };
+    } else if (currentMark) {
+      // Enrich current mark with additional info from subsequent lines
+      if (serialMatch && !currentMark.serial_number) currentMark.serial_number = serialMatch[1];
+      if (regMatch && !currentMark.registration_number) currentMark.registration_number = regMatch[1];
+      if (isLive) currentMark.status = 'LIVE';
+      if (isDead) currentMark.status = 'DEAD';
+      if (/(?:owner|by|filed by|applicant)/i.test(trimmed)) {
+        currentMark.owner = trimmed.replace(/^.*(?:owner|by|filed by|applicant)[:\s]*/i, '').trim();
+      }
+      if (classMatch && currentMark.nice_classes.length === 0) {
+        currentMark.nice_classes = classMatch.map(c => c.replace(/\D/g, '').padStart(3, '0'));
+      }
+      // Capture goods/services description
+      if (trimmed.length > 20 && !currentMark.goods_services && !/^\d+$/.test(trimmed)) {
+        currentMark.goods_services = trimmed.substring(0, 200);
+      }
+    }
+  }
+
+  if (currentMark) results.push(currentMark);
+
+  console.log(`[Trademarkia] Parsed ${results.length} results from scraped content`);
+  return results.filter(r => r.mark_name);
+}
+
+function extractTrademarkFromSearchResult(title: string, description: string, url: string, queryMark: string): any | null {
+  const combined = `${title} ${description}`;
+  
+  // Extract serial number from URL or text
+  const serialFromUrl = url.match(/(\d{7,8})/);
+  const serialFromText = combined.match(/(?:Serial|SN)\s*#?\s*(\d{7,8})/i);
+  
+  const markName = extractBrandName(title, queryMark);
+  if (!markName) return null;
+
+  return {
+    mark_name: markName,
+    registration_number: null,
+    serial_number: serialFromUrl?.[1] || serialFromText?.[1] || null,
+    status: /live|active|registered/i.test(combined) ? 'LIVE' : /dead|cancelled|abandoned/i.test(combined) ? 'DEAD' : 'Unknown',
+    owner: extractOwner(description),
+    filing_date: null,
+    registration_date: null,
+    nice_classes: [],
+    goods_services: description.substring(0, 200),
+    conflict_analysis: [],
+    differentiation_points: [],
+    source: url.includes('trademarkia') ? 'Trademarkia' : url.includes('uspto') ? 'USPTO' : 'Web',
+    url: url,
+  };
+}
+
+function extractBrandName(title: string, queryMark: string): string {
+  // Try to extract the brand name closest to the query
+  const words = title.split(/[\s\-–|:,]+/);
+  const lowerQuery = queryMark.toLowerCase();
+  
+  // Find exact or near matches
+  for (let i = 0; i < words.length; i++) {
+    if (words[i].toLowerCase().includes(lowerQuery) || lowerQuery.includes(words[i].toLowerCase())) {
+      // Return the word and potentially adjacent words
+      const start = Math.max(0, i);
+      const end = Math.min(words.length, i + 3);
+      return words.slice(start, end).join(' ').replace(/[^\w\s'-]/g, '').trim();
+    }
+  }
+  
+  // Fallback: return first few meaningful words of title
+  return title.split(/[\-–|:]/)[0].trim().substring(0, 50);
+}
+
+function extractOwner(text: string): string | null {
+  const ownerMatch = text.match(/(?:owned by|by|owner|filed by|applicant)[:\s]+([^,.]+)/i);
+  if (ownerMatch) return ownerMatch[1].trim();
+  
+  // Look for company-like names
+  const companyMatch = text.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*(?:\s(?:Inc|LLC|Corp|Ltd|Co|Group))\.?)/);
+  if (companyMatch) return companyMatch[1].trim();
+  
+  return null;
+}
+
+function extractSerialNumber(text: string): string | null {
+  const match = text.match(/(?:Serial|SN)\s*#?\s*(\d{7,8})/i) || text.match(/\b(\d{8})\b/);
+  return match ? match[1] : null;
+}
+
+function extractMarkNameFromLine(line: string, queryMark: string): string {
+  // Clean up the line and extract the mark name
+  let name = line.replace(/\*\*/g, '').replace(/\[.*?\]\(.*?\)/g, '').trim();
+  // If line has multiple parts separated by pipes or dashes, take the first
+  const parts = name.split(/[|–—]/);
+  if (parts.length > 1) name = parts[0].trim();
+  // Truncate if too long
+  if (name.length > 60) name = name.substring(0, 60).trim();
+  return name || queryMark;
+}
+
+function deduplicateResults(results: any[]): any[] {
+  const seen = new Map<string, any>();
+  
+  for (const r of results) {
+    const key = (r.mark_name || '').toLowerCase().trim();
+    if (!key) continue;
+    
+    // If we already have this mark, merge info (prefer the one with more data)
+    if (seen.has(key)) {
+      const existing = seen.get(key);
+      // Keep the one with more fields filled in
+      const existingScore = [existing.serial_number, existing.registration_number, existing.owner, existing.goods_services].filter(Boolean).length;
+      const newScore = [r.serial_number, r.registration_number, r.owner, r.goods_services].filter(Boolean).length;
+      if (newScore > existingScore) {
+        seen.set(key, { ...existing, ...r });
+      }
+    } else {
+      seen.set(key, r);
+    }
+  }
+  
+  return Array.from(seen.values());
+}
+
+// ==================== SIMILARITY ====================
 function calculateMarkSimilarity(mark1: string, mark2: string): number {
   const a = mark1.toLowerCase().trim();
   const b = mark2.toLowerCase().trim();
-
   if (a === b) return 0.99;
-
   const maxLen = Math.max(a.length, b.length);
   if (maxLen === 0) return 0;
   const distance = levenshtein(a, b);
   const levSimilarity = 1 - (distance / maxLen);
-
   let prefixBonus = 0;
   const minLen = Math.min(a.length, b.length);
   let commonPrefix = 0;
   for (let i = 0; i < minLen; i++) {
-    if (a[i] === b[i]) commonPrefix++;
-    else break;
+    if (a[i] === b[i]) commonPrefix++; else break;
   }
   prefixBonus = (commonPrefix / maxLen) * 0.15;
-
   let containBonus = 0;
   if (a.includes(b) || b.includes(a)) containBonus = 0.2;
-
   return Math.min(levSimilarity + prefixBonus + containBonus, 0.99);
 }
 
@@ -425,11 +632,7 @@ function levenshtein(a: string, b: string): number {
       if (b[i - 1] === a[j - 1]) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
       }
     }
   }
