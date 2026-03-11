@@ -32,7 +32,7 @@ import IdeaDetail from "./pages/IdeaDetail";
 import PaymentReturn from "./pages/PaymentReturn";
 import SelectSupabaseProject from "./pages/SelectSupabaseProject";
 import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
