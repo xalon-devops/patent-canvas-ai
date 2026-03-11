@@ -348,6 +348,7 @@ serve(async (req) => {
           emailType: 'payment_received'
         };
         break;
+      }
 
       case 'subscription_welcome':
         emailData = {
