@@ -285,8 +285,6 @@ serve(async (req) => {
         };
         break;
 
-      case 'payment_received':
-        const { amount, paymentType, applicationTitle } = await req.json().catch(() => ({}));
         const formattedAmount = amount ? `$${(amount / 100).toFixed(2)}` : '$1,000.00';
         
         emailData = {
