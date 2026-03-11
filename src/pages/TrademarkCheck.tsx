@@ -59,6 +59,30 @@ export default function TrademarkCheck() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const handleScrapeUrl = async () => {
+    if (!markUrl.trim()) return;
+    setScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
+        body: { url: markUrl.trim(), options: { formats: ['markdown'], onlyMainContent: true } },
+      });
+      if (error) throw error;
+      const markdown = data?.data?.markdown || data?.markdown || '';
+      if (markdown) {
+        const truncated = markdown.substring(0, 3000);
+        setMarkDescription(truncated);
+        toast({ title: 'URL scraped', description: 'Website content added to description.' });
+      } else {
+        toast({ title: 'No content found', description: 'Could not extract content from that URL.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      console.error('Scrape error:', err);
+      toast({ title: 'Scrape failed', description: err.message || 'Failed to scrape URL.', variant: 'destructive' });
+    } finally {
+      setScraping(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!markName.trim()) {
       toast({ title: 'Enter a trademark', description: 'Please enter the trademark name to search.', variant: 'destructive' });
