@@ -438,7 +438,7 @@ function parseJsonResults(content: string, source: string): any[] {
       const marks = JSON.parse(jsonStr);
       console.log(`[${source}] Parsed ${marks.length} marks`);
       return marks.filter((m: any) => m.mark_name).map((m: any) => ({
-        mark_name: m.mark_name,
+        mark_name: cleanMarkName(m.mark_name, m.mark_name),
         registration_number: m.registration_number || null,
         serial_number: m.serial_number || null,
         status: m.status || 'Unknown',
