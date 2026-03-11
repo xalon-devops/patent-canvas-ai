@@ -9,9 +9,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag, PenTool } from 'lucide-react';
+import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag, PenTool, Radar } from 'lucide-react';
 
 import { usePatentData } from '@/hooks/usePatentData';
+import PriorArtMonitoringDashboard from '@/components/PriorArtMonitoringDashboard';
+import TrademarkMonitoringDashboard from '@/components/TrademarkMonitoringDashboard';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { WelcomeWizard } from '@/components/WelcomeWizard';
 import { PageSEO } from '@/components/SEO';
@@ -428,7 +430,15 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Bottom CTA */}
+        {/* Monitoring Widgets */}
+        {user?.id && (
+          <div className="grid gap-4 sm:grid-cols-2 mb-10">
+            <PriorArtMonitoringDashboard userId={user.id} />
+            <TrademarkMonitoringDashboard userId={user.id} />
+          </div>
+        )}
+
+
         <div className="text-center bg-card border border-border rounded-2xl p-8 sm:p-12" style={{ boxShadow: 'var(--shadow-card)' }}>
           <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
             Ready to Protect Your Innovation?

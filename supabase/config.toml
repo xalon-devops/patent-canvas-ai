@@ -133,3 +133,6 @@ verify_jwt = false
 
 [functions.draft-trademark-application]
 verify_jwt = false
+
+[functions.run-trademark-monitoring]
+verify_jwt = false
