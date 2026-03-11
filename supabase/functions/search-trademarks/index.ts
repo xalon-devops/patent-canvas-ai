@@ -36,67 +36,78 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
-    const userId = claimsData.claims.sub as string;
-    // Fetch full user for email if needed
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
+    // If called internally with service_role key and skip_credit_check, bypass auth/credits
+    const isServiceCall = skip_credit_check && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
+    let userId: string | null = null;
+    let user: any = null;
 
-    // Admin check
-    const { data: adminRole } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
-    const isAdmin = !!adminRole;
+    if (!isServiceCall) {
+      const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // Check subscription
-    const { data: subscription } = await supabaseClient
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-    const hasActiveSubscription = !!subscription || isAdmin;
+      userId = claimsData.claims.sub as string;
+      const { data: userData } = await supabaseClient.auth.getUser(token);
+      user = userData?.user;
 
-    // Check credits
-    let { data: credits } = await supabaseClient
-      .from('user_search_credits')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
+      console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
 
-    if (!credits) {
-      const { data: newCredits, error: createError } = await supabaseClient
+      // Admin check
+      const { data: adminRole } = await supabaseClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      const isAdmin = !!adminRole;
+
+      // Check subscription
+      const { data: subscription } = await supabaseClient
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      const hasActiveSubscription = !!subscription || isAdmin;
+
+      // Check credits
+      let { data: credits } = await supabaseClient
         .from('user_search_credits')
-        .insert({ user_id: userId, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
-        .select()
-        .single();
-      if (createError) throw new Error('Failed to initialize search credits');
-      credits = newCredits;
-    }
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    const hasCredits = credits && credits.free_searches_remaining > 0;
+      if (!credits) {
+        const { data: newCredits, error: createError } = await supabaseClient
+          .from('user_search_credits')
+          .insert({ user_id: userId, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
+          .select()
+          .single();
+        if (createError) throw new Error('Failed to initialize search credits');
+        credits = newCredits;
+      }
 
-    if (!hasActiveSubscription && !hasCredits) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No search credits remaining. Please subscribe to continue.',
-        requires_subscription: true
-      }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+      const hasCredits = credits && credits.free_searches_remaining > 0;
 
-    // Deduct credit if free trial
-    if (!hasActiveSubscription && hasCredits) {
-      await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
+      if (!hasActiveSubscription && !hasCredits) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No search credits remaining. Please subscribe to continue.',
+          requires_subscription: true
+        }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // Deduct credit if free trial
+      if (!hasActiveSubscription && hasCredits) {
+        await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
+      }
+    } else {
+      console.log('[TRADEMARK SEARCH] Service call - skipping auth/credits for mark:', mark_name);
     }
 
     // Create search record
