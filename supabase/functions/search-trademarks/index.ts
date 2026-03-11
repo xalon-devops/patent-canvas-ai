@@ -6,7 +6,7 @@ const FREE_SEARCHES_LIMIT = 3;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -41,20 +41,18 @@ serve(async (req) => {
     const isServiceCall = skip_credit_check && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     let userId: string | null = null;
-    let user: any = null;
+    let hasActiveSubscription = false;
+    let creditsRemaining: number | null = null;
 
     if (!isServiceCall) {
-      const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims) {
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+      if (userError || !userData?.user) {
         return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      userId = claimsData.claims.sub as string;
-      const { data: userData } = await supabaseClient.auth.getUser(token);
-      user = userData?.user;
-
+      userId = userData.user.id;
       console.log('[TRADEMARK SEARCH] Starting for mark:', mark_name, 'user:', userId);
 
       // Admin check
@@ -73,7 +71,7 @@ serve(async (req) => {
         .eq('user_id', userId)
         .eq('status', 'active')
         .maybeSingle();
-      const hasActiveSubscription = !!subscription || isAdmin;
+      hasActiveSubscription = !!subscription || isAdmin;
 
       // Check credits
       let { data: credits } = await supabaseClient
@@ -93,6 +91,7 @@ serve(async (req) => {
       }
 
       const hasCredits = credits && credits.free_searches_remaining > 0;
+      creditsRemaining = credits?.free_searches_remaining ?? 0;
 
       if (!hasActiveSubscription && !hasCredits) {
         return new Response(JSON.stringify({
@@ -105,17 +104,15 @@ serve(async (req) => {
       // Deduct credit if free trial
       if (!hasActiveSubscription && hasCredits) {
         await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
+        creditsRemaining = Math.max(0, (creditsRemaining ?? 1) - 1);
       }
     } else {
       console.log('[TRADEMARK SEARCH] Service call - skipping auth/credits for mark:', mark_name);
     }
 
-    // For service calls, skip search record creation and just return results
-    const isFullSearch = !isServiceCall;
-
     // Create search record (only for user-facing calls)
     let searchRecord: any = null;
-    if (isFullSearch && userId) {
+    if (!isServiceCall && userId) {
       const { data, error: searchError } = await supabaseClient
         .from('trademark_searches')
         .insert({
@@ -240,7 +237,7 @@ serve(async (req) => {
       search_id: searchRecord?.id || null,
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
-      search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining || 1) - 1)),
+      search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : creditsRemaining),
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -340,7 +337,8 @@ Find existing USPTO trademarks that could block registration of this mark. Focus
     });
 
     if (!response.ok) {
-      console.error('[Perplexity TM] API error:', response.status);
+      const errText = await response.text();
+      console.error('[Perplexity TM] API error:', response.status, errText);
       return [];
     }
 
@@ -386,13 +384,11 @@ function calculateMarkSimilarity(mark1: string, mark2: string): number {
 
   if (a === b) return 0.99;
 
-  // Levenshtein-based similarity
   const maxLen = Math.max(a.length, b.length);
   if (maxLen === 0) return 0;
   const distance = levenshtein(a, b);
   const levSimilarity = 1 - (distance / maxLen);
 
-  // Starts-with bonus
   let prefixBonus = 0;
   const minLen = Math.min(a.length, b.length);
   let commonPrefix = 0;
@@ -402,7 +398,6 @@ function calculateMarkSimilarity(mark1: string, mark2: string): number {
   }
   prefixBonus = (commonPrefix / maxLen) * 0.15;
 
-  // Containment bonus
   let containBonus = 0;
   if (a.includes(b) || b.includes(a)) containBonus = 0.2;
 
