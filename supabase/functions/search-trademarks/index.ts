@@ -344,11 +344,26 @@ Find existing USPTO trademarks that could block registration of this mark. Focus
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
+    
+    console.log('[Perplexity TM] Response length:', content.length);
+    console.log('[Perplexity TM] Response preview:', content.substring(0, 500));
 
     try {
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const marks = JSON.parse(jsonMatch[0]);
+      // Try to extract JSON array - handle markdown code blocks too
+      let jsonStr = '';
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1].trim();
+      } else {
+        const arrayMatch = content.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+          jsonStr = arrayMatch[0];
+        }
+      }
+
+      if (jsonStr) {
+        const marks = JSON.parse(jsonStr);
+        console.log('[Perplexity TM] Parsed', marks.length, 'marks from JSON');
         return marks.filter((m: any) => m.mark_name).map((m: any) => ({
           mark_name: m.mark_name,
           registration_number: m.registration_number || null,
@@ -366,9 +381,12 @@ Find existing USPTO trademarks that could block registration of this mark. Focus
             ? `https://tsdr.uspto.gov/#caseNumber=${m.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`
             : null),
         }));
+      } else {
+        console.error('[Perplexity TM] No JSON array found in response. Full content:', content.substring(0, 1000));
       }
     } catch (e) {
       console.error('[Perplexity TM] JSON parse error:', e);
+      console.error('[Perplexity TM] Content that failed:', content.substring(0, 1000));
     }
 
     return [];
