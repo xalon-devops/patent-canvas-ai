@@ -96,7 +96,7 @@ serve(async (req) => {
 
     // Deduct credit if free trial
     if (!hasActiveSubscription && hasCredits) {
-      await supabaseClient.rpc('decrement_search_credit', { _user_id: user.id });
+      await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
     }
 
     // Create search record
