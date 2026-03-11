@@ -103,7 +103,7 @@ serve(async (req) => {
     const { data: searchRecord, error: searchError } = await supabaseClient
       .from('trademark_searches')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         mark_name: mark_name.trim(),
         mark_description: mark_description?.trim() || null,
         nice_classes: nice_classes || [],
