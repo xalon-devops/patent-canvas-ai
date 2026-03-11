@@ -606,6 +606,56 @@ function deduplicateResults(results: any[]): any[] {
   return Array.from(seen.values());
 }
 
+// ==================== FILTERING ====================
+function isNonTrademarkPage(title: string, url: string): boolean {
+  const lower = title.toLowerCase();
+  const lowerUrl = url.toLowerCase();
+
+  const junkPatterns = [
+    /\breview[s]?\b/i, /\bpricing\b/i, /\bvs\.?\b/i, /\bcompar/i,
+    /\balternative[s]?\b/i, /\bhow to\b/i, /\btutorial\b/i,
+    /\bbest\s+\d/i, /\btop\s+\d/i, /\bresearch\b/i,
+    /\bblog\b/i, /\bnews\b/i, /\barticle\b/i,
+  ];
+  if (junkPatterns.some(p => p.test(lower))) return true;
+
+  const junkDomains = [
+    'pcmag.com', 'forbes.com', 'capterra.com', 'g2.com', 'trustpilot.com',
+    'outsail.co', 'businesswire.com', 'prnewswire.com', 'techcrunch.com',
+    'linkedin.com', 'twitter.com', 'facebook.com', 'youtube.com',
+    'reddit.com', 'quora.com', 'medium.com', 'wikipedia.org',
+    'indeed.com', 'glassdoor.com',
+  ];
+  if (junkDomains.some(d => lowerUrl.includes(d))) return true;
+
+  return false;
+}
+
+function isLikelyBrandPage(title: string, url: string, description: string, queryMark: string): boolean {
+  const lower = title.toLowerCase();
+  const lowerQuery = queryMark.toLowerCase();
+  if (!lower.includes(lowerQuery)) return false;
+  const isOwnDomain = url.toLowerCase().includes(lowerQuery.replace(/\s+/g, ''));
+  const hasTrademark = /trademark|registration|serial|filing/i.test(description);
+  return isOwnDomain || hasTrademark;
+}
+
+function cleanMarkName(name: string, queryMark: string): string {
+  if (!name) return queryMark;
+  const suffixPatterns = [
+    /\s+(?:review|reviews|pricing|software|app|platform|tool|service)\s*.*$/i,
+    /\s+(?:brings?|launches?|announces?|introduces?)\s+.*$/i,
+    /\s+\d{4}\s*$/,
+    /\s+[-–|:].+$/,
+    /\s+(?:on|at|for|from|with)\s+.*$/i,
+  ];
+  let cleaned = name;
+  for (const pattern of suffixPatterns) {
+    cleaned = cleaned.replace(pattern, '').trim();
+  }
+  return cleaned.length >= 2 ? cleaned : queryMark;
+}
+
 // ==================== SIMILARITY ====================
 function calculateMarkSimilarity(mark1: string, mark2: string): number {
   const a = mark1.toLowerCase().trim();
