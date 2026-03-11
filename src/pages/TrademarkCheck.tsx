@@ -431,11 +431,43 @@ export default function TrademarkCheck() {
 
                     {/* Expanded Details */}
                     {expandedResult === idx && (
-                      <div className="mt-4 pt-4 border-t border-border space-y-3">
+                      <div className="mt-4 pt-4 border-t border-border space-y-4">
+                        {/* Attorney Verdict */}
+                        {result.verdict_summary && (
+                          <div className={`p-3 rounded-lg border ${
+                            result.verdict === 'HIGH_RISK' ? 'bg-red-500/5 border-red-500/20' :
+                            result.verdict === 'MODERATE_RISK' ? 'bg-amber-500/5 border-amber-500/20' :
+                            'bg-green-500/5 border-green-500/20'
+                          }`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-bold uppercase tracking-wider" style={{
+                                color: result.verdict === 'HIGH_RISK' ? 'rgb(239,68,68)' :
+                                       result.verdict === 'MODERATE_RISK' ? 'rgb(245,158,11)' :
+                                       'rgb(34,197,94)'
+                              }}>
+                                {result.verdict === 'HIGH_RISK' ? '🔴 High Risk' :
+                                 result.verdict === 'MODERATE_RISK' ? '🟡 Moderate Risk' :
+                                 result.verdict === 'LIKELY_CLEAR' ? '🟢 Likely Clear' : '🟢 Low Risk'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground font-medium">{result.verdict_summary}</p>
+                          </div>
+                        )}
+
+                        {/* Likelihood of Confusion Analysis */}
+                        {result.likelihood_of_confusion && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-1.5">
+                              📋 Likelihood of Confusion Analysis
+                            </h4>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{result.likelihood_of_confusion}</p>
+                          </div>
+                        )}
+
                         {result.conflict_analysis?.length > 0 && (
                           <div>
                             <h4 className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1.5">
-                              ⚠️ Potential Conflicts
+                              ⚠️ Risk Factors
                             </h4>
                             <ul className="space-y-1">
                               {result.conflict_analysis.map((c, i) => (
@@ -450,7 +482,7 @@ export default function TrademarkCheck() {
                         {result.differentiation_points?.length > 0 && (
                           <div>
                             <h4 className="text-xs font-semibold text-green-500 uppercase tracking-wider mb-1.5">
-                              ✓ Differentiators
+                              ✓ Points in Your Favor
                             </h4>
                             <ul className="space-y-1">
                               {result.differentiation_points.map((d, i) => (
@@ -462,6 +494,17 @@ export default function TrademarkCheck() {
                             </ul>
                           </div>
                         )}
+
+                        {/* Recommendation */}
+                        {result.recommendation && (
+                          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                            <h4 className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                              💡 Recommendation
+                            </h4>
+                            <p className="text-sm text-foreground font-medium">{result.recommendation}</p>
+                          </div>
+                        )}
+
                         {result.url && (
                           <a
                             href={result.url}
