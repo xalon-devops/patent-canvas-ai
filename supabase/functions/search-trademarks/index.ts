@@ -53,7 +53,7 @@ serve(async (req) => {
     const { data: adminRole } = await supabaseClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
     const isAdmin = !!adminRole;
