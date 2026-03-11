@@ -49,6 +49,7 @@ export default function TrademarkCheck() {
   const [markName, setMarkName] = useState('');
   const [markDescription, setMarkDescription] = useState('');
   const [markUrl, setMarkUrl] = useState('');
+  const [scraping, setScraping] = useState(false);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [results, setResults] = useState<TrademarkResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -57,6 +58,30 @@ export default function TrademarkCheck() {
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleScrapeUrl = async () => {
+    if (!markUrl.trim()) return;
+    setScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
+        body: { url: markUrl.trim(), options: { formats: ['markdown'], onlyMainContent: true } },
+      });
+      if (error) throw error;
+      const markdown = data?.data?.markdown || data?.markdown || '';
+      if (markdown) {
+        const truncated = markdown.substring(0, 3000);
+        setMarkDescription(truncated);
+        toast({ title: 'URL scraped', description: 'Website content added to description.' });
+      } else {
+        toast({ title: 'No content found', description: 'Could not extract content from that URL.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      console.error('Scrape error:', err);
+      toast({ title: 'Scrape failed', description: err.message || 'Failed to scrape URL.', variant: 'destructive' });
+    } finally {
+      setScraping(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (!markName.trim()) {
@@ -83,7 +108,7 @@ export default function TrademarkCheck() {
           body: JSON.stringify({
             mark_name: markName.trim(),
             mark_description: markDescription.trim() || undefined,
-            mark_url: markUrl.trim() || undefined,
+            
             nice_classes: selectedClasses.length > 0 ? selectedClasses : undefined,
           }),
         }
@@ -197,17 +222,30 @@ export default function TrademarkCheck() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Website / URL (optional)</label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={markUrl}
-                  onChange={e => setMarkUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="text-base pl-9"
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={markUrl}
+                    onChange={e => setMarkUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="text-base pl-9"
+                    onKeyDown={e => e.key === 'Enter' && markUrl.trim() && handleScrapeUrl()}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  onClick={handleScrapeUrl}
+                  disabled={!markUrl.trim() || scraping}
+                  className="shrink-0"
+                >
+                  {scraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  {scraping ? 'Scraping...' : 'Scrape'}
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Link to your brand's website or product page for context.</p>
+              <p className="text-xs text-muted-foreground mt-1">Paste your brand's URL and click Scrape to auto-fill the description.</p>
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
