@@ -430,7 +430,15 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Bottom CTA */}
+        {/* Monitoring Widgets */}
+        {user?.id && (
+          <div className="grid gap-4 sm:grid-cols-2 mb-10">
+            <PriorArtMonitoringDashboard userId={user.id} />
+            <TrademarkMonitoringDashboard userId={user.id} />
+          </div>
+        )}
+
+
         <div className="text-center bg-card border border-border rounded-2xl p-8 sm:p-12" style={{ boxShadow: 'var(--shadow-card)' }}>
           <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
             Ready to Protect Your Innovation?
