@@ -136,7 +136,7 @@ export default function TrademarkApplication() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/auth'); return null; }
 
-      const payload = {
+      const payload: any = {
         user_id: session.user.id,
         mark_name: markName,
         mark_type: markType,
