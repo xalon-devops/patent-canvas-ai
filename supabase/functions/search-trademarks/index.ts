@@ -313,14 +313,18 @@ async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: 
           const url = item.url || '';
           const description = item.description || '';
 
+          // Skip non-trademark pages (reviews, blog posts, articles, comparisons, pricing pages)
+          if (isNonTrademarkPage(title, url)) continue;
+
           // Extract trademark info from Trademarkia, USPTO, or other trademark sites
-          if (url.includes('trademarkia.com') || url.includes('uspto.gov') || url.includes('tmhunt.com')) {
+          if (url.includes('trademarkia.com') || url.includes('uspto.gov') || url.includes('tmhunt.com') || url.includes('justia.com/trademarks')) {
             const extracted = extractTrademarkFromSearchResult(title, description, url, markName);
             if (extracted) allResults.push(extracted);
-          } else if (title.toLowerCase().includes(markName.toLowerCase()) || description.toLowerCase().includes('trademark')) {
-            // General brand/company mention
+          }
+          // Only include non-trademark-site results if they look like actual brand/company pages
+          else if (isLikelyBrandPage(title, url, description, markName)) {
             allResults.push({
-              mark_name: extractBrandName(title, markName),
+              mark_name: cleanMarkName(extractBrandName(title, markName), markName),
               registration_number: null,
               serial_number: extractSerialNumber(description + ' ' + title),
               status: 'ACTIVE',
@@ -600,6 +604,56 @@ function deduplicateResults(results: any[]): any[] {
   }
   
   return Array.from(seen.values());
+}
+
+// ==================== FILTERING ====================
+function isNonTrademarkPage(title: string, url: string): boolean {
+  const lower = title.toLowerCase();
+  const lowerUrl = url.toLowerCase();
+
+  const junkPatterns = [
+    /\breview[s]?\b/i, /\bpricing\b/i, /\bvs\.?\b/i, /\bcompar/i,
+    /\balternative[s]?\b/i, /\bhow to\b/i, /\btutorial\b/i,
+    /\bbest\s+\d/i, /\btop\s+\d/i, /\bresearch\b/i,
+    /\bblog\b/i, /\bnews\b/i, /\barticle\b/i,
+  ];
+  if (junkPatterns.some(p => p.test(lower))) return true;
+
+  const junkDomains = [
+    'pcmag.com', 'forbes.com', 'capterra.com', 'g2.com', 'trustpilot.com',
+    'outsail.co', 'businesswire.com', 'prnewswire.com', 'techcrunch.com',
+    'linkedin.com', 'twitter.com', 'facebook.com', 'youtube.com',
+    'reddit.com', 'quora.com', 'medium.com', 'wikipedia.org',
+    'indeed.com', 'glassdoor.com',
+  ];
+  if (junkDomains.some(d => lowerUrl.includes(d))) return true;
+
+  return false;
+}
+
+function isLikelyBrandPage(title: string, url: string, description: string, queryMark: string): boolean {
+  const lower = title.toLowerCase();
+  const lowerQuery = queryMark.toLowerCase();
+  if (!lower.includes(lowerQuery)) return false;
+  const isOwnDomain = url.toLowerCase().includes(lowerQuery.replace(/\s+/g, ''));
+  const hasTrademark = /trademark|registration|serial|filing/i.test(description);
+  return isOwnDomain || hasTrademark;
+}
+
+function cleanMarkName(name: string, queryMark: string): string {
+  if (!name) return queryMark;
+  const suffixPatterns = [
+    /\s+(?:review|reviews|pricing|software|app|platform|tool|service)\s*.*$/i,
+    /\s+(?:brings?|launches?|announces?|introduces?)\s+.*$/i,
+    /\s+\d{4}\s*$/,
+    /\s+[-–|:].+$/,
+    /\s+(?:on|at|for|from|with)\s+.*$/i,
+  ];
+  let cleaned = name;
+  for (const pattern of suffixPatterns) {
+    cleaned = cleaned.replace(pattern, '').trim();
+  }
+  return cleaned.length >= 2 ? cleaned : queryMark;
 }
 
 // ==================== SIMILARITY ====================
