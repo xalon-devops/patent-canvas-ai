@@ -60,12 +60,14 @@ workflows:
           CAPEOF
           fi
           ls -la
-      - name: Install dependencies
-        script: npm ci || npm install
+      - name: Install dependencies and build
+        script: |
+          npm ci || npm install
+          npm run build
       - name: Add and sync Capacitor
         script: |
           rm -rf android
-          npx cap add android || true
+          npx cap add android
           npx cap sync android
       - name: Build Android
         script: |
@@ -157,8 +159,10 @@ workflows:
           CAPEOF
           fi
           ls -la
-      - name: Install dependencies
-        script: npm ci || npm install
+      - name: Install dependencies and build
+        script: |
+          npm ci || npm install
+          npm run build
       - name: Add and sync Capacitor
         script: |
           rm -rf ios
