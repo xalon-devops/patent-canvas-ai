@@ -22,9 +22,7 @@ workflows:
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           echo "Source: $APP_ZIP_URL"
-
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)(\?.*)?$'; then
             echo "Detected ZIP/archive source"
             curl -L "$APP_ZIP_URL" -o project.zip
@@ -42,31 +40,8 @@ workflows:
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/android
             mkdir -p www
-            cat > www/index.html <<EOF
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>${APP_NAME:-App}</title>
-  <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style>
-</head>
-<body>
-  <iframe src="${APP_ZIP_URL}" allow="camera; microphone; geolocation"></iframe>
-</body>
-</html>
-EOF
-            cat > capacitor.config.json <<EOF
-{
-  "appId": "${PACKAGE_NAME:-com.app.default}",
-  "appName": "${APP_NAME:-App}",
-  "webDir": "www",
-  "server": {
-    "url": "${APP_ZIP_URL}",
-    "cleartext": true
-  }
-}
-EOF
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
+            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${PACKAGE_NAME:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
 
@@ -121,23 +96,22 @@ EOF
         - name: Notify build result
           script: |
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
-              STATUS="finished"
+              export STATUS="finished"
             else
-              STATUS="failed"
+              export STATUS="failed"
             fi
-            export STATUS
             PAYLOAD=$(python3 -c "
-import json, os, datetime
-print(json.dumps({
-  'buildId': os.environ.get('CM_BUILD_ID', ''),
-  'status': os.environ.get('STATUS', 'failed'),
-  'platform': 'android',
-  'workflowId': 'android-release',
-  'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
-  'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'aab'}],
-  'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-}))
-")
+            import json, os, datetime
+            print(json.dumps({
+              'buildId': os.environ.get('CM_BUILD_ID', ''),
+              'status': os.environ.get('STATUS', 'failed'),
+              'platform': 'android',
+              'workflowId': 'android-release',
+              'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
+              'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'aab'}],
+              'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            }))
+            ")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD"
@@ -164,9 +138,7 @@ print(json.dumps({
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           echo "Source: $APP_ZIP_URL"
-
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)(\?.*)?$'; then
             echo "Detected ZIP/archive source"
             curl -L "$APP_ZIP_URL" -o project.zip
@@ -184,31 +156,8 @@ print(json.dumps({
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/ios
             mkdir -p www
-            cat > www/index.html <<EOF
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>${APP_NAME:-App}</title>
-  <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style>
-</head>
-<body>
-  <iframe src="${APP_ZIP_URL}" allow="camera; microphone; geolocation"></iframe>
-</body>
-</html>
-EOF
-            cat > capacitor.config.json <<EOF
-{
-  "appId": "${BUNDLE_ID:-com.app.default}",
-  "appName": "${APP_NAME:-App}",
-  "webDir": "www",
-  "server": {
-    "url": "${APP_ZIP_URL}",
-    "cleartext": true
-  }
-}
-EOF
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
+            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
 
@@ -322,23 +271,22 @@ EOF
         - name: Notify build result
           script: |
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
-              STATUS="finished"
+              export STATUS="finished"
             else
-              STATUS="failed"
+              export STATUS="failed"
             fi
-            export STATUS
             PAYLOAD=$(python3 -c "
-import json, os, datetime
-print(json.dumps({
-  'buildId': os.environ.get('CM_BUILD_ID', ''),
-  'status': os.environ.get('STATUS', 'failed'),
-  'platform': 'ios',
-  'workflowId': 'ios-release',
-  'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
-  'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'ipa'}],
-  'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-}))
-")
+            import json, os, datetime
+            print(json.dumps({
+              'buildId': os.environ.get('CM_BUILD_ID', ''),
+              'status': os.environ.get('STATUS', 'failed'),
+              'platform': 'ios',
+              'workflowId': 'ios-release',
+              'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
+              'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'ipa'}],
+              'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            }))
+            ")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD"
@@ -380,29 +328,7 @@ print(json.dumps({
           echo "${SHORT_DESCRIPTION:-}" > fastlane/metadata/android/en-US/short_description.txt
           echo "${APP_DESCRIPTION:-}" > fastlane/metadata/android/en-US/full_description.txt
           echo "${RELEASE_NOTES:-Bug fixes and improvements}" > fastlane/metadata/android/en-US/changelogs/default.txt
-          cat > fastlane/Fastfile <<'FASTEOF'
-default_platform(:android)
-
-platform :android do
-  lane :deploy do
-    artifact_path = File.exist?('../artifacts/app.aab') ? '../artifacts/app.aab' : '../artifacts/app.apk'
-    is_aab = artifact_path.end_with?('.aab')
-
-    upload_to_play_store(
-      package_name: ENV['PACKAGE_NAME'],
-      json_key: '../google-play-key.json',
-      track: ENV['SUPPLY_TRACK'] || 'internal',
-      aab: is_aab ? artifact_path : nil,
-      apk: is_aab ? nil : artifact_path,
-      release_status: 'draft',
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
-      skip_upload_metadata: false,
-      metadata_path: 'metadata/android'
-    )
-  end
-end
-FASTEOF
+          printf '%s\n' "default_platform(:android)" "" "platform :android do" "  lane :deploy do" "    artifact_path = File.exist?('../artifacts/app.aab') ? '../artifacts/app.aab' : '../artifacts/app.apk'" "    is_aab = artifact_path.end_with?('.aab')" "    upload_to_play_store(" "      package_name: ENV['PACKAGE_NAME']," "      json_key: '../google-play-key.json'," "      track: ENV['SUPPLY_TRACK'] || 'internal'," "      aab: is_aab ? artifact_path : nil," "      apk: is_aab ? nil : artifact_path," "      release_status: 'draft'," "      skip_upload_images: true," "      skip_upload_screenshots: true," "      skip_upload_metadata: false," "      metadata_path: 'metadata/android'" "    )" "  end" "end" > fastlane/Fastfile
 
       - name: Submit to Google Play
         script: |
@@ -422,12 +348,7 @@ FASTEOF
             curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              -d "{
-                \"submissionId\": \"$SUBMISSION_ID\",
-                \"status\": \"$STATUS\",
-                \"platform\": \"android\",
-                \"buildId\": \"$CM_BUILD_ID\"
-              }"
+              -d "{\"submissionId\":\"$SUBMISSION_ID\",\"status\":\"$STATUS\",\"platform\":\"android\",\"buildId\":\"$CM_BUILD_ID\"}"
 
   ios-submit:
     name: iOS App Store Submission
@@ -458,13 +379,7 @@ FASTEOF
           mkdir -p ~/.appstoreconnect/private_keys
           printf '%s' "$APP_STORE_CONNECT_API_KEY_CONTENT" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
-          cat > /tmp/api_key.json <<EOF
-{
-  "key_id": "${APP_STORE_CONNECT_API_KEY_ID}",
-  "issuer_id": "${APP_STORE_CONNECT_ISSUER_ID}",
-  "key_filepath": "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
-}
-EOF
+          printf '{"key_id":"%s","issuer_id":"%s","key_filepath":"%s/.appstoreconnect/private_keys/AuthKey_%s.p8"}' "$APP_STORE_CONNECT_API_KEY_ID" "$APP_STORE_CONNECT_ISSUER_ID" "$HOME" "$APP_STORE_CONNECT_API_KEY_ID" > /tmp/api_key.json
 
       - name: Install Fastlane
         script: gem install fastlane
@@ -489,9 +404,4 @@ EOF
             curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              -d "{
-                \"submissionId\": \"$SUBMISSION_ID\",
-                \"status\": \"$STATUS\",
-                \"platform\": \"ios\",
-                \"buildId\": \"$CM_BUILD_ID\"
-              }"
+              -d "{\"submissionId\":\"$SUBMISSION_ID\",\"status\":\"$STATUS\",\"platform\":\"ios\",\"buildId\":\"$CM_BUILD_ID\"}"
