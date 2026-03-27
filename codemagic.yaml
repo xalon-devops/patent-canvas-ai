@@ -15,7 +15,6 @@ workflows:
     scripts:
       - name: Download and extract project
         script: |
-          set -e
           echo "Source: $APP_ZIP_URL"
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)$'; then
             echo "Detected ZIP/archive source"
@@ -32,29 +31,44 @@ workflows:
           else
             echo "Detected live URL source — generating Capacitor shell"
             npm init -y
-            npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
+            npm install @capacitor/core @capacitor/cli @capacitor/android
             mkdir -p www
-            printf '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>%s</title><style>body,html{margin:0;padding:0;width:100%%;height:100%%;overflow:hidden}</style></head><body><script>window.location.href="%s";</script></body></html>' "${APP_NAME:-App}" "$APP_ZIP_URL" > www/index.html
-            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "$APP_ZIP_URL" > capacitor.config.json
+            cat > www/index.html << HTMLEOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+            <title>${APP_NAME:-App}</title>
+            <style>body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden}</style>
+          </head>
+          <body>
+            <script>window.location.href = "${APP_ZIP_URL}";</script>
+          </body>
+          </html>
+          HTMLEOF
+            cat > capacitor.config.json << CAPEOF
+          {
+            "appId": "${BUNDLE_ID:-com.app.default}",
+            "appName": "${APP_NAME:-App}",
+            "webDir": "www",
+            "server": {
+              "url": "${APP_ZIP_URL}",
+              "cleartext": true
+            }
+          }
+          CAPEOF
           fi
           ls -la
-      - name: Install dependencies and build
-        script: |
-          set -e
-          npm ci || npm install
-          if grep -q '"build"' package.json; then
-            npm run build
-          fi
+      - name: Install dependencies
+        script: npm ci || npm install
       - name: Add and sync Capacitor
         script: |
-          set -e
           rm -rf android
-          rm -f capacitor.config.ts
-          npx cap add android
+          npx cap add android || true
           npx cap sync android
       - name: Build Android
         script: |
-          set -e
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease
@@ -98,7 +112,6 @@ workflows:
     scripts:
       - name: Download and extract project
         script: |
-          set -e
           echo "Source: $APP_ZIP_URL"
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)$'; then
             echo "Detected ZIP/archive source"
@@ -117,39 +130,60 @@ workflows:
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/ios
             mkdir -p www
-            printf '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>%s</title><style>body,html{margin:0;padding:0;width:100%%;height:100%%;overflow:hidden}</style></head><body><script>window.location.href="%s";</script></body></html>' "${APP_NAME:-App}" "$APP_ZIP_URL" > www/index.html
-            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "$APP_ZIP_URL" > capacitor.config.json
+            cat > www/index.html << HTMLEOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+            <title>${APP_NAME:-App}</title>
+            <style>body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden}</style>
+          </head>
+          <body>
+            <script>window.location.href = "${APP_ZIP_URL}";</script>
+          </body>
+          </html>
+          HTMLEOF
+            cat > capacitor.config.json << CAPEOF
+          {
+            "appId": "${BUNDLE_ID:-com.app.default}",
+            "appName": "${APP_NAME:-App}",
+            "webDir": "www",
+            "server": {
+              "url": "${APP_ZIP_URL}",
+              "cleartext": true
+            }
+          }
+          CAPEOF
           fi
           ls -la
-      - name: Install dependencies and build
-        script: |
-          set -e
-          npm ci || npm install
-          if grep -q '"build"' package.json; then
-            npm run build
-          fi
+      - name: Install dependencies
+        script: npm ci || npm install
       - name: Add and sync Capacitor
         script: |
-          set -e
           rm -rf ios
-          rm -f capacitor.config.ts
-          echo "=== Capacitor config ==="
-          cat capacitor.config.json
           echo "=== Adding iOS platform ==="
-          npx cap add ios
+          npx cap add ios --no-sync || true
           echo "=== Syncing iOS platform ==="
           npx cap sync ios
-          echo "=== Verifying Podfile exists ==="
-          test -f ios/App/Podfile || (echo "FATAL: ios/App/Podfile not created by Capacitor!" && exit 1)
+          echo "=== Verifying ios/App exists ==="
+          ls -la ios/App/
           cd ios/App
           sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = ${BUNDLE_ID};/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${TEAM_ID};/g" App.xcodeproj/project.pbxproj
-      - name: Install CocoaPods
+      - name: Install CocoaPods (if needed)
         script: |
-          set -e
           cd ios/App
-          pod install
+          if [ -f Podfile ]; then
+            echo "Podfile found — running pod install"
+            cat Podfile
+            pod install
+          else
+            echo "No Podfile — Capacitor 7 uses Package.swift (SPM), skipping CocoaPods"
+            ls -la Package.swift 2>/dev/null || echo "Package.swift also not found — listing ios/App contents:"
+            ls -la
+          fi
       - name: Set up code signing
         script: |
           set -e
@@ -173,14 +207,24 @@ workflows:
           echo "=== Applying profiles to Xcode project ==="
           cd ios/App
           xcode-project use-profiles
+          echo "=== Checking project signing settings ==="
+          grep -c "PROVISIONING_PROFILE" App.xcodeproj/project.pbxproj || echo "WARNING: No provisioning profiles found in project!"
       - name: Build iOS
         script: |
-          set -e
           cd ios/App
-          xcode-project build-ipa \
-            --workspace App.xcworkspace \
-            --scheme App \
-            --archive-flags "CODE_SIGN_STYLE=Manual"
+          if [ -d App.xcworkspace ]; then
+            echo "Using xcworkspace (CocoaPods)"
+            xcode-project build-ipa \
+              --workspace App.xcworkspace \
+              --scheme App \
+              --archive-flags "CODE_SIGN_STYLE=Manual"
+          else
+            echo "Using xcodeproj (SPM / Capacitor 7)"
+            xcode-project build-ipa \
+              --project App.xcodeproj \
+              --scheme App \
+              --archive-flags "CODE_SIGN_STYLE=Manual"
+          fi
     artifacts:
       - ios/App/build/ios/ipa/*.ipa
       - ios/App/**/*.xcarchive
@@ -220,7 +264,6 @@ workflows:
     scripts:
       - name: Download artifact
         script: |
-          set -e
           mkdir -p artifacts
           echo "Downloading artifact from: $ARTIFACT_URL"
           curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.apk "$ARTIFACT_URL"
@@ -230,7 +273,6 @@ workflows:
           ls -la artifacts/
       - name: Setup Google Play credentials
         script: |
-          set -e
           echo "$GOOGLE_PLAY_JSON_KEY" | base64 -d > google-play-key.json
           echo "Google Play credentials configured"
       - name: Install Fastlane
@@ -294,7 +336,6 @@ workflows:
     scripts:
       - name: Download artifact
         script: |
-          set -e
           mkdir -p artifacts
           echo "Downloading IPA from: $ARTIFACT_URL"
           curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.ipa "$ARTIFACT_URL"
@@ -303,7 +344,6 @@ workflows:
           zip -T artifacts/app.ipa || echo "WARNING: IPA integrity check failed"
       - name: Setup App Store Connect credentials
         script: |
-          set -e
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$APP_STORE_CONNECT_API_KEY_CONTENT" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
@@ -312,7 +352,6 @@ workflows:
         script: gem install fastlane
       - name: Upload to App Store Connect
         script: |
-          set -e
           cat > /tmp/api_key.json << EOF
           {
             "key_id": "$APP_STORE_CONNECT_API_KEY_ID",
