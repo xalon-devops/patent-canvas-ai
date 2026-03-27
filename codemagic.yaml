@@ -17,7 +17,6 @@ workflows:
         script: |
           set -e
           mkdir -p "$CM_BUILD_DIR"
-          cd "$CM_BUILD_DIR"
 
       - name: Download and extract project
         script: |
@@ -29,25 +28,19 @@ workflows:
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)(\?.*)?$'; then
             echo "Detected ZIP/archive source"
             curl -L "$APP_ZIP_URL" -o project.zip
-
             mkdir -p _tmp_extract
             unzip -o project.zip -d _tmp_extract
-
             NESTED=$(find _tmp_extract -mindepth 1 -maxdepth 1 -type d | head -1)
-
             if [ -n "$NESTED" ] && [ -f "$NESTED/package.json" ]; then
               cp -a "$NESTED"/. .
             else
               cp -a _tmp_extract/. .
             fi
-
             rm -rf _tmp_extract project.zip
           else
             echo "Detected live URL source — generating Capacitor shell"
-
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/android
-
             mkdir -p www
             cat > www/index.html <<EOF
 <!DOCTYPE html>
@@ -56,28 +49,13 @@ workflows:
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>${APP_NAME:-App}</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    iframe {
-      border: 0;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+  <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style>
 </head>
 <body>
   <iframe src="${APP_ZIP_URL}" allow="camera; microphone; geolocation"></iframe>
 </body>
 </html>
 EOF
-
             cat > capacitor.config.json <<EOF
 {
   "appId": "${PACKAGE_NAME:-com.app.default}",
@@ -90,27 +68,23 @@ EOF
 }
 EOF
           fi
-
           ls -la
 
       - name: Install dependencies
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           if [ -f package-lock.json ]; then
             npm ci
           else
             npm install
           fi
-
           npm install @capacitor/core @capacitor/cli @capacitor/android
 
       - name: Build web assets if present
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           if [ -f package.json ] && grep -q '"build"' package.json; then
             npm run build
           else
@@ -121,26 +95,20 @@ EOF
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           rm -rf android
           rm -f capacitor.config.ts
-
           echo "=== Capacitor config ==="
           cat capacitor.config.json
-
           echo "=== Adding Android platform ==="
           npx cap add android
-
           echo "=== Syncing Android platform ==="
           npx cap sync android
-
           test -d android || (echo "FATAL: android directory not created" && exit 1)
 
       - name: Build Android release
         script: |
           set -e
           cd "$CM_BUILD_DIR/android"
-
           chmod +x gradlew
           ./gradlew bundleRelease
 
@@ -152,26 +120,24 @@ EOF
       scripts:
         - name: Notify build result
           script: |
-            set -e
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
               STATUS="finished"
             else
               STATUS="failed"
             fi
-
-            PAYLOAD=$(python3 - <<PY
+            export STATUS
+            PAYLOAD=$(python3 -c "
 import json, os, datetime
 print(json.dumps({
-  "buildId": os.environ.get("CM_BUILD_ID", ""),
-  "status": STATUS := os.environ.get("STATUS", ""),
-  "platform": "android",
-  "workflowId": "android-release",
-  "environment": {"variables": {"USER_APP_ID": os.environ.get("USER_APP_ID", "")}},
-  "artefacts": [{"url": os.environ.get("CM_ARTIFACT_LINKS", ""), "type": "aab"}],
-  "finishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+  'buildId': os.environ.get('CM_BUILD_ID', ''),
+  'status': os.environ.get('STATUS', 'failed'),
+  'platform': 'android',
+  'workflowId': 'android-release',
+  'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
+  'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'aab'}],
+  'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 }))
-PY
-)
+")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD"
@@ -193,7 +159,6 @@ PY
         script: |
           set -e
           mkdir -p "$CM_BUILD_DIR"
-          cd "$CM_BUILD_DIR"
 
       - name: Download and extract project
         script: |
@@ -205,25 +170,19 @@ PY
           if echo "$APP_ZIP_URL" | grep -qiE '\.(zip|tar\.gz)(\?.*)?$'; then
             echo "Detected ZIP/archive source"
             curl -L "$APP_ZIP_URL" -o project.zip
-
             mkdir -p _tmp_extract
             unzip -o project.zip -d _tmp_extract
-
             NESTED=$(find _tmp_extract -mindepth 1 -maxdepth 1 -type d | head -1)
-
             if [ -n "$NESTED" ] && [ -f "$NESTED/package.json" ]; then
               cp -a "$NESTED"/. .
             else
               cp -a _tmp_extract/. .
             fi
-
             rm -rf _tmp_extract project.zip
           else
             echo "Detected live URL source — generating Capacitor shell"
-
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/ios
-
             mkdir -p www
             cat > www/index.html <<EOF
 <!DOCTYPE html>
@@ -232,28 +191,13 @@ PY
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>${APP_NAME:-App}</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    iframe {
-      border: 0;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+  <style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style>
 </head>
 <body>
   <iframe src="${APP_ZIP_URL}" allow="camera; microphone; geolocation"></iframe>
 </body>
 </html>
 EOF
-
             cat > capacitor.config.json <<EOF
 {
   "appId": "${BUNDLE_ID:-com.app.default}",
@@ -266,27 +210,23 @@ EOF
 }
 EOF
           fi
-
           ls -la
 
       - name: Install dependencies
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           if [ -f package-lock.json ]; then
             npm ci
           else
             npm install
           fi
-
           npm install @capacitor/core @capacitor/cli @capacitor/ios
 
       - name: Build web assets if present
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           if [ -f package.json ] && grep -q '"build"' package.json; then
             npm run build
           else
@@ -297,23 +237,16 @@ EOF
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           rm -rf ios
           rm -f capacitor.config.ts
-
           echo "=== Capacitor config ==="
           cat capacitor.config.json
-
           echo "=== Adding iOS platform ==="
           npx cap add ios
-
           echo "=== Syncing iOS platform ==="
           npx cap sync ios
-
           test -d ios/App || (echo "FATAL: ios/App was not created" && exit 1)
-
           cd ios/App
-
           if [ -f App.xcodeproj/project.pbxproj ]; then
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" App.xcodeproj/project.pbxproj || true
             sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = ${BUNDLE_ID};/g" App.xcodeproj/project.pbxproj || true
@@ -326,7 +259,6 @@ EOF
         script: |
           set -e
           cd "$CM_BUILD_DIR/ios/App"
-
           if [ -f Podfile ]; then
             echo "Podfile found — running pod install"
             pod install
@@ -337,27 +269,23 @@ EOF
       - name: Validate signing variables
         script: |
           set -e
-
-          [ -n "${APP_STORE_CONNECT_KEY_CONTENT:-}" ] || (echo "Missing APP_STORE_CONNECT_KEY_CONTENT" && exit 1)
-          [ -n "${APP_STORE_CONNECT_KEY_ID:-}" ] || (echo "Missing APP_STORE_CONNECT_KEY_ID" && exit 1)
-          [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ] || (echo "Missing APP_STORE_CONNECT_ISSUER_ID" && exit 1)
-          [ -n "${TEAM_ID:-}" ] || (echo "Missing TEAM_ID" && exit 1)
+          [ -n "${APP_STORE_CONNECT_KEY_CONTENT:-}" ] || (echo "ERROR: Missing APP_STORE_CONNECT_KEY_CONTENT" && exit 1)
+          [ -n "${APP_STORE_CONNECT_KEY_ID:-}" ] || (echo "ERROR: Missing APP_STORE_CONNECT_KEY_ID" && exit 1)
+          [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ] || (echo "ERROR: Missing APP_STORE_CONNECT_ISSUER_ID" && exit 1)
+          [ -n "${TEAM_ID:-}" ] || (echo "ERROR: Missing TEAM_ID" && exit 1)
+          echo "All signing variables present"
 
       - name: Set up code signing
         script: |
           set -e
           cd "$CM_BUILD_DIR"
-
           keychain initialize
-
           printf '%s' "$APP_STORE_CONNECT_KEY_CONTENT" | base64 --decode > /tmp/AuthKey.p8
-
           if [ -n "${CM_CERTIFICATE_PRIVATE_KEY:-}" ]; then
             printf '%s' "$CM_CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
           else
             openssl genrsa -out /tmp/cert_key.pem 2048
           fi
-
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
@@ -365,9 +293,7 @@ EOF
             --private-key "$(cat /tmp/AuthKey.p8)" \
             --certificate-key "$(cat /tmp/cert_key.pem)" \
             --create
-
           keychain add-certificates
-
           cd ios/App
           xcode-project use-profiles
 
@@ -375,7 +301,6 @@ EOF
         script: |
           set -e
           cd "$CM_BUILD_DIR/ios/App"
-
           if [ -d App.xcworkspace ]; then
             xcode-project build-ipa \
               --workspace App.xcworkspace \
@@ -396,26 +321,24 @@ EOF
       scripts:
         - name: Notify build result
           script: |
-            set -e
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
               STATUS="finished"
             else
               STATUS="failed"
             fi
-
-            PAYLOAD=$(python3 - <<PY
+            export STATUS
+            PAYLOAD=$(python3 -c "
 import json, os, datetime
 print(json.dumps({
-  "buildId": os.environ.get("CM_BUILD_ID", ""),
-  "status": STATUS := os.environ.get("STATUS", ""),
-  "platform": "ios",
-  "workflowId": "ios-release",
-  "environment": {"variables": {"USER_APP_ID": os.environ.get("USER_APP_ID", "")}},
-  "artefacts": [{"url": os.environ.get("CM_ARTIFACT_LINKS", ""), "type": "ipa"}],
-  "finishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+  'buildId': os.environ.get('CM_BUILD_ID', ''),
+  'status': os.environ.get('STATUS', 'failed'),
+  'platform': 'ios',
+  'workflowId': 'ios-release',
+  'environment': {'variables': {'USER_APP_ID': os.environ.get('USER_APP_ID', '')}},
+  'artefacts': [{'url': os.environ.get('CM_ARTIFACT_LINKS', ''), 'type': 'ipa'}],
+  'finishedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 }))
-PY
-)
+")
             curl -X POST "$SUPABASE_URL/functions/v1/codemagic-webhook" \
               -H "Content-Type: application/json" \
               -d "$PAYLOAD"
@@ -427,7 +350,6 @@ PY
 
     environment:
       java: 17
-      ruby: 3.2.9
 
     scripts:
       - name: Download artifact
@@ -435,13 +357,11 @@ PY
           set -e
           mkdir -p artifacts
           curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.bin "$ARTIFACT_URL"
-
-          if [[ "$ARTIFACT_URL" == *".aab"* ]]; then
+          if echo "$ARTIFACT_URL" | grep -qi '\.aab'; then
             mv artifacts/app.bin artifacts/app.aab
           else
             mv artifacts/app.bin artifacts/app.apk
           fi
-
           ls -la artifacts
 
       - name: Setup Google Play credentials
@@ -450,21 +370,17 @@ PY
           printf '%s' "$GOOGLE_PLAY_JSON_KEY" | base64 --decode > google-play-key.json
 
       - name: Install Fastlane
-        script: |
-          set -e
-          gem install fastlane
+        script: gem install fastlane
 
       - name: Setup Fastlane
         script: |
           set -e
           mkdir -p fastlane/metadata/android/en-US/changelogs
-
           echo "${APP_NAME:-My App}" > fastlane/metadata/android/en-US/title.txt
           echo "${SHORT_DESCRIPTION:-}" > fastlane/metadata/android/en-US/short_description.txt
           echo "${APP_DESCRIPTION:-}" > fastlane/metadata/android/en-US/full_description.txt
           echo "${RELEASE_NOTES:-Bug fixes and improvements}" > fastlane/metadata/android/en-US/changelogs/default.txt
-
-          cat > fastlane/Fastfile <<'EOF'
+          cat > fastlane/Fastfile <<'FASTEOF'
 default_platform(:android)
 
 platform :android do
@@ -486,7 +402,7 @@ platform :android do
     )
   end
 end
-EOF
+FASTEOF
 
       - name: Submit to Google Play
         script: |
@@ -498,13 +414,11 @@ EOF
       scripts:
         - name: Update submission status
           script: |
-            set -e
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
               STATUS="submitted"
             else
               STATUS="failed"
             fi
-
             curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
@@ -522,7 +436,6 @@ EOF
 
     environment:
       xcode: latest
-      ruby: 3.2.9
 
     scripts:
       - name: Download IPA artifact
@@ -532,7 +445,7 @@ EOF
           curl -L -H "x-auth-token: $CODEMAGIC_API_TOKEN" -o artifacts/app.ipa "$ARTIFACT_URL"
           ls -la artifacts
 
-      - name: Validate App Store Connect submission vars
+      - name: Validate submission variables
         script: |
           set -e
           [ -n "${APP_STORE_CONNECT_API_KEY_CONTENT:-}" ] || (echo "Missing APP_STORE_CONNECT_API_KEY_CONTENT" && exit 1)
@@ -544,35 +457,35 @@ EOF
           set -e
           mkdir -p ~/.appstoreconnect/private_keys
           printf '%s' "$APP_STORE_CONNECT_API_KEY_CONTENT" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          cat > /tmp/api_key.json <<EOF
+{
+  "key_id": "${APP_STORE_CONNECT_API_KEY_ID}",
+  "issuer_id": "${APP_STORE_CONNECT_ISSUER_ID}",
+  "key_filepath": "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+}
+EOF
 
       - name: Install Fastlane
-        script: |
-          set -e
-          gem install fastlane
+        script: gem install fastlane
 
-      - name: Submit to App Store Connect
+      - name: Upload to TestFlight
         script: |
           set -e
-          fastlane deliver \
+          fastlane pilot upload \
             --ipa artifacts/app.ipa \
-            --app_identifier "$BUNDLE_ID" \
-            --api_key_path ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8 \
-            --skip_screenshots true \
-            --skip_metadata true \
-            --submit_for_review false \
-            --automatic_release false
+            --api_key_path /tmp/api_key.json \
+            --skip_waiting_for_build_processing
 
     publishing:
       scripts:
         - name: Update submission status
           script: |
-            set -e
             if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
               STATUS="submitted"
             else
               STATUS="failed"
             fi
-
             curl -X POST "$SUPABASE_URL/functions/v1/store-submission-webhook" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
