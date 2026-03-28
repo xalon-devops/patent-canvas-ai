@@ -246,13 +246,15 @@ workflows:
           cd ios/App
           xcode-project use-profiles
 
-      - name: Bump build number
+      - name: Bump build number and version
         script: |
           set -e
           cd "$CM_BUILD_DIR/ios/App"
           BUILD_NUM=${BUILD_NUMBER:-2}
+          APP_VER=${APP_VERSION:-3.0}
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" App/Info.plist
-          echo "CFBundleVersion set to $BUILD_NUM"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VER" App/Info.plist
+          echo "CFBundleVersion=$BUILD_NUM, CFBundleShortVersionString=$APP_VER"
   
       - name: Build IPA
         script: |
