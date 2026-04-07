@@ -79,7 +79,8 @@ workflows:
           echo "=== Syncing Android platform ==="
           npx cap sync android
           test -d android || (echo "FATAL: android directory not created" && exit 1)
-- name: Configure release signing        ← ADD THIS
+     
+      - name: Configure release signing
         script: |
           set -e
           cd "$CM_BUILD_DIR/android/app"
@@ -101,6 +102,7 @@ workflows:
               }
           }
           SIGNING
+
       - name: Build Android release
         script: |
           set -e
