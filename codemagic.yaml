@@ -5,7 +5,7 @@ workflows:
     instance_type: linux_x2
 
     environment:
-      java: 17
+      java: 21
       node: 22.11.0
       vars:
         CM_BUILD_DIR: /tmp/build/android-release
@@ -307,7 +307,7 @@ workflows:
     instance_type: linux_x2
 
     environment:
-      java: 17
+      java: 21
 
     scripts:
       - name: Download artifact
