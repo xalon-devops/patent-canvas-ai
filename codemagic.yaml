@@ -79,7 +79,28 @@ workflows:
           echo "=== Syncing Android platform ==="
           npx cap sync android
           test -d android || (echo "FATAL: android directory not created" && exit 1)
+- name: Configure release signing        ← ADD THIS
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR/android/app"
+          cat >> build.gradle << 'SIGNING'
 
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("CM_KEYSTORE_PATH") ?: "/dev/null")
+                      storePassword System.getenv("CM_KEYSTORE_PASSWORD") ?: ""
+                      keyAlias System.getenv("CM_KEY_ALIAS") ?: ""
+                      keyPassword System.getenv("CM_KEY_PASSWORD") ?: ""
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          SIGNING
       - name: Build Android release
         script: |
           set -e
