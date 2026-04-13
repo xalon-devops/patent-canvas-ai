@@ -271,7 +271,7 @@ workflows:
             fi
           fi
 
-          - name: Inject custom app icon (iOS)
+      - name: Inject custom app icon (iOS)
         script: |
           set -e
           cd "$CM_BUILD_DIR"
@@ -375,11 +375,10 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VER" "$INFO_PLIST"
           echo "CFBundleVersion=$BUILD_NUM, CFBundleShortVersionString=$APP_VER"
 
-
-            - name: Build IPA
+      - name: Build IPA
         script: |
           set -e
-          cd "$CM_BUILD_DIR/ios/App/App"
+          cd "$CM_BUILD_DIR/ios/App"
           echo "=== Directory contents ==="
           ls -la
           WORKSPACE=$(find . -name "*.xcworkspace" -not -path "*/xcuserdata/*" | head -1)
@@ -401,8 +400,6 @@ workflows:
             ls -la
             exit 1
           fi
-
-
 
     artifacts:
       - /tmp/build/ios-release/ios/App/build/ios/ipa/*.ipa
