@@ -313,7 +313,14 @@ workflows:
             "info":{"author":"xcode","version":1}
           }
           ICONJSON
+          echo "=== Verifying injected icons ==="
+          ls -la "$ICONSET_DIR"
+          echo "=== Contents.json ==="
+          cat "$ICONSET_DIR/Contents.json"
+          echo "=== Checking for other AppIcon locations ==="
+          find "$CM_BUILD_DIR/ios" -name "AppIcon*" -type d 2>/dev/null
           echo "iOS app icon injected successfully"
+
 
       - name: Install CocoaPods if needed
         script: |
