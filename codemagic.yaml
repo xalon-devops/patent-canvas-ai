@@ -380,17 +380,27 @@ workflows:
         script: |
           set -e
           cd "$CM_BUILD_DIR/ios/App"
-          if [ -d App.xcworkspace ]; then
+          echo "=== Directory contents ==="
+          ls -la
+          WORKSPACE=$(find . -name "*.xcworkspace" -not -path "*/xcuserdata/*" | head -1)
+          PROJECT=$(find . -name "*.xcodeproj" -not -path "*/xcuserdata/*" | head -1)
+          if [ -n "$WORKSPACE" ]; then
+            echo "Building with workspace: $WORKSPACE"
             xcode-project build-ipa \
-              --workspace App.xcworkspace \
+              --workspace "$WORKSPACE" \
+              --scheme App \
+              --archive-flags "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=${TEAM_ID}"
+          elif [ -n "$PROJECT" ]; then
+            echo "Building with project: $PROJECT"
+            xcode-project build-ipa \
+              --project "$PROJECT" \
               --scheme App \
               --archive-flags "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=${TEAM_ID}"
           else
-            xcode-project build-ipa \
-              --project App.xcodeproj \
-              --scheme App \
-              --archive-flags "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=${TEAM_ID}"
+            echo "FATAL: No .xcworkspace or .xcodeproj found"
+            exit 1
           fi
+
 
     artifacts:
       - /tmp/build/ios-release/ios/App/build/ios/ipa/*.ipa
