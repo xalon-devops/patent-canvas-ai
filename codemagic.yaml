@@ -284,6 +284,7 @@ workflows:
           which magick || brew install imagemagick
           ICONSET_DIR="ios/App/App/Assets.xcassets/AppIcon.appiconset"
           mkdir -p "$ICONSET_DIR"
+          rm -f "$ICONSET_DIR"/*.png
           SIZES="20 29 40 58 60 76 80 87 120 152 167 180 1024"
           for SIZE in $SIZES; do
             magick /tmp/app_icon_original.png -flatten -background white -resize ${SIZE}x${SIZE}\! "$ICONSET_DIR/AppIcon-${SIZE}x${SIZE}.png"
@@ -320,6 +321,7 @@ workflows:
           echo "=== Checking for other AppIcon locations ==="
           find "$CM_BUILD_DIR/ios" -name "AppIcon*" -type d 2>/dev/null
           echo "iOS app icon injected successfully"
+
 
 
       - name: Install CocoaPods if needed
