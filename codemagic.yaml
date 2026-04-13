@@ -271,7 +271,7 @@ workflows:
             fi
           fi
 
-      - name: Inject custom app icon (iOS)
+          - name: Inject custom app icon (iOS)
         script: |
           set -e
           cd "$CM_BUILD_DIR"
@@ -281,12 +281,12 @@ workflows:
           fi
           echo "Downloading app icon from $ICON_URL"
           curl -L -o /tmp/app_icon_original.png "$ICON_URL"
-          which convert || brew install imagemagick
+          which magick || brew install imagemagick
           ICONSET_DIR="ios/App/App/Assets.xcassets/AppIcon.appiconset"
           mkdir -p "$ICONSET_DIR"
           SIZES="20 29 40 58 60 76 80 87 120 152 167 180 1024"
           for SIZE in $SIZES; do
-            convert /tmp/app_icon_original.png -resize ${SIZE}x${SIZE}\! "$ICONSET_DIR/AppIcon-${SIZE}x${SIZE}.png"
+            magick /tmp/app_icon_original.png -flatten -background white -resize ${SIZE}x${SIZE}\! "$ICONSET_DIR/AppIcon-${SIZE}x${SIZE}.png"
           done
           cat > "$ICONSET_DIR/Contents.json" << 'ICONJSON'
           {
