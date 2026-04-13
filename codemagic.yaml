@@ -41,7 +41,7 @@ workflows:
             npm install @capacitor/core @capacitor/cli @capacitor/android
             mkdir -p www
             echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
-            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${PACKAGE_NAME:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
+            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true,"androidScheme":"https"},"ios":{"contentInset":"automatic","allowsLinkPreview":false,"limitsNavigationsToAppBoundDomains":false},"android":{"allowMixedContent":true}}' "${PACKAGE_NAME:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
 
@@ -66,6 +66,28 @@ workflows:
             echo "No build script found — skipping web build"
           fi
 
+      - name: Ensure persistent WebView storage config
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          if [ -f capacitor.config.json ]; then
+            echo "Patching capacitor.config.json for persistent storage..."
+            node -e "
+              const fs = require('fs');
+              const cfg = JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
+              cfg.server = cfg.server || {};
+              cfg.server.androidScheme = cfg.server.androidScheme || 'https';
+              cfg.ios = cfg.ios || {};
+              cfg.ios.contentInset = cfg.ios.contentInset || 'automatic';
+              cfg.ios.allowsLinkPreview = cfg.ios.allowsLinkPreview ?? false;
+              cfg.ios.limitsNavigationsToAppBoundDomains = cfg.ios.limitsNavigationsToAppBoundDomains ?? false;
+              cfg.android = cfg.android || {};
+              cfg.android.allowMixedContent = cfg.android.allowMixedContent ?? true;
+              fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+              console.log('Patched config:', JSON.stringify(cfg, null, 2));
+            "
+          fi
+
       - name: Add and sync Capacitor Android
         script: |
           set -e
@@ -79,7 +101,7 @@ workflows:
           echo "=== Syncing Android platform ==="
           npx cap sync android
           test -d android || (echo "FATAL: android directory not created" && exit 1)
-     
+
       - name: Configure release signing
         script: |
           set -e
@@ -180,7 +202,7 @@ workflows:
             npm install @capacitor/core @capacitor/cli @capacitor/ios
             mkdir -p www
             echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
-            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
+            printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true,"androidScheme":"https"},"ios":{"contentInset":"automatic","allowsLinkPreview":false,"limitsNavigationsToAppBoundDomains":false},"android":{"allowMixedContent":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
 
@@ -205,6 +227,28 @@ workflows:
             echo "No build script found — skipping web build"
           fi
 
+      - name: Ensure persistent WebView storage config
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          if [ -f capacitor.config.json ]; then
+            echo "Patching capacitor.config.json for persistent storage..."
+            node -e "
+              const fs = require('fs');
+              const cfg = JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
+              cfg.server = cfg.server || {};
+              cfg.server.androidScheme = cfg.server.androidScheme || 'https';
+              cfg.ios = cfg.ios || {};
+              cfg.ios.contentInset = cfg.ios.contentInset || 'automatic';
+              cfg.ios.allowsLinkPreview = cfg.ios.allowsLinkPreview ?? false;
+              cfg.ios.limitsNavigationsToAppBoundDomains = cfg.ios.limitsNavigationsToAppBoundDomains ?? false;
+              cfg.android = cfg.android || {};
+              cfg.android.allowMixedContent = cfg.android.allowMixedContent ?? true;
+              fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+              console.log('Patched config:', JSON.stringify(cfg, null, 2));
+            "
+          fi
+
       - name: Add and sync Capacitor iOS
         script: |
           set -e
@@ -226,7 +270,7 @@ workflows:
               sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${TEAM_ID};/g" App.xcodeproj/project.pbxproj || true
             fi
           fi
-    
+
       - name: Inject custom app icon (iOS)
         script: |
           set -e
