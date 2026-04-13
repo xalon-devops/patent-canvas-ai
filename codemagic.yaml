@@ -348,7 +348,7 @@ workflows:
           set -e
           cd "$CM_BUILD_DIR/ios/App"
           BUILD_NUM=${BUILD_NUMBER:-2}
-          APP_VER=${APP_VERSION:-3.0}
+          APP_VER=${APP_VERSION:-3.1}
           INFO_PLIST=$(find . -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -1)
           if [ -z "$INFO_PLIST" ]; then
             echo "No Info.plist found — skipping version bump"
