@@ -291,7 +291,14 @@ workflows:
             --iconBackgroundColorDark '#ffffff' \
             --splashBackgroundColor '#ffffff' \
             --splashBackgroundColorDark '#ffffff'
+          echo "Replacing standalone icon PNGs..."
+          find "$CM_BUILD_DIR/ios" -name "AppIcon*.png" -not -path "*/Assets.xcassets/*" | while read f; do
+            W=$(magick identify -format "%w" "$f" 2>/dev/null || echo "120")
+            magick assets/icon.png -flatten -background white -resize ${W}x${W}\! "$f"
+            echo "Replaced: $f"
+          done
           echo "iOS app icon injected successfully"
+
 
 
       - name: Install CocoaPods if needed
