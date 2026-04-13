@@ -282,6 +282,7 @@ workflows:
           mkdir -p assets
           echo "Downloading app icon from $ICON_URL"
           curl -L -o assets/icon.png "$ICON_URL"
+          rm -rf ios/App/App/Assets.xcassets/AppIcon.appiconset/*.png
           echo "Generating Capacitor icon assets..."
           npm install @capacitor/assets --legacy-peer-deps
           npx @capacitor/assets generate \
@@ -291,6 +292,7 @@ workflows:
             --splashBackgroundColor '#ffffff' \
             --splashBackgroundColorDark '#ffffff'
           echo "iOS app icon injected successfully"
+
 
       - name: Install CocoaPods if needed
         script: |
