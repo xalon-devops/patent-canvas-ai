@@ -363,9 +363,18 @@ workflows:
           cd "$CM_BUILD_DIR/ios/App"
           BUILD_NUM=${BUILD_NUMBER:-2}
           APP_VER=${APP_VERSION:-3.0}
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" App/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VER" App/Info.plist
+          INFO_PLIST=$(find . -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -1)
+          if [ -z "$INFO_PLIST" ]; then
+            echo "No Info.plist found — skipping version bump"
+            exit 0
+          fi
+          echo "Found Info.plist at: $INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VER" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VER" "$INFO_PLIST"
           echo "CFBundleVersion=$BUILD_NUM, CFBundleShortVersionString=$APP_VER"
+
 
       - name: Build IPA
         script: |
