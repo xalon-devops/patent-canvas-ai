@@ -40,7 +40,11 @@ workflows:
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/android
             mkdir -p www
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
+            cat > www/index.html << 'SHELLHTML'
+          <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,viewport-fit=cover"><title>APPNAME</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;box-sizing:border-box}body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="APPURL" allow="camera;microphone;geolocation"></iframe></body></html>
+          SHELLHTML
+            sed -i "s|APPNAME|${APP_NAME:-App}|g" www/index.html
+            sed -i "s|APPURL|${APP_ZIP_URL}|g" www/index.html
             printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true,"androidScheme":"https"},"ios":{"contentInset":"automatic","allowsLinkPreview":false,"limitsNavigationsToAppBoundDomains":false},"android":{"allowMixedContent":true}}' "${PACKAGE_NAME:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
@@ -87,6 +91,28 @@ workflows:
               console.log('Patched config:', JSON.stringify(cfg, null, 2));
             "
           fi
+
+      - name: Inject safe area CSS into WebView content
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          echo "Patching all index.html files with iOS safe area insets..."
+          SAFE_AREA_CSS='<style id="appify-safe-area">html,body{box-sizing:border-box}body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}</style>'
+          find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/.git/*" | while read f; do
+            if ! grep -q "viewport-fit" "$f"; then
+              sed -i 's/width=device-width/width=device-width,viewport-fit=cover/g' "$f"
+              echo "  Patched viewport-fit: $f"
+            fi
+            if ! grep -q "minimum-scale" "$f"; then
+              sed -i 's/viewport-fit=cover/minimum-scale=1.0,viewport-fit=cover/g' "$f"
+              echo "  Patched minimum-scale: $f"
+            fi
+            if ! grep -q "safe-area-inset" "$f"; then
+              sed -i "s|</head>|${SAFE_AREA_CSS}</head>|" "$f"
+              echo "  Injected safe-area CSS: $f"
+            fi
+            echo "  Done: $f"
+          done
 
       - name: Add and sync Capacitor Android
         script: |
@@ -201,7 +227,11 @@ workflows:
             npm init -y
             npm install @capacitor/core @capacitor/cli @capacitor/ios
             mkdir -p www
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>'"${APP_NAME:-App}"'</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="'"${APP_ZIP_URL}"'" allow="camera;microphone;geolocation"></iframe></body></html>' > www/index.html
+            cat > www/index.html << 'SHELLHTML'
+          <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,viewport-fit=cover"><title>APPNAME</title><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;box-sizing:border-box}body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="APPURL" allow="camera;microphone;geolocation"></iframe></body></html>
+          SHELLHTML
+            sed -i '' "s|APPNAME|${APP_NAME:-App}|g" www/index.html
+            sed -i '' "s|APPURL|${APP_ZIP_URL}|g" www/index.html
             printf '{"appId":"%s","appName":"%s","webDir":"www","server":{"url":"%s","cleartext":true,"androidScheme":"https"},"ios":{"contentInset":"automatic","allowsLinkPreview":false,"limitsNavigationsToAppBoundDomains":false},"android":{"allowMixedContent":true}}' "${BUNDLE_ID:-com.app.default}" "${APP_NAME:-App}" "${APP_ZIP_URL}" > capacitor.config.json
           fi
           ls -la
@@ -248,6 +278,28 @@ workflows:
               console.log('Patched config:', JSON.stringify(cfg, null, 2));
             "
           fi
+
+      - name: Inject safe area CSS into WebView content
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          echo "Patching all index.html files with iOS safe area insets..."
+          SAFE_AREA_CSS='<style id="appify-safe-area">html,body{box-sizing:border-box}body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}</style>'
+          find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/.git/*" | while read f; do
+            if ! grep -q "viewport-fit" "$f"; then
+              sed -i '' 's/width=device-width/width=device-width,viewport-fit=cover/g' "$f"
+              echo "  Patched viewport-fit: $f"
+            fi
+            if ! grep -q "minimum-scale" "$f"; then
+              sed -i '' 's/viewport-fit=cover/minimum-scale=1.0,viewport-fit=cover/g' "$f"
+              echo "  Patched minimum-scale: $f"
+            fi
+            if ! grep -q "safe-area-inset" "$f"; then
+              sed -i '' "s|</head>|${SAFE_AREA_CSS}</head>|" "$f"
+              echo "  Injected safe-area CSS: $f"
+            fi
+            echo "  Done: $f"
+          done
 
       - name: Add and sync Capacitor iOS
         script: |
@@ -298,8 +350,6 @@ workflows:
             echo "Replaced: $f"
           done
           echo "iOS app icon injected successfully"
-
-
 
       - name: Install CocoaPods if needed
         script: |
