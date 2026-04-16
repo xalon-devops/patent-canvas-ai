@@ -150,6 +150,15 @@ workflows:
               }
           }
           SIGNING
+   
+      - name: Bump Android version code
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR/android/app"
+          BUILD_NUM=${BUILD_NUMBER:-2}
+          sed -i "s/versionCode [0-9]*/versionCode $BUILD_NUM/" build.gradle
+          echo "Set versionCode to $BUILD_NUM"
+          grep versionCode build.gradle
 
       - name: Build Android release
         script: |
