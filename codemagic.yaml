@@ -410,12 +410,9 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VER" "$INFO_PLIST" 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VER" "$INFO_PLIST"
-          [ "${ENABLE_CAMERA:-false}" = "true" ] && \
-            /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '${CAMERA_USAGE_DESC:-This app uses the camera.}'" "$INFO_PLIST" 2>/dev/null || true
-          [ "${ENABLE_CAMERA:-false}" = "true" ] && \
-            /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string '${PHOTO_USAGE_DESC:-This app accesses your photo library.}'" "$INFO_PLIST" 2>/dev/null || true
-          [ "${ENABLE_CAMERA:-false}" = "true" ] && \
-            /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string '${PHOTO_ADD_USAGE_DESC:-Save your simulation results to your photo library.}'" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '${CAMERA_USAGE_DESC:-This app uses the camera to capture photos.}'" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string '${PHOTO_USAGE_DESC:-This app accesses your photo library to upload images.}'" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string '${PHOTO_ADD_USAGE_DESC:-Save results to your photo library.}'" "$INFO_PLIST" 2>/dev/null || true
           echo "CFBundleVersion=$BUILD_NUM, CFBundleShortVersionString=$APP_VER"
           
       - name: Build IPA
