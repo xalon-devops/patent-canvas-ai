@@ -247,7 +247,19 @@ workflows:
             npm install --legacy-peer-deps
           fi
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/ios
-
+  
+      - name: Install Capacitor plugins
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          npm install --legacy-peer-deps \
+            @capacitor/camera \
+            @capacitor/haptics \
+            @capacitor/share \
+            @capacitor/push-notifications \
+            @capacitor/network \
+            @revenuecat/purchases-capacitor
+   
       - name: Build web assets if present
         script: |
           set -e
