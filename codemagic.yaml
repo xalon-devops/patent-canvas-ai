@@ -124,6 +124,28 @@ workflows:
           npx cap sync android
           test -d android || (echo "FATAL: android directory not created" && exit 1)
 
+      - name: Inject custom app icon (Android)
+        script: |
+          set -e
+          cd "$CM_BUILD_DIR"
+          if [ -z "${ICON_URL:-}" ]; then
+            echo "No ICON_URL set — keeping default icon"
+            exit 0
+          fi
+          mkdir -p assets
+          echo "Downloading app icon from $ICON_URL"
+          curl -L -o assets/icon.png "$ICON_URL"
+          echo "Generating Capacitor icon assets..."
+          npm install @capacitor/assets --legacy-peer-deps
+          npx @capacitor/assets generate \
+            --android \
+            --iconBackgroundColor '#ffffff' \
+            --iconBackgroundColorDark '#ffffff' \
+            --splashBackgroundColor '#ffffff' \
+            --splashBackgroundColorDark '#ffffff'
+          echo "Android app icon injected successfully"
+
+
       - name: Configure release signing
         script: |
           set -e
