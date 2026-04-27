@@ -351,8 +351,11 @@ workflows:
           test -d ios/App || (echo "FATAL: ios/App was not created" && exit 1)
           cd ios/App
           if [ -f App.xcodeproj/project.pbxproj ]; then
-            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" App.xcodeproj/project.pbxproj || true
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" App.xcodeproj/project.pbxproj || true
             sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = ${BUNDLE_ID};/g" App.xcodeproj/project.pbxproj || true
+            # Universal device family (iPhone + iPad) — required for iPad review
+            sed -i '' 's/TARGETED_DEVICE_FAMILY = "[^"]*"/TARGETED_DEVICE_FAMILY = "1,2"/g' App.xcodeproj/project.pbxproj || true
+            sed -i '' 's/TARGETED_DEVICE_FAMILY = [0-9,]*;/TARGETED_DEVICE_FAMILY = "1,2";/g' App.xcodeproj/project.pbxproj || true
             if [ -n "${TEAM_ID:-}" ]; then
               sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = ${TEAM_ID};/g" App.xcodeproj/project.pbxproj || true
             fi
@@ -444,12 +447,67 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VER" "$INFO_PLIST" 2>/dev/null || \
             /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VER" "$INFO_PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '${CAMERA_USAGE_DESC:-This app uses the camera to capture photos.}'" "$INFO_PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string '${PHOTO_USAGE_DESC:-This app accesses your photo library to upload images.}'" "$INFO_PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string '${PHOTO_ADD_USAGE_DESC:-Save results to your photo library.}'" "$INFO_PLIST" 2>/dev/null || true
+          # --- Apple-compliant purpose strings (Guideline 5.1.1(ii)) ---
+          # Each string explains the use AND gives a concrete example, per Apple's stated requirement.
+          CAM_DESC="${CAMERA_USAGE_DESC:-This app uses the camera so you can capture and upload photos to your profile, listings, and support requests — for example, taking a picture to attach to a new submission.}"
+          PHOTO_DESC="${PHOTO_USAGE_DESC:-This app accesses your photo library so you can attach existing images to your profile, listings, and submissions — for example, uploading a saved screenshot.}"
+          PHOTO_ADD_DESC="${PHOTO_ADD_USAGE_DESC:-This app saves photos and exports you generate inside the app to your photo library so you can share them later.}"
+          MIC_DESC="${MIC_USAGE_DESC:-This app uses the microphone when you record audio messages or attach voice notes to your submissions.}"
+          LOC_DESC="${LOCATION_USAGE_DESC:-This app uses your location to show nearby results and attach location to listings you create — for example, finding services near your current address.}"
+          CONTACTS_DESC="${CONTACTS_USAGE_DESC:-This app accesses your contacts so you can quickly invite teammates or share listings with people you already know.}"
+
+          # Set-or-Add overwrites any generic value already in the plist
+          /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription $CAM_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string $CAM_DESC" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription $PHOTO_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string $PHOTO_DESC" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription $PHOTO_ADD_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string $PHOTO_ADD_DESC" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription $MIC_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string $MIC_DESC" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription $LOC_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string $LOC_DESC" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :NSContactsUsageDescription $CONTACTS_DESC" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :NSContactsUsageDescription string $CONTACTS_DESC" "$INFO_PLIST"
+
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$INFO_PLIST" 2>/dev/null || true
           echo "CFBundleVersion=$BUILD_NUM, CFBundleShortVersionString=$APP_VER"
-          
+
+      - name: Apply iPad + multi-device compliance
+        script: |
+          set -e
+          INFO_PLIST=$(find "$CM_BUILD_DIR/ios/App" -name "Info.plist" -not -path "*/Pods/*" -not -path "*/build/*" | head -1)
+          [ -n "$INFO_PLIST" ] || { echo "No Info.plist found — skipping device-family step"; exit 0; }
+          echo "Patching $INFO_PLIST for iPad + universal device support..."
+
+          # Universal device family (1=iPhone, 2=iPad) — required to pass review on iPad
+          /usr/libexec/PlistBuddy -c "Delete :UIDeviceFamily" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UIDeviceFamily array" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIDeviceFamily:0 integer 1" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIDeviceFamily:1 integer 2" "$INFO_PLIST"
+
+          # Allow Slide Over / Split View on iPad
+          /usr/libexec/PlistBuddy -c "Set :UIRequiresFullScreen false" "$INFO_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool false" "$INFO_PLIST"
+
+          # iPad: all 4 orientations (Apple requires this)
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$INFO_PLIST"
+          for o in UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight; do
+            /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad: string $o" "$INFO_PLIST"
+          done
+
+          # iPhone: portrait + both landscapes
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$INFO_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$INFO_PLIST"
+          for o in UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight; do
+            /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations: string $o" "$INFO_PLIST"
+          done
+
+          echo "iPad + orientation compliance applied:"
+          /usr/libexec/PlistBuddy -c "Print :UIDeviceFamily" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Print :UISupportedInterfaceOrientations~ipad" "$INFO_PLIST"
+
       - name: Build IPA
         script: |
           set -e
