@@ -261,6 +261,56 @@ export type Database = {
         }
         Relationships: []
       }
+      patent_claim_tree: {
+        Row: {
+          claim_number: number
+          claim_type: string
+          created_at: string
+          elements: Json
+          full_text: string
+          id: string
+          parent_claim: number | null
+          rationale: string | null
+          rejection_risk_score: number | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          claim_number: number
+          claim_type: string
+          created_at?: string
+          elements?: Json
+          full_text: string
+          id?: string
+          parent_claim?: number | null
+          rationale?: string | null
+          rejection_risk_score?: number | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          claim_number?: number
+          claim_type?: string
+          created_at?: string
+          elements?: Json
+          full_text?: string
+          id?: string
+          parent_claim?: number | null
+          rationale?: string | null
+          rejection_risk_score?: number | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patent_claim_tree_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patent_documents: {
         Row: {
           ai_analysis: string | null
@@ -302,6 +352,53 @@ export type Database = {
           patent_session_id?: string | null
         }
         Relationships: []
+      }
+      patent_draft_reasoning: {
+        Row: {
+          agent_name: string
+          created_at: string
+          examiner_findings: Json | null
+          id: string
+          prior_art_references: Json | null
+          rationale: string
+          revision_number: number
+          session_id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string
+          examiner_findings?: Json | null
+          id?: string
+          prior_art_references?: Json | null
+          rationale: string
+          revision_number?: number
+          session_id: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string
+          examiner_findings?: Json | null
+          id?: string
+          prior_art_references?: Json | null
+          rationale?: string
+          revision_number?: number
+          session_id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patent_draft_reasoning_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patent_ideas: {
         Row: {
