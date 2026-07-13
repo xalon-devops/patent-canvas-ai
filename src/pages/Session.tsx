@@ -98,6 +98,13 @@ const Session = () => {
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [showPaymentGate, setShowPaymentGate] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
+
+  // Multi-agent pipeline state
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineStep, setPipelineStep] = useState<PipelineStepKey | 'done' | null>(null);
+  const [examinerReport, setExaminerReport] = useState<ExaminerReportData | null>(null);
+  const [pipelineRevisions, setPipelineRevisions] = useState(0);
+  const [claimTreeRefreshKey, setClaimTreeRefreshKey] = useState(0);
   
   const sectionTypes = [
     'abstract',
