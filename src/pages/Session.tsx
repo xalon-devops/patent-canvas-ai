@@ -34,6 +34,9 @@ import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 import { PageSEO } from '@/components/SEO';
 import PatentChatAssistant from '@/components/PatentChatAssistant';
 import ClaimStrengthAnalyzer from '@/components/ClaimStrengthAnalyzer';
+import DraftingPipelineProgress, { PipelineStepKey } from '@/components/DraftingPipelineProgress';
+import ClaimTreeView from '@/components/ClaimTreeView';
+import ExaminerReport, { ExaminerReportData } from '@/components/ExaminerReport';
 
 interface PatentSession {
   id: string;
