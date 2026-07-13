@@ -34,6 +34,9 @@ import { PaymentGateDialog } from '@/components/PaymentGateDialog';
 import { PageSEO } from '@/components/SEO';
 import PatentChatAssistant from '@/components/PatentChatAssistant';
 import ClaimStrengthAnalyzer from '@/components/ClaimStrengthAnalyzer';
+import DraftingPipelineProgress, { PipelineStepKey } from '@/components/DraftingPipelineProgress';
+import ClaimTreeView from '@/components/ClaimTreeView';
+import ExaminerReport, { ExaminerReportData } from '@/components/ExaminerReport';
 
 interface PatentSession {
   id: string;
@@ -95,6 +98,13 @@ const Session = () => {
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [showPaymentGate, setShowPaymentGate] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
+
+  // Multi-agent pipeline state
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineStep, setPipelineStep] = useState<PipelineStepKey | 'done' | null>(null);
+  const [examinerReport, setExaminerReport] = useState<ExaminerReportData | null>(null);
+  const [pipelineRevisions, setPipelineRevisions] = useState(0);
+  const [claimTreeRefreshKey, setClaimTreeRefreshKey] = useState(0);
   
   const sectionTypes = [
     'abstract',
@@ -445,6 +455,66 @@ const Session = () => {
       setGeneratingDraft(false);
     }
   };
+
+  const runAiPipeline = async () => {
+    if (!id || pipelineRunning) return;
+
+    setPipelineRunning(true);
+    setPipelineStep('interview');
+    setExaminerReport(null);
+
+    // Optimistic step progression (real progress comes at the end)
+    const stepSequence: PipelineStepKey[] = [
+      'interview',
+      'differentiation',
+      'claim_architect',
+      'spec_writer',
+      'examiner',
+    ];
+    let stepIdx = 0;
+    const interval = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, stepSequence.length - 1);
+      setPipelineStep(stepSequence[stepIdx]);
+    }, 12000);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('draft-patent-pipeline', {
+        body: { session_id: id },
+      });
+
+      clearInterval(interval);
+
+      if (error) throw new Error(error.message || 'Pipeline failed');
+      if (!data?.success) throw new Error(data?.error || 'Pipeline failed');
+
+      setExaminerReport(data.examiner_report ?? null);
+      setPipelineRevisions(data.revision_cycles ?? 0);
+      setPipelineStep('done');
+      setClaimTreeRefreshKey((k) => k + 1);
+
+      await fetchSessionData();
+      setChatPhase('canvas');
+
+      toast({
+        title: 'Draft ready',
+        description: `Score ${data.overall_score}/100 · ${data.claim_count} claims · ${data.revision_cycles} revision${data.revision_cycles === 1 ? '' : 's'}`,
+      });
+    } catch (err) {
+      clearInterval(interval);
+      console.error('Pipeline error:', err);
+      toast({
+        title: 'AI pipeline failed',
+        description: createSafeErrorMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setTimeout(() => {
+        setPipelineRunning(false);
+        setPipelineStep(null);
+      }, 800);
+    }
+  };
+
 
   const generatePatentSections = async () => {
     if (!id) return;
@@ -1195,6 +1265,39 @@ const Session = () => {
 
            {chatPhase === 'canvas' ? (
             <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-6">
+              {/* Multi-Agent Pipeline CTA */}
+              <Card className="border-primary/40 bg-gradient-to-br from-primary/5 to-transparent">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI Drafting Pipeline
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Run 6 specialized agents (interview → prior art → claims → spec → examiner sim → auto-revise) for an
+                    examiner-tested draft. Takes 45–90 seconds.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <Button
+                    onClick={runAiPipeline}
+                    disabled={pipelineRunning}
+                    variant="gradient"
+                    className="w-full"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {pipelineRunning ? 'Running pipeline...' : 'Draft with AI Pipeline'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Examiner Report (from most recent pipeline run) */}
+              {examinerReport && (
+                <ExaminerReport report={examinerReport} revisionCycles={pipelineRevisions} />
+              )}
+
+              {/* Structured Claim Tree */}
+              {id && <ClaimTreeView sessionId={id} refreshKey={claimTreeRefreshKey} />}
+
               <PatentCanvas
                 sections={sections}
                 onUpdateSection={updateSection}
@@ -1202,7 +1305,7 @@ const Session = () => {
                 isGenerating={regeneratingSection !== null}
                 priorArt={priorArt}
               />
-              
+
               {/* AI Claim Strength Analyzer */}
               {sections.find(s => s.section_type === 'claims')?.content && (
                 <ClaimStrengthAnalyzer
@@ -1211,13 +1314,14 @@ const Session = () => {
                   inventionContext={patentSession?.idea_prompt}
                 />
               )}
-              
+
               {/* Patent Glossary */}
               <PatentGlossary sections={sections} />
-              
+
               {/* USPTO Filing Checklist */}
               <PatentFilingChecklist sections={sections} />
             </div>
+
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
               <div className="text-center text-muted-foreground">
@@ -1250,7 +1354,15 @@ const Session = () => {
           }}
         />
       )}
+
+      {/* Multi-agent pipeline progress modal */}
+      <DraftingPipelineProgress
+        open={pipelineRunning}
+        currentStep={pipelineStep}
+        isRunning={pipelineRunning}
+      />
     </div>
+
   );
 };
 
