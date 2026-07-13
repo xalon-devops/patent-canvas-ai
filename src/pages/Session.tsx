@@ -1265,6 +1265,39 @@ const Session = () => {
 
            {chatPhase === 'canvas' ? (
             <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-6">
+              {/* Multi-Agent Pipeline CTA */}
+              <Card className="border-primary/40 bg-gradient-to-br from-primary/5 to-transparent">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI Drafting Pipeline
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Run 6 specialized agents (interview → prior art → claims → spec → examiner sim → auto-revise) for an
+                    examiner-tested draft. Takes 45–90 seconds.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <Button
+                    onClick={runAiPipeline}
+                    disabled={pipelineRunning}
+                    variant="gradient"
+                    className="w-full"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {pipelineRunning ? 'Running pipeline...' : 'Draft with AI Pipeline'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Examiner Report (from most recent pipeline run) */}
+              {examinerReport && (
+                <ExaminerReport report={examinerReport} revisionCycles={pipelineRevisions} />
+              )}
+
+              {/* Structured Claim Tree */}
+              {id && <ClaimTreeView sessionId={id} refreshKey={claimTreeRefreshKey} />}
+
               <PatentCanvas
                 sections={sections}
                 onUpdateSection={updateSection}
@@ -1272,7 +1305,7 @@ const Session = () => {
                 isGenerating={regeneratingSection !== null}
                 priorArt={priorArt}
               />
-              
+
               {/* AI Claim Strength Analyzer */}
               {sections.find(s => s.section_type === 'claims')?.content && (
                 <ClaimStrengthAnalyzer
@@ -1281,13 +1314,14 @@ const Session = () => {
                   inventionContext={patentSession?.idea_prompt}
                 />
               )}
-              
+
               {/* Patent Glossary */}
               <PatentGlossary sections={sections} />
-              
+
               {/* USPTO Filing Checklist */}
               <PatentFilingChecklist sections={sections} />
             </div>
+
           ) : (
             <div className="flex items-center justify-center h-[calc(100vh-160px)]">
               <div className="text-center text-muted-foreground">
