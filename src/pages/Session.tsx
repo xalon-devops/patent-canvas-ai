@@ -1354,7 +1354,15 @@ const Session = () => {
           }}
         />
       )}
+
+      {/* Multi-agent pipeline progress modal */}
+      <DraftingPipelineProgress
+        open={pipelineRunning}
+        currentStep={pipelineStep}
+        isRunning={pipelineRunning}
+      />
     </div>
+
   );
 };
 
