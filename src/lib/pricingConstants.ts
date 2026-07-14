@@ -20,12 +20,13 @@ export const CHECK_AND_SEE_PRICE_CENTS = 9999; // $99.99
 export const CHECK_AND_SEE_PRICE = 99.99;
 
 // ===== STRIPE PRICE IDs =====
+// NOTE: Stripe prices are resolved server-side by product name + unit_amount in the
+// create-checkout / create-payment / create-trademark-checkout edge functions.
+// These constants are kept as empty strings for backward compatibility only —
+// do NOT rely on them client-side. Any value passed to the edge functions is ignored.
+export const STRIPE_PATENT_APPLICATION_PRICE_ID = '';
+export const STRIPE_CHECK_AND_SEE_PRICE_ID = '';
 
-/** Stripe Price ID for Patent Application one-time payment */
-export const STRIPE_PATENT_APPLICATION_PRICE_ID = 'price_1RdXGjKFoovQj4C2M0KxKh8B';
-
-/** Stripe Price ID for Check & See subscription */
-export const STRIPE_CHECK_AND_SEE_PRICE_ID = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
 
 // ===== TRADEMARK PRICING =====
 
