@@ -261,6 +261,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mpep_chunks: {
+        Row: {
+          chunk_index: number
+          chunk_text: string
+          created_at: string
+          embedding: string
+          id: string
+          section_number: string
+          section_title: string
+          source_url: string | null
+          token_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          chunk_index: number
+          chunk_text: string
+          created_at?: string
+          embedding: string
+          id?: string
+          section_number: string
+          section_title: string
+          source_url?: string | null
+          token_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string
+          embedding?: string
+          id?: string
+          section_number?: string
+          section_title?: string
+          source_url?: string | null
+          token_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patent_claim_tree: {
         Row: {
           claim_number: number
@@ -1160,6 +1199,21 @@ export type Database = {
         Returns: boolean
       }
       is_paid_user: { Args: { _user_id: string }; Returns: boolean }
+      match_mpep_chunks: {
+        Args: {
+          match_count?: number
+          query_embedding: string
+          section_filter?: string
+        }
+        Returns: {
+          chunk_text: string
+          id: string
+          section_number: string
+          section_title: string
+          similarity: number
+          source_url: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
