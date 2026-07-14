@@ -47,19 +47,19 @@ export const TRADEMARK_FILING_PRICE = 500;
 export const PATENT_APPLICATION_PRICE_DISPLAY = '$1,000';
 
 /** Formatted Check & See price for display */
-export const CHECK_AND_SEE_PRICE_DISPLAY = '$9.99';
+export const CHECK_AND_SEE_PRICE_DISPLAY = '$99.99';
 
 /** Formatted Check & See price with period */
-export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$9.99/month';
+export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$99.99/month';
 
 /** Formatted Check & See price with short period */
-export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$9.99/mo';
+export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$99.99/mo';
 
 /** Formatted trademark search price for display */
-export const TRADEMARK_SEARCH_PRICE_DISPLAY = '$4.99';
+export const TRADEMARK_SEARCH_PRICE_DISPLAY = '$49.99';
 
 /** Formatted trademark search price with period */
-export const TRADEMARK_SEARCH_PRICE_DISPLAY_MO = '$4.99/mo';
+export const TRADEMARK_SEARCH_PRICE_DISPLAY_MO = '$49.99/mo';
 
 /** Formatted trademark filing price for display */
 export const TRADEMARK_FILING_PRICE_DISPLAY = '$500';
