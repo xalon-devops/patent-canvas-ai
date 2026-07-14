@@ -2,7 +2,8 @@
 // Orchestrates 6 specialized agents to produce examiner-tested patent drafts
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { retrieveMpep, formatMpepContext } from "../_shared/mpep-rag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
