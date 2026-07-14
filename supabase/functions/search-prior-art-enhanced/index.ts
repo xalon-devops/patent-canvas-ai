@@ -503,8 +503,14 @@ function parseGooglePatentsMarkdown(markdown: string, query: string): any[] {
       // Look for title in surrounding lines
       let title = '';
       for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j++) {
-        const nearbyLine = lines[j].replace(/[#*\[\]]/g, '').trim();
-        if (nearbyLine.length > 20 && nearbyLine.length < 200 && !nearbyLine.match(/US\d{7}/)) {
+        // Strip markdown link syntax [title](url), inline URLs, and query junk
+        let nearbyLine = lines[j]
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [text](url) -> text
+          .replace(/\(https?:\/\/[^)]+\)/g, '')     // remove (http://...)
+          .replace(/https?:\/\/\S+/g, '')           // remove bare urls
+          .replace(/[#*\[\]]/g, '')
+          .trim();
+        if (nearbyLine.length > 20 && nearbyLine.length < 200 && !nearbyLine.match(/US\d{7}/) && !/^[?&]/.test(nearbyLine)) {
           title = nearbyLine;
           break;
         }
