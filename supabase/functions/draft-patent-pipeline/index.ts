@@ -2,7 +2,8 @@
 // Orchestrates 6 specialized agents to produce examiner-tested patent drafts
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { retrieveMpep, formatMpepContext } from "../_shared/mpep-rag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,14 +123,28 @@ interface ClaimNode {
   rationale: string;
 }
 
-async function claimArchitectAgent(apiKey: string, brief: string, differentiation: string): Promise<ClaimNode[]> {
+async function claimArchitectAgent(
+  apiKey: string,
+  supabase: SupabaseClient,
+  brief: string,
+  differentiation: string,
+): Promise<ClaimNode[]> {
+  // Ground claim drafting in MPEP claim-form and definiteness guidance
+  const mpepChunks = await retrieveMpep(
+    apiKey,
+    supabase,
+    `patent claim drafting form comprising transitional phrase antecedent basis definiteness ${brief.slice(0, 500)}`,
+    { k: 3 },
+  );
+  const mpepContext = formatMpepContext(mpepChunks);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are an expert patent claim drafter. Produce a JSON claim tree following USPTO conventions. Independent claims must be broad but novel; dependent claims add narrowing limitations for fallback protection. Use proper claim language ('comprising', 'wherein', etc.).",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nDIFFERENTIATION STRATEGY:\n${differentiation}\n\nReturn ONLY valid JSON in this exact shape (no markdown):\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["element A", "element B", "element C"],\n      "full_text": "1. A system comprising: ...",\n      "rationale": "Why each element was chosen and how it distinguishes prior art."\n    },\n    {\n      "claim_number": 2,\n      "claim_type": "dependent",\n      "parent_claim": 1,\n      "elements": ["adds temperature sensor"],\n      "full_text": "2. The system of claim 1, wherein ...",\n      "rationale": "Fallback in case claim 1 is rejected; still novel because ..."\n    }\n  ]\n}\n\nProduce 1-2 independent claims and 4-8 dependent claims total.`,
+      "You are an expert patent claim drafter. Produce a JSON claim tree following USPTO conventions. Independent claims must be broad but novel; dependent claims add narrowing limitations for fallback protection. Use proper claim language ('comprising', 'wherein', etc.). Follow the MPEP guidance provided verbatim on claim form and definiteness.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE (follow strictly):\n${mpepContext}\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nDIFFERENTIATION STRATEGY:\n${differentiation}\n\nReturn ONLY valid JSON in this exact shape (no markdown):\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["element A", "element B", "element C"],\n      "full_text": "1. A system comprising: ...",\n      "rationale": "Why each element was chosen and how it distinguishes prior art. Cite MPEP sections where applicable."\n    },\n    {\n      "claim_number": 2,\n      "claim_type": "dependent",\n      "parent_claim": 1,\n      "elements": ["adds temperature sensor"],\n      "full_text": "2. The system of claim 1, wherein ...",\n      "rationale": "Fallback in case claim 1 is rejected; still novel because ..."\n    }\n  ]\n}\n\nProduce 1-2 independent claims and 4-8 dependent claims total. Every claim MUST comply with §112(b) definiteness — avoid unbounded terms of degree and preserve antecedent basis.`,
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims: [] });
@@ -139,15 +154,25 @@ async function claimArchitectAgent(apiKey: string, brief: string, differentiatio
 // ─────────────────────────────────────────────────────────────
 // AGENT 4: Specification Writer
 // ─────────────────────────────────────────────────────────────
-async function specWriterAgent(apiKey: string, brief: string, claims: ClaimNode[]) {
+async function specWriterAgent(apiKey: string, supabase: SupabaseClient, brief: string, claims: ClaimNode[]) {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
+
+  // Ground spec drafting in §112(a) written description + enablement guidance
+  const mpepChunks = await retrieveMpep(
+    apiKey,
+    supabase,
+    `written description enablement possession of invention Wands factors specification support for claim limitations ${claimsText.slice(0, 500)}`,
+    { k: 3, sectionFilter: "216" },
+  );
+  const mpepContext = formatMpepContext(mpepChunks);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a patent specification writer. Produce USPTO-compliant spec sections that fully enable and describe the invention claimed. Every claim element must be described in the specification (§112 enablement).",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nCLAIMS:\n${claimsText}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "abstract": "150-word abstract summarizing the invention",\n  "field": "1-2 sentence technical field statement",\n  "background": "300-500 word background describing the prior art landscape and problems",\n  "summary": "200-400 word summary of the invention and its advantages",\n  "description": "800-1500 word detailed description covering all embodiments and every claim element"\n}\n\nEnsure the description explicitly supports every claim limitation.`,
+      "You are a patent specification writer. Produce USPTO-compliant spec sections that fully enable and describe the invention claimed. Every claim element must be described in the specification (§112(a) written description AND enablement). Follow the MPEP guidance provided verbatim.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE (§112(a) written description & enablement — follow strictly):\n${mpepContext}\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nCLAIMS:\n${claimsText}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "abstract": "150-word abstract summarizing the invention",\n  "field": "1-2 sentence technical field statement",\n  "background": "300-500 word background describing the prior art landscape and problems",\n  "summary": "200-400 word summary of the invention and its advantages",\n  "description": "800-1500 word detailed description covering all embodiments and every claim element"\n}\n\nCRITICAL: the description MUST explicitly support every claim limitation (§112(a) written description). For any functional/genus language, provide structural detail or representative species so a POSITA can recognize possession.`,
     maxTokens: 4000,
   });
   return parseJSON(raw, {
@@ -178,18 +203,29 @@ interface ExaminerReport {
 
 async function examinerSimulatorAgent(
   apiKey: string,
+  supabase: SupabaseClient,
   claims: ClaimNode[],
   spec: { abstract: string; description: string },
   priorArtSummary: string,
 ): Promise<ExaminerReport> {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
+
+  // Retrieve MPEP passages for each statutory section in parallel
+  const [ch101, ch102, ch103, ch112] = await Promise.all([
+    retrieveMpep(apiKey, supabase, `§101 patent eligibility Alice Mayo abstract idea judicial exception ${claimsText.slice(0, 400)}`, { k: 2, sectionFilter: "2106" }),
+    retrieveMpep(apiKey, supabase, `§102 anticipation novelty prior art single reference ${priorArtSummary.slice(0, 400)}`, { k: 2, sectionFilter: "213" }),
+    retrieveMpep(apiKey, supabase, `§103 obviousness KSR Graham factors motivation to combine ${priorArtSummary.slice(0, 400)}`, { k: 2, sectionFilter: "214" }),
+    retrieveMpep(apiKey, supabase, `§112 written description enablement definiteness Nautilus means-plus-function ${claimsText.slice(0, 400)}`, { k: 3, sectionFilter: "21" }),
+  ]);
+  const mpepContext = formatMpepContext([...ch101, ...ch102, ...ch103, ...ch112]);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a USPTO patent examiner conducting a first-office-action review. Apply MPEP standards rigorously. Score the application 0-100 where 100 = ready to allow, 0 = certain rejection. Be specific and actionable.",
-    user: `CLAIMS:\n${claimsText}\n\nABSTRACT:\n${spec.abstract}\n\nSPECIFICATION EXCERPT:\n${spec.description.slice(0, 3000)}\n\nRELEVANT PRIOR ART:\n${priorArtSummary.slice(0, 2000)}\n\nEvaluate under:\n- §101 (patent eligibility, Alice/Mayo)\n- §102 (novelty vs. prior art)\n- §103 (obviousness, KSR)\n- §112 (written description, enablement, definiteness)\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_score": 85,\n  "summary": "One paragraph overall assessment",\n  "findings": [\n    {\n      "section": "103",\n      "severity": "high",\n      "affected_claims": [1, 3],\n      "issue": "Specific issue description",\n      "suggested_fix": "Concrete rewrite suggestion"\n    }\n  ]\n}`,
+      "You are a USPTO patent examiner conducting a first-office-action review. Apply MPEP standards rigorously — cite the MPEP passages and case law provided verbatim in your findings. Score the application 0-100 where 100 = ready to allow, 0 = certain rejection. Be specific and actionable. Every finding MUST reference a specific MPEP section or precedent from the provided guidance.",
+    user: `AUTHORITATIVE MPEP GUIDANCE (base every finding on these passages — cite section numbers and case names):\n${mpepContext}\n\n─────────────\n\nCLAIMS:\n${claimsText}\n\nABSTRACT:\n${spec.abstract}\n\nSPECIFICATION EXCERPT:\n${spec.description.slice(0, 3000)}\n\nRELEVANT PRIOR ART:\n${priorArtSummary.slice(0, 2000)}\n\nEvaluate under:\n- §101 (patent eligibility, Alice/Mayo two-step)\n- §102 (novelty vs. prior art — every element, arranged as claimed)\n- §103 (obviousness, KSR seven rationales, Graham factors)\n- §112(a) (written description, enablement — Wands factors)\n- §112(b) (definiteness — Nautilus reasonable certainty)\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_score": 85,\n  "summary": "One paragraph overall assessment citing MPEP sections",\n  "findings": [\n    {\n      "section": "103",\n      "severity": "high",\n      "affected_claims": [1, 3],\n      "issue": "Specific issue with MPEP citation (e.g., 'Under MPEP §2143 rationale A (KSR), combining X from Ref1 with Y from Ref2 yields the predictable result of ...')",\n      "suggested_fix": "Concrete rewrite that addresses the cited MPEP standard"\n    }\n  ]\n}`,
     maxTokens: 2500,
   });
   return parseJSON<ExaminerReport>(raw, {
@@ -204,25 +240,37 @@ async function examinerSimulatorAgent(
 // ─────────────────────────────────────────────────────────────
 async function revisionAgent(
   apiKey: string,
+  supabase: SupabaseClient,
   claims: ClaimNode[],
   examinerReport: ExaminerReport,
   brief: string,
 ): Promise<ClaimNode[]> {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
-  const findingsText = examinerReport.findings
-    .filter((f) => f.severity === "high" || f.severity === "medium")
+  const highMedFindings = examinerReport.findings.filter((f) => f.severity === "high" || f.severity === "medium");
+  const findingsText = highMedFindings
     .map((f) => `§${f.section} (${f.severity}) - Claims ${f.affected_claims.join(", ")}: ${f.issue}\nFIX: ${f.suggested_fix}`)
     .join("\n\n");
 
   if (!findingsText) return claims;
+
+  // Retrieve MPEP guidance targeted to the specific sections being addressed
+  const uniqueSections = Array.from(new Set(highMedFindings.map((f) => f.section)));
+  const mpepChunkArrays = await Promise.all(
+    uniqueSections.map((sec) => {
+      const filter = sec === "101" ? "2106" : sec === "102" ? "213" : sec === "103" ? "214" : "21";
+      const query = `§${sec} ${highMedFindings.filter((f) => f.section === sec).map((f) => f.issue).join(" ")}`;
+      return retrieveMpep(apiKey, supabase, query.slice(0, 800), { k: 2, sectionFilter: filter });
+    }),
+  );
+  const mpepContext = formatMpepContext(mpepChunkArrays.flat());
 
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a patent attorney revising claims in response to examiner findings. Preserve the claim numbering and structure. Rewrite only the affected claims to overcome the specific rejections while keeping scope as broad as reasonable.",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nCURRENT CLAIMS:\n${claimsText}\n\nEXAMINER FINDINGS TO ADDRESS:\n${findingsText}\n\nReturn ONLY valid JSON with the full revised claim tree in the same shape as input:\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["..."],\n      "full_text": "1. A ...",\n      "rationale": "How this revision overcomes finding X"\n    }\n  ]\n}`,
+      "You are a patent attorney revising claims in response to examiner findings. Preserve the claim numbering and structure. Rewrite only the affected claims to overcome the specific rejections while keeping scope as broad as reasonable. Ground each revision in the provided MPEP guidance.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE FOR THESE REJECTIONS:\n${mpepContext}\n\n─────────────\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nCURRENT CLAIMS:\n${claimsText}\n\nEXAMINER FINDINGS TO ADDRESS:\n${findingsText}\n\nReturn ONLY valid JSON with the full revised claim tree in the same shape as input:\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["..."],\n      "full_text": "1. A ...",\n      "rationale": "How this revision overcomes finding X — cite the specific MPEP section relied upon"\n    }\n  ]\n}`,
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims });
@@ -297,29 +345,29 @@ serve(async (req) => {
     const differentiation = await differentiationAgent(lovableApiKey, brief, priorArt ?? []);
     steps.push({ agent: "differentiation", status: "complete", duration_ms: Date.now() - t0 });
 
-    // Step 3: Claim Architect
+    // Step 3: Claim Architect (grounded in MPEP claim-form & definiteness)
     t0 = Date.now();
-    let claims = await claimArchitectAgent(lovableApiKey, brief, differentiation);
+    let claims = await claimArchitectAgent(lovableApiKey, supabase, brief, differentiation);
     steps.push({ agent: "claim_architect", status: "complete", duration_ms: Date.now() - t0 });
     if (claims.length === 0) throw new Error("Claim Architect produced no claims.");
 
-    // Step 4: Spec Writer
+    // Step 4: Spec Writer (grounded in MPEP §112(a))
     t0 = Date.now();
-    const spec = await specWriterAgent(lovableApiKey, brief, claims);
+    const spec = await specWriterAgent(lovableApiKey, supabase, brief, claims);
     steps.push({ agent: "spec_writer", status: "complete", duration_ms: Date.now() - t0 });
 
-    // Step 5-6: Examiner + Revision loop (max 2 revisions)
+    // Step 5-6: Examiner (RAG-grounded per §) + Revision loop (max 2 revisions)
     let examinerReport: ExaminerReport = { overall_score: 0, findings: [], summary: "" };
     let revisionCycles = 0;
     for (let i = 0; i < 3; i++) {
       t0 = Date.now();
-      examinerReport = await examinerSimulatorAgent(lovableApiKey, claims, spec, differentiation);
+      examinerReport = await examinerSimulatorAgent(lovableApiKey, supabase, claims, spec, differentiation);
       steps.push({ agent: `examiner_pass_${i + 1}`, status: "complete", duration_ms: Date.now() - t0 });
 
       if (examinerReport.overall_score >= 85 || revisionCycles >= 2) break;
 
       t0 = Date.now();
-      claims = await revisionAgent(lovableApiKey, claims, examinerReport, brief);
+      claims = await revisionAgent(lovableApiKey, supabase, claims, examinerReport, brief);
       steps.push({ agent: `revision_pass_${revisionCycles + 1}`, status: "complete", duration_ms: Date.now() - t0 });
       revisionCycles++;
     }
