@@ -6,17 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { supabase } from '@/integrations/supabase/client';
 import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles
 } from 'lucide-react';
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
   FREE_SEARCHES_LIMIT,
 } from '@/lib/pricingConstants';
+
 
 interface TrademarkResult {
   id?: string;
@@ -60,8 +63,10 @@ export default function TrademarkCheck() {
   const [loading, setLoading] = useState(false);
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
+  const [showSubscribe, setShowSubscribe] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
 
   const handleScrapeUrl = async () => {
     if (!markUrl.trim()) return;
