@@ -717,6 +717,21 @@ export default function TrademarkCheck() {
           </p>
         </div>
       </main>
+
+      {/* Trademark Suite Subscribe Modal */}
+      <Dialog open={showSubscribe} onOpenChange={setShowSubscribe}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Subscribe to Trademark Suite — {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</DialogTitle>
+          </DialogHeader>
+          <EmbeddedStripeCheckout
+            planType="trademark_suite"
+            mode="subscription"
+            onSuccess={() => setShowSubscribe(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
