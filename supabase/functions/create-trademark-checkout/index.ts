@@ -105,7 +105,7 @@ serve(async (req) => {
       currency: "usd",
       status: "pending",
       payment_type: "subscription",
-      description: "Trademark Suite Subscription",
+      description: "PatentBot AI — Trademark Suite Subscription",
       metadata: { price_id: price.id, plan_type: "trademark_suite" },
     });
 
