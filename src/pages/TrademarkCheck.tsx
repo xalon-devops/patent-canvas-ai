@@ -6,17 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { supabase } from '@/integrations/supabase/client';
 import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles
 } from 'lucide-react';
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
   FREE_SEARCHES_LIMIT,
 } from '@/lib/pricingConstants';
+
 
 interface TrademarkResult {
   id?: string;
@@ -60,8 +63,10 @@ export default function TrademarkCheck() {
   const [loading, setLoading] = useState(false);
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
+  const [showSubscribe, setShowSubscribe] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
 
   const handleScrapeUrl = async () => {
     if (!markUrl.trim()) return;
@@ -150,11 +155,13 @@ export default function TrademarkCheck() {
 
       if (!response.ok) {
         if (response.status === 402) {
-          toast({ title: 'No credits remaining', description: 'Subscribe to continue searching.', variant: 'destructive' });
+          setShowSubscribe(true);
+          toast({ title: 'No searches remaining', description: `Subscribe to Trademark Suite (${TRADEMARK_SEARCH_PRICE_DISPLAY_MO}) for unlimited searches.`, variant: 'destructive' });
           return;
         }
         throw new Error(data.error || 'Search failed');
       }
+
 
       setResults(data.results || []);
       setCreditsRemaining(data.search_credits_remaining);
@@ -360,14 +367,24 @@ export default function TrademarkCheck() {
                 Trademark Search
               </h1>
             </div>
-            {creditsRemaining !== null && (
-              <Badge variant="outline" className="text-xs">
-                {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {creditsRemaining !== null && (
+                <Badge variant="outline" className="text-xs">
+                  {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
+                </Badge>
+              )}
+              {creditsRemaining !== 'unlimited' && (
+                <Button size="sm" variant="default" onClick={() => setShowSubscribe(true)} className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Subscribe {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</span>
+                  <span className="sm:hidden">Subscribe</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
+
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Search Form */}
@@ -700,6 +717,21 @@ export default function TrademarkCheck() {
           </p>
         </div>
       </main>
+
+      {/* Trademark Suite Subscribe Modal */}
+      <Dialog open={showSubscribe} onOpenChange={setShowSubscribe}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Subscribe to Trademark Suite — {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</DialogTitle>
+          </DialogHeader>
+          <EmbeddedStripeCheckout
+            planType="trademark_suite"
+            mode="subscription"
+            onSuccess={() => setShowSubscribe(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

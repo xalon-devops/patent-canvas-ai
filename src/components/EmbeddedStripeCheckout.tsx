@@ -33,7 +33,10 @@ export const EmbeddedStripeCheckout: React.FC<EmbeddedStripeCheckoutProps> = ({
         let data, error;
         
         if (mode === 'subscription') {
-          const response = await supabase.functions.invoke('create-checkout', {
+          const fnName = planType === 'trademark_suite'
+            ? 'create-trademark-checkout'
+            : 'create-checkout';
+          const response = await supabase.functions.invoke(fnName, {
             body: { priceId, planType }
           });
           data = response.data;
@@ -45,6 +48,7 @@ export const EmbeddedStripeCheckout: React.FC<EmbeddedStripeCheckoutProps> = ({
           data = response.data;
           error = response.error;
         }
+
 
         if (error) throw error;
         
