@@ -155,11 +155,13 @@ export default function TrademarkCheck() {
 
       if (!response.ok) {
         if (response.status === 402) {
-          toast({ title: 'No credits remaining', description: 'Subscribe to continue searching.', variant: 'destructive' });
+          setShowSubscribe(true);
+          toast({ title: 'No searches remaining', description: `Subscribe to Trademark Suite (${TRADEMARK_SEARCH_PRICE_DISPLAY_MO}) for unlimited searches.`, variant: 'destructive' });
           return;
         }
         throw new Error(data.error || 'Search failed');
       }
+
 
       setResults(data.results || []);
       setCreditsRemaining(data.search_credits_remaining);
