@@ -128,7 +128,7 @@ serve(async (req) => {
                         <h3 style="margin: 0 0 15px; color: #1a1a2e; font-size: 16px; font-weight: 600;">What you can do with ${APP_NAME}:</h3>
                         <ul style="margin: 0; padding-left: 20px; color: #4a5568; font-size: 14px; line-height: 1.8;">
                           <li>Create AI-guided patent applications ($1,000 flat fee)</li>
-                          <li>Search prior art with unlimited "Check & See" ($9.99/mo)</li>
+                          <li>Search prior art with unlimited "Check & See" ($99.99/mo)</li>
                           <li>Export USPTO-formatted documents</li>
                           <li>Track your patent portfolio</li>
                         </ul>

@@ -390,7 +390,7 @@ serve(async (req) => {
                             </a>
                           </div>
                           <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">
-                            Your subscription renews monthly at $9.99. Manage your subscription anytime from your dashboard.
+                            Your subscription renews monthly at $99.99. Manage your subscription anytime from your dashboard.
                           </p>
                         </td>
                       </tr>
