@@ -202,7 +202,7 @@ const Pricing = () => {
             </CardContent>
           </Card>
 
-          {/* Check & See Subscription - $9.99/month */}
+          {/* Check & See Subscription - $99.99/month */}
           <Card className="relative shadow-elegant border border-primary/20 bg-card overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
             <div className="absolute top-4 right-4">
