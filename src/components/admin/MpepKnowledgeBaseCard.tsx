@@ -48,7 +48,7 @@ export function MpepKnowledgeBaseCard() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "ingest_jobs", filter: `id=eq.${activeJob.id}` },
         (payload) => {
-          const next = payload.new as IngestJob;
+          const next = payload.new as unknown as IngestJob;
           setActiveJob(next);
           if (next.status === "completed" || next.status === "completed_with_errors" || next.status === "failed") {
             setLoading(false);
