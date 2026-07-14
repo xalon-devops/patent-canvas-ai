@@ -154,15 +154,25 @@ async function claimArchitectAgent(
 // ─────────────────────────────────────────────────────────────
 // AGENT 4: Specification Writer
 // ─────────────────────────────────────────────────────────────
-async function specWriterAgent(apiKey: string, brief: string, claims: ClaimNode[]) {
+async function specWriterAgent(apiKey: string, supabase: SupabaseClient, brief: string, claims: ClaimNode[]) {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
+
+  // Ground spec drafting in §112(a) written description + enablement guidance
+  const mpepChunks = await retrieveMpep(
+    apiKey,
+    supabase,
+    `written description enablement possession of invention Wands factors specification support for claim limitations ${claimsText.slice(0, 500)}`,
+    { k: 3, sectionFilter: "216" },
+  );
+  const mpepContext = formatMpepContext(mpepChunks);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a patent specification writer. Produce USPTO-compliant spec sections that fully enable and describe the invention claimed. Every claim element must be described in the specification (§112 enablement).",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nCLAIMS:\n${claimsText}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "abstract": "150-word abstract summarizing the invention",\n  "field": "1-2 sentence technical field statement",\n  "background": "300-500 word background describing the prior art landscape and problems",\n  "summary": "200-400 word summary of the invention and its advantages",\n  "description": "800-1500 word detailed description covering all embodiments and every claim element"\n}\n\nEnsure the description explicitly supports every claim limitation.`,
+      "You are a patent specification writer. Produce USPTO-compliant spec sections that fully enable and describe the invention claimed. Every claim element must be described in the specification (§112(a) written description AND enablement). Follow the MPEP guidance provided verbatim.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE (§112(a) written description & enablement — follow strictly):\n${mpepContext}\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nCLAIMS:\n${claimsText}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "abstract": "150-word abstract summarizing the invention",\n  "field": "1-2 sentence technical field statement",\n  "background": "300-500 word background describing the prior art landscape and problems",\n  "summary": "200-400 word summary of the invention and its advantages",\n  "description": "800-1500 word detailed description covering all embodiments and every claim element"\n}\n\nCRITICAL: the description MUST explicitly support every claim limitation (§112(a) written description). For any functional/genus language, provide structural detail or representative species so a POSITA can recognize possession.`,
     maxTokens: 4000,
   });
   return parseJSON(raw, {
