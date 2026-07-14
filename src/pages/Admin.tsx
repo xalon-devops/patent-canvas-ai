@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { MpepKnowledgeBaseCard } from '@/components/admin/MpepKnowledgeBaseCard';
 import { User, Session } from '@supabase/supabase-js';
 import { 
   Shield, 
