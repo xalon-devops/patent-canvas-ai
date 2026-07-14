@@ -81,7 +81,7 @@ export function MpepKnowledgeBaseCard() {
       }
       // Fetch initial row
       const { data: job } = await supabase.from("ingest_jobs").select("*").eq("id", jobId).single();
-      if (job) setActiveJob(job as IngestJob);
+      if (job) setActiveJob(job as unknown as IngestJob);
     } catch (err) {
       setSeedResult(err instanceof Error ? err.message : "Failed");
       setLoading(false);
