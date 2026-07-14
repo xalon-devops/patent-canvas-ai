@@ -156,7 +156,7 @@ serve(async (req) => {
         currency: "usd",
         status: "pending",
         payment_type: "one_time",
-        description: "Patent Application Filing",
+        description: "PatentBot AI — Patent Application Filing",
         application_id: applicationId,
         metadata: { stripe_customer_id: customerId }
       });
