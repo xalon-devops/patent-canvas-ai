@@ -30,10 +30,10 @@ export const STRIPE_CHECK_AND_SEE_PRICE_ID = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
 // ===== TRADEMARK PRICING =====
 
 /** Trademark Search monthly subscription (in cents for Stripe) */
-export const TRADEMARK_SEARCH_PRICE_CENTS = 499; // $4.99
+export const TRADEMARK_SEARCH_PRICE_CENTS = 4999; // $49.99
 
 /** Trademark Search monthly subscription (display value) */
-export const TRADEMARK_SEARCH_PRICE = 4.99;
+export const TRADEMARK_SEARCH_PRICE = 49.99;
 
 /** Trademark Filing one-time fee (in cents for Stripe) */
 export const TRADEMARK_FILING_PRICE_CENTS = 50000; // $500.00
