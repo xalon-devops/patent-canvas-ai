@@ -367,14 +367,24 @@ export default function TrademarkCheck() {
                 Trademark Search
               </h1>
             </div>
-            {creditsRemaining !== null && (
-              <Badge variant="outline" className="text-xs">
-                {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {creditsRemaining !== null && (
+                <Badge variant="outline" className="text-xs">
+                  {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
+                </Badge>
+              )}
+              {creditsRemaining !== 'unlimited' && (
+                <Button size="sm" variant="default" onClick={() => setShowSubscribe(true)} className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Subscribe {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</span>
+                  <span className="sm:hidden">Subscribe</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
+
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Search Form */}
