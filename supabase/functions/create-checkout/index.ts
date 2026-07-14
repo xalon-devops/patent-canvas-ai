@@ -65,7 +65,7 @@ serve(async (req) => {
         logStep("Found existing PatentBot product", { productId: product.id });
       }
 
-      // 2) Look for an existing $9.99/mo price on THIS product only
+      // 2) Look for an existing $99.99/mo price on THIS product only
       const prices = await stripe.prices.list({ 
         product: product.id, 
         active: true, 
@@ -74,7 +74,7 @@ serve(async (req) => {
       
       const existingPrice = prices.data.find((p) =>
         p.currency === 'usd' &&
-        p.unit_amount === 999 &&
+        p.unit_amount === 9999 &&
         !!p.recurring &&
         p.recurring.interval === 'month'
       );
@@ -84,11 +84,11 @@ serve(async (req) => {
         return existingPrice.id;
       }
 
-      // 3) Create the $9.99/mo price on the PatentBot product
+      // 3) Create the $99.99/mo price on the PatentBot product
       const createdPrice = await stripe.prices.create({
         product: product.id,
         currency: 'usd',
-        unit_amount: 999,
+        unit_amount: 9999,
         recurring: { interval: 'month' },
         metadata: { app: 'patentbot' }
       });
