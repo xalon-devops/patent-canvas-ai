@@ -871,9 +871,10 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="text-muted-foreground">Stripe Price ID</span>
-                    <code className="text-xs">{STRIPE_CHECK_AND_SEE_PRICE_ID}</code>
+                    <span className="text-muted-foreground">Stripe Price</span>
+                    <code className="text-xs">auto-resolved server-side</code>
                   </div>
+
                   <div className="flex justify-between p-3 bg-muted/50 rounded-lg">
                     <span className="text-muted-foreground">Patent App Price</span>
                     <span className="font-medium">{PATENT_APPLICATION_PRICE_DISPLAY}</span>
