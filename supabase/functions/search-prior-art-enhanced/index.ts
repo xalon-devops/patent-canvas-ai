@@ -171,10 +171,11 @@ serve(async (req) => {
     const rankedResults = [];
     for (const result of uniqueResults.slice(0, 20)) {
       let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
-      
-      // Boost Perplexity results as they're more relevant
+
+      // Strongly prioritize Perplexity — it returns real, verified patent titles/abstracts
       if (result.source === 'Perplexity AI') {
-        keywordScore = Math.min(keywordScore * 1.2, 0.95);
+        keywordScore = Math.max(keywordScore, 0.7);
+        keywordScore = Math.min(keywordScore * 1.15, 0.98);
       }
 
       // Generate overlap/difference analysis
