@@ -345,29 +345,29 @@ serve(async (req) => {
     const differentiation = await differentiationAgent(lovableApiKey, brief, priorArt ?? []);
     steps.push({ agent: "differentiation", status: "complete", duration_ms: Date.now() - t0 });
 
-    // Step 3: Claim Architect
+    // Step 3: Claim Architect (grounded in MPEP claim-form & definiteness)
     t0 = Date.now();
-    let claims = await claimArchitectAgent(lovableApiKey, brief, differentiation);
+    let claims = await claimArchitectAgent(lovableApiKey, supabase, brief, differentiation);
     steps.push({ agent: "claim_architect", status: "complete", duration_ms: Date.now() - t0 });
     if (claims.length === 0) throw new Error("Claim Architect produced no claims.");
 
-    // Step 4: Spec Writer
+    // Step 4: Spec Writer (grounded in MPEP §112(a))
     t0 = Date.now();
-    const spec = await specWriterAgent(lovableApiKey, brief, claims);
+    const spec = await specWriterAgent(lovableApiKey, supabase, brief, claims);
     steps.push({ agent: "spec_writer", status: "complete", duration_ms: Date.now() - t0 });
 
-    // Step 5-6: Examiner + Revision loop (max 2 revisions)
+    // Step 5-6: Examiner (RAG-grounded per §) + Revision loop (max 2 revisions)
     let examinerReport: ExaminerReport = { overall_score: 0, findings: [], summary: "" };
     let revisionCycles = 0;
     for (let i = 0; i < 3; i++) {
       t0 = Date.now();
-      examinerReport = await examinerSimulatorAgent(lovableApiKey, claims, spec, differentiation);
+      examinerReport = await examinerSimulatorAgent(lovableApiKey, supabase, claims, spec, differentiation);
       steps.push({ agent: `examiner_pass_${i + 1}`, status: "complete", duration_ms: Date.now() - t0 });
 
       if (examinerReport.overall_score >= 85 || revisionCycles >= 2) break;
 
       t0 = Date.now();
-      claims = await revisionAgent(lovableApiKey, claims, examinerReport, brief);
+      claims = await revisionAgent(lovableApiKey, supabase, claims, examinerReport, brief);
       steps.push({ agent: `revision_pass_${revisionCycles + 1}`, status: "complete", duration_ms: Date.now() - t0 });
       revisionCycles++;
     }
