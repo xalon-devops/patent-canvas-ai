@@ -166,7 +166,7 @@ serve(async (req) => {
         currency: "usd",
         status: "pending",
         payment_type: "subscription",
-        description: "Check & See Subscription",
+        description: "PatentBot AI — Check & See Subscription",
         metadata: { price_id: priceId, plan_type: planType }
       });
 
