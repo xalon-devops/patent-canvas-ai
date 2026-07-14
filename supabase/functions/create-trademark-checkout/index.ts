@@ -40,13 +40,21 @@ serve(async (req) => {
     const productName = "PatentBot™ Trademark Suite";
     const products = await stripe.products.list({ active: true, limit: 100 });
     let product = products.data.find((p) => p.name === productName);
+    const productDescription = "PatentBot AI — Trademark Suite: unlimited USPTO trademark clearance searches, DuPont factor analysis, and brand monitoring. Cancel anytime.";
     if (!product) {
       product = await stripe.products.create({
         name: productName,
-        description: "Unlimited USPTO trademark clearance searches, DuPont analysis, and monitoring. Cancel anytime.",
-        metadata: { app: "patentbot" },
+        description: productDescription,
+        metadata: { app: "patentbot", platform: "PatentBot AI", product: "Trademark Suite" },
       });
       log("created product", { id: product.id });
+    } else {
+      product = await stripe.products.update(product.id, {
+        name: productName,
+        description: productDescription,
+        metadata: { app: "patentbot", platform: "PatentBot AI", product: "Trademark Suite" },
+      });
+      log("synced product descriptor", { id: product.id });
     }
 
     const prices = await stripe.prices.list({ product: product.id, active: true, limit: 100 });
