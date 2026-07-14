@@ -123,14 +123,28 @@ interface ClaimNode {
   rationale: string;
 }
 
-async function claimArchitectAgent(apiKey: string, brief: string, differentiation: string): Promise<ClaimNode[]> {
+async function claimArchitectAgent(
+  apiKey: string,
+  supabase: SupabaseClient,
+  brief: string,
+  differentiation: string,
+): Promise<ClaimNode[]> {
+  // Ground claim drafting in MPEP claim-form and definiteness guidance
+  const mpepChunks = await retrieveMpep(
+    apiKey,
+    supabase,
+    `patent claim drafting form comprising transitional phrase antecedent basis definiteness ${brief.slice(0, 500)}`,
+    { k: 3 },
+  );
+  const mpepContext = formatMpepContext(mpepChunks);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are an expert patent claim drafter. Produce a JSON claim tree following USPTO conventions. Independent claims must be broad but novel; dependent claims add narrowing limitations for fallback protection. Use proper claim language ('comprising', 'wherein', etc.).",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nDIFFERENTIATION STRATEGY:\n${differentiation}\n\nReturn ONLY valid JSON in this exact shape (no markdown):\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["element A", "element B", "element C"],\n      "full_text": "1. A system comprising: ...",\n      "rationale": "Why each element was chosen and how it distinguishes prior art."\n    },\n    {\n      "claim_number": 2,\n      "claim_type": "dependent",\n      "parent_claim": 1,\n      "elements": ["adds temperature sensor"],\n      "full_text": "2. The system of claim 1, wherein ...",\n      "rationale": "Fallback in case claim 1 is rejected; still novel because ..."\n    }\n  ]\n}\n\nProduce 1-2 independent claims and 4-8 dependent claims total.`,
+      "You are an expert patent claim drafter. Produce a JSON claim tree following USPTO conventions. Independent claims must be broad but novel; dependent claims add narrowing limitations for fallback protection. Use proper claim language ('comprising', 'wherein', etc.). Follow the MPEP guidance provided verbatim on claim form and definiteness.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE (follow strictly):\n${mpepContext}\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nDIFFERENTIATION STRATEGY:\n${differentiation}\n\nReturn ONLY valid JSON in this exact shape (no markdown):\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["element A", "element B", "element C"],\n      "full_text": "1. A system comprising: ...",\n      "rationale": "Why each element was chosen and how it distinguishes prior art. Cite MPEP sections where applicable."\n    },\n    {\n      "claim_number": 2,\n      "claim_type": "dependent",\n      "parent_claim": 1,\n      "elements": ["adds temperature sensor"],\n      "full_text": "2. The system of claim 1, wherein ...",\n      "rationale": "Fallback in case claim 1 is rejected; still novel because ..."\n    }\n  ]\n}\n\nProduce 1-2 independent claims and 4-8 dependent claims total. Every claim MUST comply with §112(b) definiteness — avoid unbounded terms of degree and preserve antecedent basis.`,
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims: [] });
