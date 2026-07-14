@@ -136,8 +136,9 @@ serve(async (req) => {
     if (jobErr) return json({ error: `Failed to create job: ${jobErr.message}` }, 500);
     const jobId = job.id as string;
 
-    // Kick off async work; return job id immediately.
-    runIngestion({
+    // Kick off async work; keep the isolate alive via EdgeRuntime.waitUntil so it
+    // doesn't get killed mid-batch. Fall back to fire-and-forget if not available.
+    const work = runIngestion({
       supabase,
       jobId,
       chapters,
@@ -156,6 +157,12 @@ serve(async (req) => {
         })
         .eq("id", jobId);
     });
+
+    // @ts-ignore - EdgeRuntime is a Deno Deploy global in Supabase Edge Functions.
+    if (typeof EdgeRuntime !== "undefined" && typeof EdgeRuntime.waitUntil === "function") {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(work);
+    }
 
     return json({ success: true, job_id: jobId });
   } catch (err) {

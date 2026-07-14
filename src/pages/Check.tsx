@@ -39,12 +39,7 @@ const Check = () => {
   const hasSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
   const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? FREE_SEARCHES_LIMIT;
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/auth');
-    }
-  }, [loading, isAuthenticated, navigate]);
+  // Auth is enforced by ProtectedRoute wrapper; no internal redirect needed.
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {

@@ -24,8 +24,10 @@ import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentD
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 import { PageSEO } from '@/components/SEO';
 
+import { useUserProfile } from '@/contexts/UserProfileContext';
+
 const Ideas = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useUserProfile();
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -41,19 +43,6 @@ const Ideas = () => {
 
   // Flatten alerts for display
   const alerts = Object.values(alertsByIdea).flat();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-    };
-
-    checkAuth();
-  }, [navigate]);
 
   const handleViewIdea = (ideaId: string) => {
     navigate(`/idea/${ideaId}`);

@@ -37,12 +37,7 @@ const Drafts = () => {
     refetchSessions 
   } = useAuthenticatedPatentData();
 
-  // Redirect if not authenticated
-  React.useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/auth');
-    }
-  }, [loading, isAuthenticated, navigate]);
+  // Auth is enforced by ProtectedRoute wrapper.
 
   const resumeDraft = (sessionId: string) => {
     navigate(`/new-application?sessionId=${sessionId}`);
