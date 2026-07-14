@@ -156,6 +156,8 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [user?.id, profile?.avatar_url, updateProfile]);
 
+  const [authChecked, setAuthChecked] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -163,6 +165,7 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (!isMounted) return;
       // IMPORTANT: do not call Supabase or async logic inside this callback
       setUser(session?.user ?? null);
+      setAuthChecked(true);
     });
 
     // Initial session check (can be async)
@@ -171,11 +174,13 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
       .then(({ data: { session } }) => {
         if (!isMounted) return;
         setUser(session?.user ?? null);
+        setAuthChecked(true);
       })
       .catch((err) => {
         if (!isMounted) return;
         console.error('UserProfileProvider getSession error:', err);
         setUser(null);
+        setAuthChecked(true);
       });
 
     return () => {
@@ -188,6 +193,12 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let cancelled = false;
 
     const run = async () => {
+      // Wait until the initial auth check has completed before deciding.
+      if (!authChecked) {
+        setLoading(true);
+        return;
+      }
+
       if (!user?.id) {
         setProfile(null);
         setLoading(false);
@@ -204,7 +215,7 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => {
       cancelled = true;
     };
-  }, [user?.id, fetchProfile]);
+  }, [authChecked, user?.id, fetchProfile]);
 
   return (
     <UserProfileContext.Provider
