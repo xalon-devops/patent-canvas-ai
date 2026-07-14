@@ -156,7 +156,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         stripe_session_id: session.id,
-        amount: 999, // $9.99 for Check & See
+        amount: 9999, // $99.99 for Check & See
         currency: "usd",
         status: "pending",
         payment_type: "subscription",
