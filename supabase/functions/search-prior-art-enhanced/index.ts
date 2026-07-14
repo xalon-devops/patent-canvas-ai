@@ -171,10 +171,11 @@ serve(async (req) => {
     const rankedResults = [];
     for (const result of uniqueResults.slice(0, 20)) {
       let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
-      
-      // Boost Perplexity results as they're more relevant
+
+      // Strongly prioritize Perplexity — it returns real, verified patent titles/abstracts
       if (result.source === 'Perplexity AI') {
-        keywordScore = Math.min(keywordScore * 1.2, 0.95);
+        keywordScore = Math.max(keywordScore, 0.7);
+        keywordScore = Math.min(keywordScore * 1.15, 0.98);
       }
 
       // Generate overlap/difference analysis
@@ -502,8 +503,14 @@ function parseGooglePatentsMarkdown(markdown: string, query: string): any[] {
       // Look for title in surrounding lines
       let title = '';
       for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 2); j++) {
-        const nearbyLine = lines[j].replace(/[#*\[\]]/g, '').trim();
-        if (nearbyLine.length > 20 && nearbyLine.length < 200 && !nearbyLine.match(/US\d{7}/)) {
+        // Strip markdown link syntax [title](url), inline URLs, and query junk
+        let nearbyLine = lines[j]
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [text](url) -> text
+          .replace(/\(https?:\/\/[^)]+\)/g, '')     // remove (http://...)
+          .replace(/https?:\/\/\S+/g, '')           // remove bare urls
+          .replace(/[#*\[\]]/g, '')
+          .trim();
+        if (nearbyLine.length > 20 && nearbyLine.length < 200 && !nearbyLine.match(/US\d{7}/) && !/^[?&]/.test(nearbyLine)) {
           title = nearbyLine;
           break;
         }

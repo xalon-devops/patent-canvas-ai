@@ -184,7 +184,7 @@ export default function PriorArtDisplay({
                 Prior Art Analysis Complete
               </CardTitle>
               <CardDescription className="mt-1">
-                Found {priorArt.length} relevant patents across USPTO & Lens.org
+                Found {priorArt.length} relevant patents across Perplexity AI & Google Patents
               </CardDescription>
             </div>
             {onRetrySearch && (
