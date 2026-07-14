@@ -688,6 +688,8 @@ const Admin = () => {
           </CardContent>
         </Card>
 
+        <MpepKnowledgeBaseCard />
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
