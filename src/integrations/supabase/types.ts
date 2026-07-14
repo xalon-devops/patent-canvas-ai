@@ -261,6 +261,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ingest_jobs: {
+        Row: {
+          completed_at: string | null
+          completed_chunks: number
+          created_at: string
+          current_chapter: string | null
+          current_stage: string | null
+          error_log: Json
+          failed_chunks: number
+          id: string
+          job_type: string
+          metadata: Json
+          scraped_urls: number
+          started_at: string
+          started_by: string | null
+          status: string
+          total_chunks: number
+          total_urls: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_chunks?: number
+          created_at?: string
+          current_chapter?: string | null
+          current_stage?: string | null
+          error_log?: Json
+          failed_chunks?: number
+          id?: string
+          job_type?: string
+          metadata?: Json
+          scraped_urls?: number
+          started_at?: string
+          started_by?: string | null
+          status?: string
+          total_chunks?: number
+          total_urls?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_chunks?: number
+          created_at?: string
+          current_chapter?: string | null
+          current_stage?: string | null
+          error_log?: Json
+          failed_chunks?: number
+          id?: string
+          job_type?: string
+          metadata?: Json
+          scraped_urls?: number
+          started_at?: string
+          started_by?: string | null
+          status?: string
+          total_chunks?: number
+          total_urls?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mpep_chunks: {
         Row: {
           chunk_index: number
