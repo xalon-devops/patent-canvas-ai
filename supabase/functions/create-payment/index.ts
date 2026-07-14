@@ -55,15 +55,21 @@ serve(async (req) => {
       const products = await stripe.products.list({ active: true, limit: 100 });
       let product = products.data.find((p) => p.name === productName);
       
+      const productDescription = 'PatentBot AI — Patent Application: complete AI-guided, USPTO-ready patent drafting with claims, specification, drawings prompts, and DOCX/PDF export.';
       if (!product) {
         product = await stripe.products.create({
           name: productName,
-          description: 'Complete AI-guided patent application with USPTO-ready formatting.',
-          metadata: { app: 'patentbot' }
+          description: productDescription,
+          metadata: { app: 'patentbot', platform: 'PatentBot AI', product: 'Patent Application' }
         });
         logStep("Created PatentBot Patent Application product", { productId: product.id });
       } else {
-        logStep("Found existing PatentBot Patent Application product", { productId: product.id });
+        product = await stripe.products.update(product.id, {
+          name: productName,
+          description: productDescription,
+          metadata: { app: 'patentbot', platform: 'PatentBot AI', product: 'Patent Application' }
+        });
+        logStep("Synced PatentBot Patent Application descriptor", { productId: product.id });
       }
 
       // 2) Look for an existing $1,000 one-time price on THIS product only
@@ -150,7 +156,7 @@ serve(async (req) => {
         currency: "usd",
         status: "pending",
         payment_type: "one_time",
-        description: "Patent Application Filing",
+        description: "PatentBot AI — Patent Application Filing",
         application_id: applicationId,
         metadata: { stripe_customer_id: customerId }
       });

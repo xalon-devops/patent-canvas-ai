@@ -54,15 +54,21 @@ serve(async (req) => {
       const products = await stripe.products.list({ active: true, limit: 100 });
       let product = products.data.find((p) => p.name === productName);
       
+      const productDescription = 'PatentBot AI — Check & See: unlimited AI-powered prior patent searches across USPTO and global patent databases. Cancel anytime.';
       if (!product) {
         product = await stripe.products.create({
           name: productName,
-          description: 'Unlimited prior patent searches. Cancel anytime.',
-          metadata: { app: 'patentbot' }
+          description: productDescription,
+          metadata: { app: 'patentbot', platform: 'PatentBot AI', product: 'Check & See' }
         });
         logStep("Created PatentBot product", { productId: product.id });
       } else {
-        logStep("Found existing PatentBot product", { productId: product.id });
+        product = await stripe.products.update(product.id, {
+          name: productName,
+          description: productDescription,
+          metadata: { app: 'patentbot', platform: 'PatentBot AI', product: 'Check & See' }
+        });
+        logStep("Synced PatentBot product descriptor", { productId: product.id });
       }
 
       // 2) Look for an existing $99.99/mo price on THIS product only
@@ -160,7 +166,7 @@ serve(async (req) => {
         currency: "usd",
         status: "pending",
         payment_type: "subscription",
-        description: "Check & See Subscription",
+        description: "PatentBot AI — Check & See Subscription",
         metadata: { price_id: priceId, plan_type: planType }
       });
 
