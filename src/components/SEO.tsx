@@ -173,7 +173,7 @@ export const PageSEO = {
         },
         "offers": {
           "@type": "Offer",
-          "price": "9.99",
+          "price": "99.99",
           "priceCurrency": "USD",
           "description": "Unlimited AI patent searches per month"
         }
