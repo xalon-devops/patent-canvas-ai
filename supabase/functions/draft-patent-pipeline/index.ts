@@ -240,25 +240,37 @@ async function examinerSimulatorAgent(
 // ─────────────────────────────────────────────────────────────
 async function revisionAgent(
   apiKey: string,
+  supabase: SupabaseClient,
   claims: ClaimNode[],
   examinerReport: ExaminerReport,
   brief: string,
 ): Promise<ClaimNode[]> {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
-  const findingsText = examinerReport.findings
-    .filter((f) => f.severity === "high" || f.severity === "medium")
+  const highMedFindings = examinerReport.findings.filter((f) => f.severity === "high" || f.severity === "medium");
+  const findingsText = highMedFindings
     .map((f) => `§${f.section} (${f.severity}) - Claims ${f.affected_claims.join(", ")}: ${f.issue}\nFIX: ${f.suggested_fix}`)
     .join("\n\n");
 
   if (!findingsText) return claims;
+
+  // Retrieve MPEP guidance targeted to the specific sections being addressed
+  const uniqueSections = Array.from(new Set(highMedFindings.map((f) => f.section)));
+  const mpepChunkArrays = await Promise.all(
+    uniqueSections.map((sec) => {
+      const filter = sec === "101" ? "2106" : sec === "102" ? "213" : sec === "103" ? "214" : "21";
+      const query = `§${sec} ${highMedFindings.filter((f) => f.section === sec).map((f) => f.issue).join(" ")}`;
+      return retrieveMpep(apiKey, supabase, query.slice(0, 800), { k: 2, sectionFilter: filter });
+    }),
+  );
+  const mpepContext = formatMpepContext(mpepChunkArrays.flat());
 
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a patent attorney revising claims in response to examiner findings. Preserve the claim numbering and structure. Rewrite only the affected claims to overcome the specific rejections while keeping scope as broad as reasonable.",
-    user: `TECHNICAL BRIEF:\n${brief}\n\nCURRENT CLAIMS:\n${claimsText}\n\nEXAMINER FINDINGS TO ADDRESS:\n${findingsText}\n\nReturn ONLY valid JSON with the full revised claim tree in the same shape as input:\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["..."],\n      "full_text": "1. A ...",\n      "rationale": "How this revision overcomes finding X"\n    }\n  ]\n}`,
+      "You are a patent attorney revising claims in response to examiner findings. Preserve the claim numbering and structure. Rewrite only the affected claims to overcome the specific rejections while keeping scope as broad as reasonable. Ground each revision in the provided MPEP guidance.",
+    user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE FOR THESE REJECTIONS:\n${mpepContext}\n\n─────────────\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nCURRENT CLAIMS:\n${claimsText}\n\nEXAMINER FINDINGS TO ADDRESS:\n${findingsText}\n\nReturn ONLY valid JSON with the full revised claim tree in the same shape as input:\n{\n  "claims": [\n    {\n      "claim_number": 1,\n      "claim_type": "independent",\n      "parent_claim": null,\n      "elements": ["..."],\n      "full_text": "1. A ...",\n      "rationale": "How this revision overcomes finding X — cite the specific MPEP section relied upon"\n    }\n  ]\n}`,
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims });
