@@ -203,18 +203,29 @@ interface ExaminerReport {
 
 async function examinerSimulatorAgent(
   apiKey: string,
+  supabase: SupabaseClient,
   claims: ClaimNode[],
   spec: { abstract: string; description: string },
   priorArtSummary: string,
 ): Promise<ExaminerReport> {
   const claimsText = claims.map((c) => c.full_text).join("\n\n");
+
+  // Retrieve MPEP passages for each statutory section in parallel
+  const [ch101, ch102, ch103, ch112] = await Promise.all([
+    retrieveMpep(apiKey, supabase, `§101 patent eligibility Alice Mayo abstract idea judicial exception ${claimsText.slice(0, 400)}`, { k: 2, sectionFilter: "2106" }),
+    retrieveMpep(apiKey, supabase, `§102 anticipation novelty prior art single reference ${priorArtSummary.slice(0, 400)}`, { k: 2, sectionFilter: "213" }),
+    retrieveMpep(apiKey, supabase, `§103 obviousness KSR Graham factors motivation to combine ${priorArtSummary.slice(0, 400)}`, { k: 2, sectionFilter: "214" }),
+    retrieveMpep(apiKey, supabase, `§112 written description enablement definiteness Nautilus means-plus-function ${claimsText.slice(0, 400)}`, { k: 3, sectionFilter: "21" }),
+  ]);
+  const mpepContext = formatMpepContext([...ch101, ...ch102, ...ch103, ...ch112]);
+
   const raw = await callAI({
     apiKey,
     model: MODEL_PRO,
     jsonMode: true,
     system:
-      "You are a USPTO patent examiner conducting a first-office-action review. Apply MPEP standards rigorously. Score the application 0-100 where 100 = ready to allow, 0 = certain rejection. Be specific and actionable.",
-    user: `CLAIMS:\n${claimsText}\n\nABSTRACT:\n${spec.abstract}\n\nSPECIFICATION EXCERPT:\n${spec.description.slice(0, 3000)}\n\nRELEVANT PRIOR ART:\n${priorArtSummary.slice(0, 2000)}\n\nEvaluate under:\n- §101 (patent eligibility, Alice/Mayo)\n- §102 (novelty vs. prior art)\n- §103 (obviousness, KSR)\n- §112 (written description, enablement, definiteness)\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_score": 85,\n  "summary": "One paragraph overall assessment",\n  "findings": [\n    {\n      "section": "103",\n      "severity": "high",\n      "affected_claims": [1, 3],\n      "issue": "Specific issue description",\n      "suggested_fix": "Concrete rewrite suggestion"\n    }\n  ]\n}`,
+      "You are a USPTO patent examiner conducting a first-office-action review. Apply MPEP standards rigorously — cite the MPEP passages and case law provided verbatim in your findings. Score the application 0-100 where 100 = ready to allow, 0 = certain rejection. Be specific and actionable. Every finding MUST reference a specific MPEP section or precedent from the provided guidance.",
+    user: `AUTHORITATIVE MPEP GUIDANCE (base every finding on these passages — cite section numbers and case names):\n${mpepContext}\n\n─────────────\n\nCLAIMS:\n${claimsText}\n\nABSTRACT:\n${spec.abstract}\n\nSPECIFICATION EXCERPT:\n${spec.description.slice(0, 3000)}\n\nRELEVANT PRIOR ART:\n${priorArtSummary.slice(0, 2000)}\n\nEvaluate under:\n- §101 (patent eligibility, Alice/Mayo two-step)\n- §102 (novelty vs. prior art — every element, arranged as claimed)\n- §103 (obviousness, KSR seven rationales, Graham factors)\n- §112(a) (written description, enablement — Wands factors)\n- §112(b) (definiteness — Nautilus reasonable certainty)\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_score": 85,\n  "summary": "One paragraph overall assessment citing MPEP sections",\n  "findings": [\n    {\n      "section": "103",\n      "severity": "high",\n      "affected_claims": [1, 3],\n      "issue": "Specific issue with MPEP citation (e.g., 'Under MPEP §2143 rationale A (KSR), combining X from Ref1 with Y from Ref2 yields the predictable result of ...')",\n      "suggested_fix": "Concrete rewrite that addresses the cited MPEP standard"\n    }\n  ]\n}`,
     maxTokens: 2500,
   });
   return parseJSON<ExaminerReport>(raw, {
