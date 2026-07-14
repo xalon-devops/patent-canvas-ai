@@ -14,10 +14,10 @@ export const PATENT_APPLICATION_PRICE_CENTS = 100000; // $1,000.00
 export const PATENT_APPLICATION_PRICE = 1000;
 
 /** Check & See monthly subscription (in cents for Stripe) */
-export const CHECK_AND_SEE_PRICE_CENTS = 999; // $9.99
+export const CHECK_AND_SEE_PRICE_CENTS = 9999; // $99.99
 
 /** Check & See monthly subscription (display value) */
-export const CHECK_AND_SEE_PRICE = 9.99;
+export const CHECK_AND_SEE_PRICE = 99.99;
 
 // ===== STRIPE PRICE IDs =====
 
@@ -30,10 +30,10 @@ export const STRIPE_CHECK_AND_SEE_PRICE_ID = 'price_1RdXHaKFoovQj4C2Vx8MmN3P';
 // ===== TRADEMARK PRICING =====
 
 /** Trademark Search monthly subscription (in cents for Stripe) */
-export const TRADEMARK_SEARCH_PRICE_CENTS = 499; // $4.99
+export const TRADEMARK_SEARCH_PRICE_CENTS = 4999; // $49.99
 
 /** Trademark Search monthly subscription (display value) */
-export const TRADEMARK_SEARCH_PRICE = 4.99;
+export const TRADEMARK_SEARCH_PRICE = 49.99;
 
 /** Trademark Filing one-time fee (in cents for Stripe) */
 export const TRADEMARK_FILING_PRICE_CENTS = 50000; // $500.00
@@ -47,19 +47,19 @@ export const TRADEMARK_FILING_PRICE = 500;
 export const PATENT_APPLICATION_PRICE_DISPLAY = '$1,000';
 
 /** Formatted Check & See price for display */
-export const CHECK_AND_SEE_PRICE_DISPLAY = '$9.99';
+export const CHECK_AND_SEE_PRICE_DISPLAY = '$99.99';
 
 /** Formatted Check & See price with period */
-export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$9.99/month';
+export const CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY = '$99.99/month';
 
 /** Formatted Check & See price with short period */
-export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$9.99/mo';
+export const CHECK_AND_SEE_PRICE_DISPLAY_MO = '$99.99/mo';
 
 /** Formatted trademark search price for display */
-export const TRADEMARK_SEARCH_PRICE_DISPLAY = '$4.99';
+export const TRADEMARK_SEARCH_PRICE_DISPLAY = '$49.99';
 
 /** Formatted trademark search price with period */
-export const TRADEMARK_SEARCH_PRICE_DISPLAY_MO = '$4.99/mo';
+export const TRADEMARK_SEARCH_PRICE_DISPLAY_MO = '$49.99/mo';
 
 /** Formatted trademark filing price for display */
 export const TRADEMARK_FILING_PRICE_DISPLAY = '$500';

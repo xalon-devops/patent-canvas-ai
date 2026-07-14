@@ -128,7 +128,7 @@ const Index = () => {
     {
       icon: Search,
       title: 'Know Before You File',
-      description: 'Run unlimited prior art searches ($9.99/mo) to understand your competitive landscape before committing.'
+      description: 'Run unlimited prior art searches ($99.99/mo) to understand your competitive landscape before committing.'
     }
   ];
 

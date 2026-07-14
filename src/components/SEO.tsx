@@ -126,7 +126,7 @@ export const PageSEO = {
     <SEO
       title="AI Patent Pricing - File AI Patents from $1,000"
       canonicalPath="/pricing"
-      description="PatentBot™ AI patent pricing: $1,000 flat fee for complete USPTO-ready AI patent applications. File machine learning & neural network patents. $9.99/month for unlimited AI prior art searches."
+      description="PatentBot™ AI patent pricing: $1,000 flat fee for complete USPTO-ready AI patent applications. File machine learning & neural network patents. $99.99/month for unlimited AI prior art searches."
       keywords="AI patent cost, AI patent application price, machine learning patent cost, file AI patent price, artificial intelligence patent filing cost, AI patent attorney alternative, how much does an AI patent cost, neural network patent price, deep learning patent cost, AI invention patent fees"
       structuredData={{
         "@context": "https://schema.org",
@@ -173,7 +173,7 @@ export const PageSEO = {
         },
         "offers": {
           "@type": "Offer",
-          "price": "9.99",
+          "price": "99.99",
           "priceCurrency": "USD",
           "description": "Unlimited AI patent searches per month"
         }

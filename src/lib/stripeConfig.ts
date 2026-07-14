@@ -5,13 +5,13 @@ export const STRIPE_PRICES = {
   // Patent Application - $1,000 one-time payment
   PATENT_APPLICATION: 'price_1RdXGjKFoovQj4C2M0KxKh8B',
   
-  // Check & See Subscription - $9.99/month
+  // Check & See Subscription - $99.99/month
   CHECK_AND_SEE: 'price_1RdXHaKFoovQj4C2Vx8MmN3P'
 };
 
 export const STRIPE_AMOUNTS = {
   PATENT_APPLICATION: 100000, // $1,000 in cents
-  CHECK_AND_SEE: 999 // $9.99 in cents
+  CHECK_AND_SEE: 9999 // $99.99 in cents
 };
 
 // Stripe publishable key (live mode)

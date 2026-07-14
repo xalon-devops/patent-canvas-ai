@@ -287,7 +287,7 @@ serve(async (req) => {
                           <li><strong>$1,000 flat fee</strong> vs $10,000+ with attorneys</li>
                           <li>AI-powered drafting in minutes, not weeks</li>
                           <li>USPTO-ready formatting included</li>
-                          <li>Unlimited prior art searches for $9.99/month</li>
+                          <li>Unlimited prior art searches for $99.99/month</li>
                         </ul>
                       </div>
                       
