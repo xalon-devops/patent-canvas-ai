@@ -14,10 +14,10 @@ export const PATENT_APPLICATION_PRICE_CENTS = 100000; // $1,000.00
 export const PATENT_APPLICATION_PRICE = 1000;
 
 /** Check & See monthly subscription (in cents for Stripe) */
-export const CHECK_AND_SEE_PRICE_CENTS = 999; // $9.99
+export const CHECK_AND_SEE_PRICE_CENTS = 9999; // $99.99
 
 /** Check & See monthly subscription (display value) */
-export const CHECK_AND_SEE_PRICE = 9.99;
+export const CHECK_AND_SEE_PRICE = 99.99;
 
 // ===== STRIPE PRICE IDs =====
 
