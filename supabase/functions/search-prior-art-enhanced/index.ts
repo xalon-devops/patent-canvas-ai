@@ -144,19 +144,22 @@ serve(async (req) => {
       openai: !!OPENAI_API_KEY
     });
 
-    // Run searches in parallel (Perplexity + Google Patents only)
-    const [perplexityResults, googlePatentsResults] = await Promise.all([
+    // Run searches in parallel (Perplexity + Google Patents + official USPTO)
+    const [perplexityResults, googlePatentsResults, usptoResults] = await Promise.all([
       searchWithPerplexity(contextText, PERPLEXITY_API_KEY),
       searchGooglePatents(searchKeywords, contextText, FIRECRAWL_API_KEY),
+      searchUSPTOOfficial(searchKeywords),
     ]);
 
-    console.log(`[ENHANCED SEARCH] Results - Perplexity: ${perplexityResults.length}, Google: ${googlePatentsResults.length}`);
+    console.log(`[ENHANCED SEARCH] Results - Perplexity: ${perplexityResults.length}, Google: ${googlePatentsResults.length}, USPTO: ${usptoResults.length}`);
 
-    // Combine results - prioritize Perplexity as it has best grounded data
+    // Combine results - USPTO official first (authoritative), then Perplexity
     const allResults = [
+      ...usptoResults.map(r => ({ ...r, source: 'USPTO Official' })),
       ...perplexityResults.map(r => ({ ...r, source: 'Perplexity AI' })),
       ...googlePatentsResults.map(r => ({ ...r, source: 'Google Patents' })),
     ];
+
 
     // Deduplicate by patent number or title
     const seen = new Set<string>();
