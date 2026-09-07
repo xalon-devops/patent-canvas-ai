@@ -862,6 +862,16 @@ async function verifyAgainstTSDR(results: any[]): Promise<any[]> {
         if (classes.length) result.nice_classes = Array.from(new Set(classes));
         const description = gs.map((g: any) => g.description).filter(Boolean).join('; ');
         if (description) result.goods_services = description.slice(0, 800);
+        // Sworn first-use dates are the register's own priority evidence
+        const firstUseDates = gs
+          .flatMap((g: any) => [g.firstUseAnywhereDate, g.firstUseDate, g.firstUseInCommerceDate])
+          .map((d: any) => normalizeUseDate(d))
+          .filter(Boolean)
+          .sort();
+        if (firstUseDates.length) {
+          result.first_use_date = firstUseDates[0];
+          result.first_use_evidence = 'Sworn first-use date of record at USPTO';
+        }
         result.url = `https://tsdr.uspto.gov/#caseNumber=${result.serial_number}&caseType=SERIAL_NO&searchType=statusSearch`;
         result.source = 'USPTO Official (TSDR)';
         result._verified = true;
