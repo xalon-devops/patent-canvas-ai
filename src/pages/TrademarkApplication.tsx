@@ -101,6 +101,13 @@ interface AiReview {
 
 export default function TrademarkApplication() {
   const { id: routeAppId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const prefill = (location.state || null) as {
+    mark_name?: string;
+    mark_description?: string;
+    nice_classes?: string[];
+    first_use_date?: string;
+  } | null;
   const [step, setStep] = useState(1);
   const [appId, setAppId] = useState<string | null>(routeAppId ?? null);
   const [saving, setSaving] = useState(false);
@@ -109,6 +116,24 @@ export default function TrademarkApplication() {
   const [drafts, setDrafts] = useState<TrademarkDraftRow[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Prefill from a clearance search handoff ("File this trademark")
+  useEffect(() => {
+    if (routeAppId || !prefill) return;
+    if (prefill.mark_name) setMarkName(prefill.mark_name);
+    if (prefill.mark_description) {
+      setMarkDescription(prefill.mark_description);
+      setBusinessDescription(prefill.mark_description);
+    }
+    if (prefill.nice_classes?.length) setSelectedClasses(prefill.nice_classes);
+    if (prefill.first_use_date) {
+      setFirstUseDate(prefill.first_use_date);
+      setFirstUseCommerceDate(prefill.first_use_date);
+      setFilingBasis('use_in_commerce');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeAppId]);
+
 
 
   // Step 1: Mark Info
