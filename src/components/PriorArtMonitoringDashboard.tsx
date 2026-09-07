@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Radar, Bell, Clock, AlertTriangle, CheckCircle, Loader2, RefreshCw
+  Radar, Bell, Clock, AlertTriangle, CheckCircle, Loader2, RefreshCw, Plus, Trash2
 } from 'lucide-react';
 import { formatDate, formatDateShort } from '@/lib/dateUtils';
 
@@ -31,6 +33,12 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
   const [monitors, setMonitors] = useState<MonitoringRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [watchTargets, setWatchTargets] = useState<{ value: string; label: string }[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newQuery, setNewQuery] = useState('');
+  const [newTarget, setNewTarget] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchMonitors = async () => {
@@ -39,16 +47,28 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
       // Fetch monitoring records linked to user's sessions and ideas
       const { data: sessions } = await supabase
         .from('patent_sessions')
-        .select('id')
+        .select('id, idea_prompt')
         .eq('user_id', userId);
 
       const { data: ideas } = await supabase
         .from('patent_ideas')
-        .select('id')
+        .select('id, title')
         .eq('user_id', userId);
 
       const sessionIds = (sessions || []).map(s => s.id);
       const ideaIds = (ideas || []).map(i => i.id);
+
+      // Options the user can attach a new watch to
+      setWatchTargets([
+        ...(ideas || []).map(i => ({
+          value: `idea:${i.id}`,
+          label: i.title || 'Untitled idea',
+        })),
+        ...(sessions || []).map(s => ({
+          value: `session:${s.id}`,
+          label: (s.idea_prompt || 'Untitled application').slice(0, 60),
+        })),
+      ]);
 
       if (sessionIds.length === 0 && ideaIds.length === 0) {
         setMonitors([]);
@@ -108,6 +128,48 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
     }
   };
 
+  const createMonitor = async () => {
+    if (!newQuery.trim() || !newTarget) return;
+    setCreating(true);
+    try {
+      const [kind, targetId] = newTarget.split(':');
+      const { error } = await supabase
+        .from('prior_art_monitoring')
+        .insert({
+          search_query: newQuery.trim(),
+          patent_idea_id: kind === 'idea' ? targetId : null,
+          patent_session_id: kind === 'session' ? targetId : null,
+          is_active: true,
+          last_search_at: new Date().toISOString(),
+        } as any);
+      if (error) throw error;
+      setNewQuery('');
+      setNewTarget('');
+      setShowAdd(false);
+      fetchMonitors();
+    } catch (e: any) {
+      toast({ title: "Couldn't add that watch", description: e.message, variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteMonitor = async (monitor: MonitoringRecord) => {
+    setDeletingId(monitor.id);
+    try {
+      const { error } = await supabase
+        .from('prior_art_monitoring')
+        .delete()
+        .eq('id', monitor.id);
+      if (error) throw error;
+      setMonitors(prev => prev.filter(m => m.id !== monitor.id));
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const toggleActive = async (monitor: MonitoringRecord) => {
     try {
       await supabase
@@ -138,12 +200,55 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
             <Radar className="w-4 h-4 text-primary" />
             Prior Art Monitoring
           </CardTitle>
-          <Badge variant="outline" className="text-[10px]">
-            {monitors.filter(m => m.is_active).length} active
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {monitors.filter(m => m.is_active).length} active
+            </Badge>
+            {watchTargets.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px] gap-1"
+                onClick={() => setShowAdd(v => !v)}
+              >
+                <Plus className="w-2.5 h-2.5" />
+                {showAdd ? 'Cancel' : 'Add watch'}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+        {showAdd && (
+          <div className="rounded-md border border-border p-2.5 space-y-2">
+            <Input
+              value={newQuery}
+              onChange={(e) => setNewQuery(e.target.value)}
+              placeholder="What should we keep watching for?"
+              className="h-8 text-xs"
+            />
+            <Select value={newTarget} onValueChange={setNewTarget}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Attach to an idea or application" />
+              </SelectTrigger>
+              <SelectContent>
+                {watchTargets.map(t => (
+                  <SelectItem key={t.value} value={t.value} className="text-xs">
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="w-full h-7 text-[10px]"
+              disabled={creating || !newQuery.trim() || !newTarget}
+              onClick={createMonitor}
+            >
+              {creating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : 'Start watching'}
+            </Button>
+          </div>
+        )}
         {monitors.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
             No monitoring set up yet. Save an idea or create a patent application to enable monitoring.
@@ -179,19 +284,33 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
                   </Badge>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-[10px] h-6 gap-1"
-                disabled={runningId === monitor.id}
-                onClick={() => runMonitor(monitor)}
-              >
-                {runningId === monitor.id ? (
-                  <><Loader2 className="w-2.5 h-2.5 animate-spin" />Scanning…</>
-                ) : (
-                  <><RefreshCw className="w-2.5 h-2.5" />Run Now</>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-[10px] h-6 gap-1"
+                  disabled={runningId === monitor.id}
+                  onClick={() => runMonitor(monitor)}
+                >
+                  {runningId === monitor.id ? (
+                    <><Loader2 className="w-2.5 h-2.5 animate-spin" />Scanning…</>
+                  ) : (
+                    <><RefreshCw className="w-2.5 h-2.5" />Run Now</>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-muted-foreground hover:text-destructive"
+                  disabled={deletingId === monitor.id}
+                  onClick={() => deleteMonitor(monitor)}
+                  aria-label="Remove this watch"
+                >
+                  {deletingId === monitor.id
+                    ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    : <Trash2 className="w-2.5 h-2.5" />}
+                </Button>
+              </div>
             </div>
           ))
         )}

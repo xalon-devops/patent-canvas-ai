@@ -13,8 +13,18 @@ import { PageSEO } from '@/components/SEO';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles, History
 } from 'lucide-react';
+import { formatDateShort } from '@/lib/dateUtils';
+
+interface TrademarkSearchHistoryRow {
+  id: string;
+  mark_name: string;
+  mark_description: string | null;
+  nice_classes: string[] | null;
+  results_count: number | null;
+  created_at: string;
+}
 import {
   TRADEMARK_SEARCH_PRICE_DISPLAY_MO,
   FREE_SEARCHES_LIMIT,

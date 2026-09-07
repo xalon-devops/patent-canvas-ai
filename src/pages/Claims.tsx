@@ -205,22 +205,16 @@ const Claims = () => {
                       <span>{formatDateTime(independentClaim.timestamp)}</span>
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="h-7"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="h-7"
-                    >
-                      <Edit3 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  {/* Editing and regeneration happen in the full editor */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => navigate(`/session/${id}`)}
+                  >
+                    <Edit3 className="h-3 w-3" />
+                    Edit
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -256,22 +250,15 @@ const Claims = () => {
                                   <span>Depends on Claim {dependentClaim.dependsOn}</span>
                                 </CardDescription>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="h-6"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="h-6"
-                                >
-                                  <Edit3 className="h-3 w-3" />
-                                </Button>
-                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 text-xs"
+                                onClick={() => navigate(`/session/${id}`)}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                                Edit
+                              </Button>
                             </div>
                           </CardHeader>
                           <CardContent className="pt-0">
