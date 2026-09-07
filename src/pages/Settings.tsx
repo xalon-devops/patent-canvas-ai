@@ -191,6 +191,72 @@ const Settings = () => {
             </CardContent>
           </Card>
 
+          {/* Billing & Subscription */}
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CreditCard className="w-4 h-4" />
+                Billing &amp; Subscription
+              </CardTitle>
+              <CardDescription className="text-xs">
+                View your plans, update your card, or cancel at any time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-3">
+              {activeSubscriptions.length > 0 ? (
+                <div className="space-y-2">
+                  {activeSubscriptions.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{formatPlanName(sub.plan)}</p>
+                        {sub.current_period_end && (
+                          <p className="text-xs text-muted-foreground">
+                            Renews {formatDate(sub.current_period_end)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium text-green-600 capitalize flex-shrink-0">
+                        {sub.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  You don't have an active subscription.
+                </p>
+              )}
+
+              <div className="flex flex-col xs:flex-row gap-2">
+                <Button
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  variant={activeSubscriptions.length > 0 ? 'default' : 'outline'}
+                  className="gap-2"
+                >
+                  {portalLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4" />
+                  )}
+                  {portalLoading ? 'Opening…' : 'Manage billing'}
+                </Button>
+                {activeSubscriptions.length === 0 && (
+                  <Button variant="ghost" onClick={() => navigate('/pricing')} className="gap-2">
+                    View plans
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Billing is handled securely by Stripe. Cancelling stops future charges; you keep
+                access until the end of the period you've paid for.
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Email Preferences */}
           <Card className="mb-4">
             <CardHeader className="pb-2 p-4">
