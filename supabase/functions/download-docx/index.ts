@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2.52.1';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'npm:docx@8.5.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'https://esm.sh/docx@8.5.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +42,7 @@ serve(async (req) => {
       .eq('id', session_id)
       .single();
 
-    if (sessionError) {
+    if (sessionError || !session) {
       console.error('Error fetching session:', sessionError);
       return new Response(
         JSON.stringify({ error: 'Session not found' }), 
@@ -50,6 +50,15 @@ serve(async (req) => {
           status: 404, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
+      );
+    }
+
+    // Ownership check: the caller must be the owner of this patent session
+    if (session.user_id !== callerId) {
+      console.warn('Ownership mismatch on download-docx', { callerId, owner: session.user_id });
+      return new Response(
+        JSON.stringify({ error: 'Not authorized to download this patent' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
