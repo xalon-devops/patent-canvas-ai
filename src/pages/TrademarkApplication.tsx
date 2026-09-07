@@ -14,6 +14,15 @@ import {
   Loader2, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Info
 } from 'lucide-react';
 import { TRADEMARK_FILING_PRICE_DISPLAY } from '@/lib/pricingConstants';
+import { formatDateShort } from '@/lib/dateUtils';
+
+interface TrademarkDraftRow {
+  id: string;
+  mark_name: string | null;
+  status: string;
+  step_completed: number | null;
+  updated_at: string;
+}
 
 const STEPS = [
   { id: 1, label: 'Mark Info', icon: Tag },
