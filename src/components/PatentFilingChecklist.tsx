@@ -32,6 +32,8 @@ interface PatentSection {
 
 interface PatentFilingChecklistProps {
   sections: PatentSection[];
+  /** When provided, manually ticked items are saved and restored for this session */
+  sessionId?: string;
 }
 
 const REQUIRED_DOCUMENTS: ChecklistItem[] = [
