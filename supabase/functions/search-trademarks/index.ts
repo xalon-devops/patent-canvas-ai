@@ -320,6 +320,8 @@ CRITICAL: Return ONLY a raw JSON array. No markdown code blocks. No explanation 
     "registration_date": null,
     "nice_classes": ["009"],
     "goods_services": "What the brand sells or does",
+    "first_use_date": "Earliest date this brand can be shown in use in commerce, YYYY-MM-DD or YYYY, or null",
+    "first_use_evidence": "One sentence citing the evidence for that first-use date (e.g. 'company founded 2016 per About page', 'product launch press release Mar 2019'), or null",
     "conflict_analysis": ["Why this conflicts"],
     "differentiation_points": ["How it differs"],
     "url": "URL to trademark record or company website"
