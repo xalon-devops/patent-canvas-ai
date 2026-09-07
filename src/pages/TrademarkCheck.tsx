@@ -593,8 +593,21 @@ export default function TrademarkCheck() {
                 {generatingReport ? 'Generating Report...' : 'Download Clearance Opinion (DOCX)'}
               </Button>
             </div>
+            {registeredResults.length === 0 && (
+              <Card className="mb-4 border-green-500/20 bg-green-500/5">
+                <CardContent className="py-5 text-center">
+                  <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
+                  <p className="font-semibold text-foreground">No registered or pending trademarks found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Nothing on the USPTO register matched "{markName}". Any items below are brands used publicly
+                    without a filing — they can still create common-law rights, but they are not registrations.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <div className="space-y-3">
-              {results.map((result, idx) => (
+              {registeredResults.map((result, idx) => (
+
                 <Card
                   key={idx}
                   className="overflow-hidden transition-all hover:shadow-card cursor-pointer"
