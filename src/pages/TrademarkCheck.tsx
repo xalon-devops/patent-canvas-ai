@@ -766,8 +766,57 @@ export default function TrademarkCheck() {
                 </Card>
               ))}
             </div>
+
+            {commonLawResults.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-1">
+                  Unregistered brand usage
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Found in use online with no USPTO filing on record. These are not trademark registrations —
+                  they may be your own brand, or another business with common-law rights only.
+                </p>
+                <div className="space-y-2">
+                  {commonLawResults.map((result, i) => (
+                    <Card key={`cl-${i}`} className="border-dashed">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-medium text-foreground text-sm">{result.mark_name}</h4>
+                              <Badge variant="outline" className="text-[10px]">No USPTO filing</Badge>
+                            </div>
+                            {result.owner && (
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {result.owner}
+                              </p>
+                            )}
+                            {result.goods_services && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{result.goods_services}</p>
+                            )}
+                          </div>
+                          {result.url && (
+                            <a
+                              href={result.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline inline-flex items-center gap-1 flex-shrink-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Visit
+                            </a>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
+
 
         {/* No results message */}
         {!loading && hasSearched && results.length === 0 && (
