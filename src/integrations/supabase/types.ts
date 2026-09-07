@@ -360,6 +360,41 @@ export type Database = {
         }
         Relationships: []
       }
+      patent_checklist_state: {
+        Row: {
+          checked_items: Json
+          created_at: string
+          id: string
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checked_items?: Json
+          created_at?: string
+          id?: string
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checked_items?: Json
+          created_at?: string
+          id?: string
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patent_checklist_state_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "patent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patent_claim_tree: {
         Row: {
           claim_number: number
@@ -800,6 +835,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      prior_art_searches: {
+        Row: {
+          created_at: string
+          id: string
+          patent_type: string | null
+          query: string
+          results: Json
+          results_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          patent_type?: string | null
+          query: string
+          results?: Json
+          results_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          patent_type?: string | null
+          query?: string
+          results?: Json
+          results_count?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
