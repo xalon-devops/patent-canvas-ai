@@ -517,9 +517,10 @@ export default function TrademarkCheck() {
                 className="text-base"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                US trademark rights go to the first user, not the first filer. Your date lets us tell you whether
-                anyone else got there first.
+                Leave it blank and we'll detect it for you from the first time your website appeared publicly
+                online. US trademark rights go to the first user, not the first filer.
               </p>
+
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
@@ -600,6 +601,13 @@ export default function TrademarkCheck() {
                     </Badge>
                   </div>
                   <p className="text-sm text-foreground leading-relaxed">{priority.summary}</p>
+
+                  {priority.detected_first_use_date && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Detected automatically: {priority.detected_first_use_evidence}
+                    </p>
+                  )}
+
 
                   {priority.timeline?.length > 0 && (
                     <div className="mt-4 space-y-1.5">
