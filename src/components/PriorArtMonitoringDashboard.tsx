@@ -282,19 +282,33 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
                   </Badge>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-[10px] h-6 gap-1"
-                disabled={runningId === monitor.id}
-                onClick={() => runMonitor(monitor)}
-              >
-                {runningId === monitor.id ? (
-                  <><Loader2 className="w-2.5 h-2.5 animate-spin" />Scanning…</>
-                ) : (
-                  <><RefreshCw className="w-2.5 h-2.5" />Run Now</>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-[10px] h-6 gap-1"
+                  disabled={runningId === monitor.id}
+                  onClick={() => runMonitor(monitor)}
+                >
+                  {runningId === monitor.id ? (
+                    <><Loader2 className="w-2.5 h-2.5 animate-spin" />Scanning…</>
+                  ) : (
+                    <><RefreshCw className="w-2.5 h-2.5" />Run Now</>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-muted-foreground hover:text-destructive"
+                  disabled={deletingId === monitor.id}
+                  onClick={() => deleteMonitor(monitor)}
+                  aria-label="Remove this watch"
+                >
+                  {deletingId === monitor.id
+                    ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    : <Trash2 className="w-2.5 h-2.5" />}
+                </Button>
+              </div>
             </div>
           ))
         )}
