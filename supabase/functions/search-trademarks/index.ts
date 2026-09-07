@@ -206,6 +206,9 @@ Be honest and practical. If marks are in completely different industries with di
       // as common-law usage instead of presenting them as registrations.
       const isRegistered = !!(result._verified || result.registration_number || result.serial_number);
 
+      // Is this hit the applicant's own use? (their own site / their own brand)
+      const isApplicantUse = !isRegistered && isSameHost(result.url, own_url);
+
       const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: isRegistered ? result.registration_number : null,
@@ -223,7 +226,12 @@ Be honest and practical. If marks are in completely different industries with di
         verdict_summary: result._verdict_summary || null,
         likelihood_of_confusion: result._likelihood || null,
         recommendation: result._recommendation || null,
-        source: isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
+        first_use_date: normalizeUseDate(result.first_use_date) || null,
+        first_use_evidence: result.first_use_evidence || null,
+        is_applicant_use: isApplicantUse,
+        source: isApplicantUse
+          ? 'Your own use (no USPTO filing found)'
+          : isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
         url: result.url,
       };
 
@@ -238,11 +246,24 @@ Be honest and practical. If marks are in completely different industries with di
       return b.similarity_score - a.similarity_score;
     });
 
+    // ===== FIRST-TO-USE PRIORITY ANALYSIS =====
+    // US trademark rights come from use in commerce, not filing. Build a
+    // timeline of every dated use we can find (registrants' sworn first-use
+    // dates plus common-law web evidence) and work out who is truly first.
+    const priorityAnalysis = buildPriorityAnalysis(
+      trimmedName,
+      analyzedResults,
+      normalizeUseDate(applicant_first_use),
+    );
 
     if (searchRecord && analyzedResults.length > 0) {
-      await supabaseClient.from('trademark_results').insert(analyzedResults.slice(0, 15));
+      const { error: insertError } = await supabaseClient
+        .from('trademark_results')
+        .insert(analyzedResults.slice(0, 15));
+      if (insertError) console.error('[TRADEMARK SEARCH] Failed to save results:', insertError);
       await supabaseClient.from('trademark_searches').update({ results_count: analyzedResults.length }).eq('id', searchRecord.id);
     }
+
 
     console.log(`[TRADEMARK SEARCH] Complete: ${analyzedResults.length} results`);
 
