@@ -221,6 +221,7 @@ export default function TrademarkCheck() {
 
 
       setResults(data.results || []);
+      setPriority(data.priority_analysis || null);
       setCreditsRemaining(data.search_credits_remaining);
 
       toast({
