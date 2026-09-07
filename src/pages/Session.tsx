@@ -1319,7 +1319,7 @@ const Session = () => {
               <PatentGlossary sections={sections} />
 
               {/* USPTO Filing Checklist */}
-              <PatentFilingChecklist sections={sections} />
+              <PatentFilingChecklist sections={sections} sessionId={id} />
             </div>
 
           ) : (
