@@ -49,6 +49,9 @@ interface TrademarkResult {
   verdict_summary: string | null;
   likelihood_of_confusion: string | null;
   recommendation: string | null;
+  first_use_date?: string | null;
+  first_use_evidence?: string | null;
+  is_applicant_use?: boolean;
   source: string;
   url: string | null;
 }
