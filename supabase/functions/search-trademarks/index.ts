@@ -300,7 +300,7 @@ Return 5-15 results. NEVER return empty array. Include well-known brands even wi
           },
           {
             role: 'user',
-            content: `Find existing trademarks and brands that conflict with: "${markName}"\nDescription: ${description || 'Not provided'}\n${classInfo}\n\nSearch for companies using "${markName}" or similar names. Include ANY brand that could cause confusion.`
+            content: `Find existing trademarks and brands that conflict with: "${markName}"\nDescription: ${description || 'Not provided'}\n${classInfo}\n\nAlso check these sound-alike and misspelling variants, since USPTO treats phonetically equivalent marks as confusingly similar: ${variants.join(', ') || 'none'}\n\nSearch for companies using "${markName}" or similar names. Include ANY brand that could cause confusion. Whenever you find a USPTO record, include its serial number.`
           }
         ],
         max_tokens: 4000,
