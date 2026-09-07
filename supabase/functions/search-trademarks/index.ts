@@ -194,7 +194,11 @@ Be honest and practical. If marks are in completely different industries with di
         }
       }
 
-      const similarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
+      const rawSimilarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
+      // Officially verified register records are the most reliable signal
+      const similarity = result._verified
+        ? Math.min(Math.max(rawSimilarity, 0.75), 0.99)
+        : rawSimilarity;
       const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: result.registration_number,
@@ -219,7 +223,13 @@ Be honest and practical. If marks are in completely different industries with di
       analyzedResults.push(resultEntry);
     }
 
-    analyzedResults.sort((a, b) => b.similarity_score - a.similarity_score);
+    analyzedResults.sort((a, b) => {
+      const aOfficial = a.source?.includes('USPTO Official') ? 1 : 0;
+      const bOfficial = b.source?.includes('USPTO Official') ? 1 : 0;
+      if (aOfficial !== bOfficial) return bOfficial - aOfficial;
+      return b.similarity_score - a.similarity_score;
+    });
+
 
     if (searchRecord && analyzedResults.length > 0) {
       await supabaseClient.from('trademark_results').insert(analyzedResults.slice(0, 15));
