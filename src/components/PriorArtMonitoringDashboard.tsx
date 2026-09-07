@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Radar, Bell, Clock, AlertTriangle, CheckCircle, Loader2, RefreshCw
+  Radar, Bell, Clock, AlertTriangle, CheckCircle, Loader2, RefreshCw, Plus, Trash2
 } from 'lucide-react';
 import { formatDate, formatDateShort } from '@/lib/dateUtils';
 
