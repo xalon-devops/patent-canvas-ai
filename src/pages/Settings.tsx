@@ -17,6 +17,13 @@ interface EmailPreferences {
   weekly_digest: boolean;
 }
 
+interface SubscriptionRow {
+  id: string;
+  plan: string;
+  status: string;
+  current_period_end: string | null;
+}
+
 const defaultPreferences: EmailPreferences = {
   draft_complete: true,
   payment_received: true,
