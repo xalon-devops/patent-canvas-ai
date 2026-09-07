@@ -7,8 +7,25 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { ArrowLeft, Bell, Mail, FileText, CreditCard, Shield, Loader2 } from 'lucide-react';
+import { ArrowLeft, Bell, Mail, FileText, CreditCard, Shield, Loader2, ExternalLink } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { formatDate } from '@/lib/dateUtils';
+import {
+  CHECK_AND_SEE_PRICE,
+  TRADEMARK_SEARCH_PRICE,
+} from '@/lib/pricingConstants';
+
+/** Turns a stored plan slug into the customer-facing product name and price. */
+const formatPlanName = (plan: string): string => {
+  const normalized = (plan || '').toLowerCase();
+  if (normalized.includes('trademark')) {
+    return `Trademark Suite — $${TRADEMARK_SEARCH_PRICE}/mo`;
+  }
+  if (normalized.includes('check') || normalized.includes('search') || normalized === 'premium') {
+    return `Check & See — $${CHECK_AND_SEE_PRICE}/mo`;
+  }
+  return plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Subscription';
+};
 
 interface EmailPreferences {
   draft_complete: boolean;
