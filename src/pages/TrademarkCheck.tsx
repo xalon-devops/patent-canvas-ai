@@ -186,6 +186,7 @@ export default function TrademarkCheck() {
 
     setLoading(true);
     setResults([]);
+    setPriority(null);
     setHasSearched(true);
 
     try {
