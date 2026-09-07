@@ -328,7 +328,9 @@ CRITICAL: Return ONLY a raw JSON array. No markdown code blocks. No explanation 
   }
 ]
 
-Return 5-15 results. NEVER return empty array. Include well-known brands even without exact registration numbers.`
+Return 5-15 results. NEVER return empty array. Include well-known brands even without exact registration numbers.
+
+FIRST USE MATTERS: US trademark rights are first-to-use, not first-to-file. For every brand you find, dig for the earliest verifiable date it was used in commerce — domain registration/archive dates, founding year, launch announcements, app store release dates, press coverage — and report it in first_use_date with your evidence in first_use_evidence. Never guess a date without evidence; use null instead.`
           },
           {
             role: 'user',
