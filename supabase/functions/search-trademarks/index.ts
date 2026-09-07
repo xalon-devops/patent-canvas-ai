@@ -113,10 +113,14 @@ serve(async (req) => {
     const classInfo = (nice_classes || []).length > 0 ? nice_classes.join(', ') : '';
     const trimmedName = mark_name.trim();
 
+    // Sound-alike / misspelling variants broaden the net beyond exact spelling
+    const variants = generateMarkVariants(trimmedName);
+    console.log('[TRADEMARK SEARCH] Variants:', variants.join(', '));
+
     // Run searches in parallel
     const [perplexityResults, firecrawlResults, trademarkiaResults] = await Promise.all([
-      searchWithPerplexity(trimmedName, mark_description || '', nice_classes || [], PERPLEXITY_API_KEY),
-      searchWithFirecrawl(trimmedName, classInfo, FIRECRAWL_API_KEY),
+      searchWithPerplexity(trimmedName, mark_description || '', nice_classes || [], PERPLEXITY_API_KEY, variants),
+      searchWithFirecrawl(trimmedName, classInfo, FIRECRAWL_API_KEY, variants),
       scrapeTrademarkia(trimmedName, classInfo, FIRECRAWL_API_KEY),
     ]);
 
@@ -124,7 +128,11 @@ serve(async (req) => {
 
     // Merge and deduplicate
     const allResults = [...perplexityResults, ...firecrawlResults, ...trademarkiaResults];
-    const deduped = deduplicateResults(allResults);
+    let deduped = deduplicateResults(allResults);
+
+    // Verify candidates against the official USPTO register (TSDR)
+    deduped = await verifyAgainstTSDR(deduped);
+
 
     // Analyze conflicts with OpenAI
     const analyzedResults = [];
@@ -186,7 +194,11 @@ Be honest and practical. If marks are in completely different industries with di
         }
       }
 
-      const similarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
+      const rawSimilarity = calculateMarkSimilarity(mark_name, result.mark_name || '');
+      // Officially verified register records are the most reliable signal
+      const similarity = result._verified
+        ? Math.min(Math.max(rawSimilarity, 0.75), 0.99)
+        : rawSimilarity;
       const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: result.registration_number,
@@ -211,7 +223,13 @@ Be honest and practical. If marks are in completely different industries with di
       analyzedResults.push(resultEntry);
     }
 
-    analyzedResults.sort((a, b) => b.similarity_score - a.similarity_score);
+    analyzedResults.sort((a, b) => {
+      const aOfficial = a.source?.includes('USPTO Official') ? 1 : 0;
+      const bOfficial = b.source?.includes('USPTO Official') ? 1 : 0;
+      if (aOfficial !== bOfficial) return bOfficial - aOfficial;
+      return b.similarity_score - a.similarity_score;
+    });
+
 
     if (searchRecord && analyzedResults.length > 0) {
       await supabaseClient.from('trademark_results').insert(analyzedResults.slice(0, 15));
@@ -237,7 +255,7 @@ Be honest and practical. If marks are in completely different industries with di
 });
 
 // ==================== SOURCE 1: PERPLEXITY ====================
-async function searchWithPerplexity(markName: string, description: string, niceClasses: string[], apiKey: string | undefined): Promise<any[]> {
+async function searchWithPerplexity(markName: string, description: string, niceClasses: string[], apiKey: string | undefined, variants: string[] = []): Promise<any[]> {
   if (!apiKey) return [];
 
   try {
@@ -282,7 +300,7 @@ Return 5-15 results. NEVER return empty array. Include well-known brands even wi
           },
           {
             role: 'user',
-            content: `Find existing trademarks and brands that conflict with: "${markName}"\nDescription: ${description || 'Not provided'}\n${classInfo}\n\nSearch for companies using "${markName}" or similar names. Include ANY brand that could cause confusion.`
+            content: `Find existing trademarks and brands that conflict with: "${markName}"\nDescription: ${description || 'Not provided'}\n${classInfo}\n\nAlso check these sound-alike and misspelling variants, since USPTO treats phonetically equivalent marks as confusingly similar: ${variants.join(', ') || 'none'}\n\nSearch for companies using "${markName}" or similar names. Include ANY brand that could cause confusion. Whenever you find a USPTO record, include its serial number.`
           }
         ],
         max_tokens: 4000,
@@ -308,14 +326,16 @@ Return 5-15 results. NEVER return empty array. Include well-known brands even wi
 }
 
 // ==================== SOURCE 2: FIRECRAWL WEB SEARCH ====================
-async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: string | undefined): Promise<any[]> {
+async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: string | undefined, variants: string[] = []): Promise<any[]> {
   if (!apiKey) return [];
 
   try {
     const queries = [
       `"${markName}" trademark registration USPTO`,
       `"${markName}" brand company ${classInfo ? 'software technology' : ''}`,
+      ...variants.slice(0, 3).map((v) => `"${v}" trademark registration USPTO`),
     ];
+
 
     const allResults: any[] = [];
 
@@ -730,4 +750,99 @@ function levenshtein(a: string, b: string): number {
     }
   }
   return matrix[b.length][a.length];
+}
+
+// ==================== SOUND-ALIKE / MISSPELLING VARIANTS ====================
+function generateMarkVariants(markName: string): string[] {
+  const base = markName.trim();
+  const lower = base.toLowerCase();
+  const out = new Set<string>();
+
+  const swaps: Array<[RegExp, string]> = [
+    [/ph/g, 'f'], [/f/g, 'ph'], [/c/g, 'k'], [/k/g, 'c'], [/s/g, 'z'], [/z/g, 's'],
+    [/qu/g, 'kw'], [/x/g, 'ks'], [/ee/g, 'ea'], [/ea/g, 'ee'], [/oo/g, 'u'],
+    [/i/g, 'y'], [/y/g, 'i'], [/er$/g, 'r'], [/ck/g, 'k'],
+  ];
+
+  for (const [pattern, replacement] of swaps) {
+    const v = lower.replace(pattern, replacement);
+    if (v !== lower && v.length >= 2) out.add(v);
+  }
+
+  // Doubled/undoubled consonants and dropped vowels are common near-miss filings
+  out.add(lower.replace(/([bdfglmnprst])\1/g, '$1'));
+  out.add(lower.replace(/([bdfglmnprst])(?!\1)/, '$1$1'));
+  if (lower.endsWith('e')) out.add(lower.slice(0, -1));
+  out.add(lower.replace(/\s+/g, ''));
+
+  out.delete(lower);
+  return Array.from(out).filter((v) => v.length >= 2).slice(0, 8);
+}
+
+// ==================== OFFICIAL USPTO REGISTER (TSDR) ====================
+async function verifyAgainstTSDR(results: any[]): Promise<any[]> {
+  const apiKey = Deno.env.get('USPTO_TRADEMARK_API_KEY');
+  if (!apiKey) {
+    console.log('[TSDR] No USPTO trademark API key configured - skipping verification');
+    return results;
+  }
+
+  const candidates = results.filter((r) => normalizeSerial(r.serial_number)).slice(0, 12);
+  console.log(`[TSDR] Verifying ${candidates.length} candidate serial numbers`);
+
+  await Promise.all(
+    candidates.map(async (result) => {
+      const serial = normalizeSerial(result.serial_number)!;
+      try {
+        const res = await fetch(`https://tsdrapi.uspto.gov/ts/cd/casestatus/sn${serial}/info.json`, {
+          headers: { 'USPTO-API-KEY': apiKey },
+        });
+        if (!res.ok) {
+          console.log(`[TSDR] sn${serial} -> ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        const tm = data?.trademarks?.[0];
+        if (!tm) return;
+
+        const status = tm.status || {};
+        const gs = tm.gsList || [];
+        const parties = tm.parties || {};
+        const owners = parties.ownerGroups
+          ? Object.values(parties.ownerGroups).flat()
+          : (parties.owners || []);
+        const owner: any = Array.isArray(owners) ? owners[0] : null;
+
+        result.mark_name = status.markElement || result.mark_name;
+        result.status = status.statusDefinitionText || status.statusCode || result.status;
+        result.serial_number = status.serialNumber || serial;
+        result.registration_number = status.usRegistrationNumber || result.registration_number;
+        result.filing_date = status.filingDate || result.filing_date;
+        result.registration_date = status.usRegistrationDate || result.registration_date;
+        if (owner) {
+          result.owner = owner.name || owner.partyName || result.owner;
+        }
+        const classes = gs
+          .flatMap((g: any) => (g.internationalClasses || []).map((c: any) => c.code || c.classNumber))
+          .filter(Boolean);
+        if (classes.length) result.nice_classes = Array.from(new Set(classes));
+        const description = gs.map((g: any) => g.description).filter(Boolean).join('; ');
+        if (description) result.goods_services = description.slice(0, 800);
+        result.url = `https://tsdr.uspto.gov/#caseNumber=${result.serial_number}&caseType=SERIAL_NO&searchType=statusSearch`;
+        result.source = 'USPTO Official (TSDR)';
+        result._verified = true;
+        console.log(`[TSDR] Verified sn${serial}: ${result.mark_name} (${result.status})`);
+      } catch (e) {
+        console.error(`[TSDR] sn${serial} error:`, e);
+      }
+    })
+  );
+
+  return results;
+}
+
+function normalizeSerial(value: unknown): string | null {
+  if (!value) return null;
+  const digits = String(value).replace(/\D/g, '');
+  return digits.length === 8 ? digits : null;
 }
