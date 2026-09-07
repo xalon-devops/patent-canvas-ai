@@ -115,6 +115,24 @@ const Check = () => {
         if (data.search_credits_remaining !== 'unlimited') {
           setLocalFreeSearches(data.search_credits_remaining);
         }
+
+        // Persist the search so the user can come back to results they paid for
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: saveError } = await supabase
+            .from('prior_art_searches')
+            .insert({
+              user_id: user.id,
+              query: searchQuery,
+              results_count: data.results.length,
+              results: data.results,
+            } as any);
+          if (saveError) {
+            console.error('Error saving search history:', saveError);
+          } else {
+            loadHistory();
+          }
+        }
       }
     } catch (error: any) {
       console.error('Search error:', error);
