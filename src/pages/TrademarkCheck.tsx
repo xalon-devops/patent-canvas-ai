@@ -201,7 +201,8 @@ export default function TrademarkCheck() {
           body: JSON.stringify({
             mark_name: markName.trim(),
             mark_description: markDescription.trim() || undefined,
-            
+            own_url: markUrl.trim() || undefined,
+            applicant_first_use: firstUse.trim() || undefined,
             nice_classes: selectedClasses.length > 0 ? selectedClasses : undefined,
           }),
         }
