@@ -246,15 +246,57 @@ Be honest and practical. If marks are in completely different industries with di
       return b.similarity_score - a.similarity_score;
     });
 
+    // ===== AUTO-DETECTED FIRST PUBLIC USE (Internet Archive) =====
+    // Hard evidence beats AI guesses: the earliest archived snapshot of a site
+    // proves the brand was publicly visible on that date.
+    const archiveTargets: { url: string; entry: any }[] = [];
+    for (const r of analyzedResults) {
+      if (r.url && archiveTargets.length < 8) archiveTargets.push({ url: r.url, entry: r });
+    }
+    await Promise.all(archiveTargets.map(async ({ url, entry }) => {
+      const archived = await earliestArchivedUse(url);
+      if (!archived) return;
+      const current = entry.first_use_date;
+      if (!current || archived < current) {
+        entry.first_use_date = archived;
+        entry.first_use_evidence = `Earliest public web archive of ${hostOf(url)} on ${archived} (Internet Archive)`;
+      }
+    }));
+
+    // The applicant's own site: detect their first public use automatically
+    let detectedOwnFirstUse: string | null = null;
+    let detectedOwnEvidence: string | null = null;
+    if (own_url) {
+      const ownArchived = await earliestArchivedUse(own_url);
+      if (ownArchived) {
+        detectedOwnFirstUse = ownArchived;
+        detectedOwnEvidence = `Your site ${hostOf(own_url)} was first captured publicly on ${ownArchived} (Internet Archive)`;
+        const ownEntry = analyzedResults.find((r) => r.is_applicant_use);
+        if (ownEntry && (!ownEntry.first_use_date || ownArchived < ownEntry.first_use_date)) {
+          ownEntry.first_use_date = ownArchived;
+          ownEntry.first_use_evidence = detectedOwnEvidence;
+        }
+      }
+    }
+
     // ===== FIRST-TO-USE PRIORITY ANALYSIS =====
     // US trademark rights come from use in commerce, not filing. Build a
     // timeline of every dated use we can find (registrants' sworn first-use
     // dates plus common-law web evidence) and work out who is truly first.
+    const claimedFirstUse = normalizeUseDate(applicant_first_use);
+    const effectiveOwnFirstUse = claimedFirstUse && detectedOwnFirstUse
+      ? (claimedFirstUse < detectedOwnFirstUse ? claimedFirstUse : detectedOwnFirstUse)
+      : (claimedFirstUse || detectedOwnFirstUse);
+
     const priorityAnalysis = buildPriorityAnalysis(
       trimmedName,
       analyzedResults,
-      normalizeUseDate(applicant_first_use),
+      effectiveOwnFirstUse,
+      detectedOwnFirstUse && effectiveOwnFirstUse === detectedOwnFirstUse ? detectedOwnEvidence : null,
     );
+    (priorityAnalysis as any).detected_first_use_date = detectedOwnFirstUse;
+    (priorityAnalysis as any).detected_first_use_evidence = detectedOwnEvidence;
+
 
     if (searchRecord && analyzedResults.length > 0) {
       const { error: insertError } = await supabaseClient
