@@ -134,6 +134,68 @@ export default function TrademarkApplication() {
 
   const progress = (step / STEPS.length) * 100;
 
+  // Resume a saved application when opened with an id
+  useEffect(() => {
+    if (!routeAppId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('trademark_applications')
+        .select('*')
+        .eq('id', routeAppId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        toast({
+          title: "Couldn't open that application",
+          description: error?.message || 'It may have been deleted.',
+          variant: 'destructive',
+        });
+        setLoadingApp(false);
+        return;
+      }
+      const app = data as any;
+      const addr = (app.owner_address || {}) as Record<string, string>;
+      setMarkName(app.mark_name || '');
+      setMarkType(app.mark_type || 'wordmark');
+      setMarkDescription(app.mark_description || '');
+      setFilingBasis(app.filing_basis || 'intent_to_use');
+      setFirstUseDate(app.first_use_date || '');
+      setFirstUseCommerceDate(app.first_use_commerce_date || '');
+      setSelectedClasses(app.nice_classes || []);
+      setGoodsServices(Array.isArray(app.goods_services) ? app.goods_services : []);
+      setOwnerName(app.owner_name || '');
+      setOwnerType(app.owner_type || 'individual');
+      setOwnerStreet(addr.street || '');
+      setOwnerCity(addr.city || '');
+      setOwnerState(addr.state || '');
+      setOwnerZip(addr.zip || '');
+      setOwnerCountry(addr.country || 'US');
+      setSpecimenDescription(app.specimen_description || '');
+      setStep(Math.min(Math.max(app.step_completed || 1, 1), STEPS.length));
+      setLoadingApp(false);
+    })();
+    return () => { cancelled = true; };
+  }, [routeAppId, toast]);
+
+  // List saved drafts so an in-progress application is never stranded
+  useEffect(() => {
+    if (routeAppId) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('trademark_applications')
+        .select('id, mark_name, status, step_completed, updated_at')
+        .eq('user_id', user.id)
+        .eq('status', 'draft')
+        .order('updated_at', { ascending: false })
+        .limit(10);
+      setDrafts((data as unknown as TrademarkDraftRow[]) ?? []);
+    })();
+  }, [routeAppId]);
+
+
   const saveApplication = async () => {
     setSaving(true);
     try {
