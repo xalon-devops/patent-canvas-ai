@@ -35,6 +35,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Authenticate the caller — required so we can verify session ownership
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: authData, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    const callerId = authData?.user?.id;
+    if (authError || !callerId) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Fetch patent session
     const { data: session, error: sessionError } = await supabase
       .from('patent_sessions')
