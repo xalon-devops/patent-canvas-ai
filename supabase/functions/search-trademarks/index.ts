@@ -751,3 +751,98 @@ function levenshtein(a: string, b: string): number {
   }
   return matrix[b.length][a.length];
 }
+
+// ==================== SOUND-ALIKE / MISSPELLING VARIANTS ====================
+function generateMarkVariants(markName: string): string[] {
+  const base = markName.trim();
+  const lower = base.toLowerCase();
+  const out = new Set<string>();
+
+  const swaps: Array<[RegExp, string]> = [
+    [/ph/g, 'f'], [/f/g, 'ph'], [/c/g, 'k'], [/k/g, 'c'], [/s/g, 'z'], [/z/g, 's'],
+    [/qu/g, 'kw'], [/x/g, 'ks'], [/ee/g, 'ea'], [/ea/g, 'ee'], [/oo/g, 'u'],
+    [/i/g, 'y'], [/y/g, 'i'], [/er$/g, 'r'], [/ck/g, 'k'],
+  ];
+
+  for (const [pattern, replacement] of swaps) {
+    const v = lower.replace(pattern, replacement);
+    if (v !== lower && v.length >= 2) out.add(v);
+  }
+
+  // Doubled/undoubled consonants and dropped vowels are common near-miss filings
+  out.add(lower.replace(/([bdfglmnprst])\1/g, '$1'));
+  out.add(lower.replace(/([bdfglmnprst])(?!\1)/, '$1$1'));
+  if (lower.endsWith('e')) out.add(lower.slice(0, -1));
+  out.add(lower.replace(/\s+/g, ''));
+
+  out.delete(lower);
+  return Array.from(out).filter((v) => v.length >= 2).slice(0, 8);
+}
+
+// ==================== OFFICIAL USPTO REGISTER (TSDR) ====================
+async function verifyAgainstTSDR(results: any[]): Promise<any[]> {
+  const apiKey = Deno.env.get('USPTO_TRADEMARK_API_KEY');
+  if (!apiKey) {
+    console.log('[TSDR] No USPTO trademark API key configured - skipping verification');
+    return results;
+  }
+
+  const candidates = results.filter((r) => normalizeSerial(r.serial_number)).slice(0, 12);
+  console.log(`[TSDR] Verifying ${candidates.length} candidate serial numbers`);
+
+  await Promise.all(
+    candidates.map(async (result) => {
+      const serial = normalizeSerial(result.serial_number)!;
+      try {
+        const res = await fetch(`https://tsdrapi.uspto.gov/ts/cd/casestatus/sn${serial}/info.json`, {
+          headers: { 'USPTO-API-KEY': apiKey },
+        });
+        if (!res.ok) {
+          console.log(`[TSDR] sn${serial} -> ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        const tm = data?.trademarks?.[0];
+        if (!tm) return;
+
+        const status = tm.status || {};
+        const gs = tm.gsList || [];
+        const parties = tm.parties || {};
+        const owners = parties.ownerGroups
+          ? Object.values(parties.ownerGroups).flat()
+          : (parties.owners || []);
+        const owner: any = Array.isArray(owners) ? owners[0] : null;
+
+        result.mark_name = status.markElement || result.mark_name;
+        result.status = status.statusDefinitionText || status.statusCode || result.status;
+        result.serial_number = status.serialNumber || serial;
+        result.registration_number = status.usRegistrationNumber || result.registration_number;
+        result.filing_date = status.filingDate || result.filing_date;
+        result.registration_date = status.usRegistrationDate || result.registration_date;
+        if (owner) {
+          result.owner = owner.name || owner.partyName || result.owner;
+        }
+        const classes = gs
+          .flatMap((g: any) => (g.internationalClasses || []).map((c: any) => c.code || c.classNumber))
+          .filter(Boolean);
+        if (classes.length) result.nice_classes = Array.from(new Set(classes));
+        const description = gs.map((g: any) => g.description).filter(Boolean).join('; ');
+        if (description) result.goods_services = description.slice(0, 800);
+        result.url = `https://tsdr.uspto.gov/#caseNumber=${result.serial_number}&caseType=SERIAL_NO&searchType=statusSearch`;
+        result.source = 'USPTO Official (TSDR)';
+        result._verified = true;
+        console.log(`[TSDR] Verified sn${serial}: ${result.mark_name} (${result.status})`);
+      } catch (e) {
+        console.error(`[TSDR] sn${serial} error:`, e);
+      }
+    })
+  );
+
+  return results;
+}
+
+function normalizeSerial(value: unknown): string | null {
+  if (!value) return null;
+  const digits = String(value).replace(/\D/g, '');
+  return digits.length === 8 ? digits : null;
+}
