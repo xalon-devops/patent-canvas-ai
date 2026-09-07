@@ -375,6 +375,39 @@ export default function TrademarkApplication() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pb-24">
+        {/* Saved applications you can pick back up */}
+        {!routeAppId && !appId && drafts.length > 0 && (
+          <Card className="mb-5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Continue where you left off</CardTitle>
+              <CardDescription className="text-xs">
+                These applications are saved and unfinished.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {drafts.map((draft) => (
+                <button
+                  key={draft.id}
+                  onClick={() => navigate(`/trademark-application/${draft.id}`)}
+                  className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium truncate">
+                      {draft.mark_name || 'Untitled mark'}
+                    </p>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {formatDateShort(draft.updated_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Step {Math.min(Math.max(draft.step_completed || 1, 1), STEPS.length)} of {STEPS.length}
+                  </p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Step 1: Mark Information */}
         {step === 1 && (
           <div className="space-y-5">
