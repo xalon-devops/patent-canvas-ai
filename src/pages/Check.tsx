@@ -7,7 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthenticatedPatentData } from '@/hooks/usePatentData';
-import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2 } from 'lucide-react';
+import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2, History } from 'lucide-react';
+import { formatDateShort } from '@/lib/dateUtils';
+
+interface SearchHistoryRow {
+  id: string;
+  query: string;
+  patent_type: string | null;
+  results_count: number;
+  results: any;
+  created_at: string;
+}
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
