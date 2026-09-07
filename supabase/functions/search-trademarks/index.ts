@@ -113,10 +113,14 @@ serve(async (req) => {
     const classInfo = (nice_classes || []).length > 0 ? nice_classes.join(', ') : '';
     const trimmedName = mark_name.trim();
 
+    // Sound-alike / misspelling variants broaden the net beyond exact spelling
+    const variants = generateMarkVariants(trimmedName);
+    console.log('[TRADEMARK SEARCH] Variants:', variants.join(', '));
+
     // Run searches in parallel
     const [perplexityResults, firecrawlResults, trademarkiaResults] = await Promise.all([
-      searchWithPerplexity(trimmedName, mark_description || '', nice_classes || [], PERPLEXITY_API_KEY),
-      searchWithFirecrawl(trimmedName, classInfo, FIRECRAWL_API_KEY),
+      searchWithPerplexity(trimmedName, mark_description || '', nice_classes || [], PERPLEXITY_API_KEY, variants),
+      searchWithFirecrawl(trimmedName, classInfo, FIRECRAWL_API_KEY, variants),
       scrapeTrademarkia(trimmedName, classInfo, FIRECRAWL_API_KEY),
     ]);
 
@@ -124,7 +128,11 @@ serve(async (req) => {
 
     // Merge and deduplicate
     const allResults = [...perplexityResults, ...firecrawlResults, ...trademarkiaResults];
-    const deduped = deduplicateResults(allResults);
+    let deduped = deduplicateResults(allResults);
+
+    // Verify candidates against the official USPTO register (TSDR)
+    deduped = await verifyAgainstTSDR(deduped);
+
 
     // Analyze conflicts with OpenAI
     const analyzedResults = [];
