@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MoreVertical, Settings, Key, LogOut, Shield, UserIcon } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Settings, Key, LogOut, Shield, UserIcon, LayoutDashboard, FileText, Search, BadgeCheck, BarChart3 } from 'lucide-react';
 import { UserAvatar } from '@/components/UserAvatar';
 
 interface ProtectedHeaderProps {
