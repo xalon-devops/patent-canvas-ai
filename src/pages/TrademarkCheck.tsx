@@ -64,6 +64,52 @@ export default function TrademarkCheck() {
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
+
+  // Searches are stored server-side; list them so results are never lost
+  const loadSearchHistory = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('trademark_searches')
+      .select('id, mark_name, mark_description, nice_classes, results_count, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) {
+      console.error('Error loading trademark search history:', error);
+      return;
+    }
+    setSearchHistory((data as unknown as TrademarkSearchHistoryRow[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    loadSearchHistory();
+  }, [loadSearchHistory]);
+
+  const openHistoryEntry = async (entry: TrademarkSearchHistoryRow) => {
+    setLoadingHistoryId(entry.id);
+    try {
+      const { data, error } = await supabase
+        .from('trademark_results')
+        .select('*')
+        .eq('search_id', entry.id)
+        .order('similarity_score', { ascending: false });
+      if (error) throw error;
+      setMarkName(entry.mark_name);
+      setMarkDescription(entry.mark_description || '');
+      setSelectedClasses(entry.nice_classes || []);
+      setResults((data as unknown as TrademarkResult[]) ?? []);
+      setHasSearched(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error: any) {
+      console.error('Error loading past search:', error);
+      toast({ title: "Couldn't load that search", description: error.message, variant: 'destructive' });
+    } finally {
+      setLoadingHistoryId(null);
+    }
+  };
   const navigate = useNavigate();
   const { toast } = useToast();
 
