@@ -1018,8 +1018,9 @@ function buildPriorityAnalysis(markName: string, results: any[], applicantFirstU
     first_use_date: yourDate,
     priority_date: yourDate,
     evidence: yourDate
-      ? (ownUse?.first_use_evidence || 'Your own use in commerce')
+      ? (detectedEvidence || ownUse?.first_use_evidence || 'Your own use in commerce')
       : 'No first-use date on file — add yours to establish priority',
+
     similarity_score: 1,
     url: ownUse?.url || null,
     is_you: true,
