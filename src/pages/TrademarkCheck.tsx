@@ -708,6 +708,42 @@ export default function TrademarkCheck() {
           </Card>
         )}
 
+        {/* Past searches */}
+        {searchHistory.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <History className="h-4 w-4" />
+                Your past trademark searches
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tap a search to reload its results — no new search is used.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {searchHistory.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => openHistoryEntry(entry)}
+                  disabled={loadingHistoryId === entry.id}
+                  className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors disabled:opacity-60"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium truncate">{entry.mark_name}</p>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {loadingHistoryId === entry.id ? 'Loading…' : formatDateShort(entry.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {entry.results_count ?? 0} {entry.results_count === 1 ? 'result' : 'results'}
+                    {entry.nice_classes?.length ? ` · Classes ${entry.nice_classes.join(', ')}` : ''}
+                  </p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Legal Disclaimer */}
         <div className="mt-8 text-center">
           <p className="text-[11px] text-muted-foreground max-w-2xl mx-auto leading-relaxed">
