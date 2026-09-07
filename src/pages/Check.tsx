@@ -341,6 +341,39 @@ const Check = () => {
               />
             )}
 
+            {history.length > 0 && (
+              <Card className="shadow-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <History className="h-4 w-4" />
+                    Your past searches
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Tap any search to reopen its results — no new credit is used.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {history.map((entry) => (
+                    <button
+                      key={entry.id}
+                      onClick={() => openHistoryEntry(entry)}
+                      className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium truncate">{entry.query}</p>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {formatDateShort(entry.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {entry.results_count} {entry.results_count === 1 ? 'result' : 'results'}
+                      </p>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {!searching && priorArtResults.length === 0 && searchQuery && (
               <Card className="shadow-card text-center p-12">
                 <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
