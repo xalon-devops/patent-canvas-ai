@@ -504,6 +504,21 @@ export default function TrademarkCheck() {
               <p className="text-xs text-muted-foreground mt-1">Paste your brand's URL and click Scrape to auto-fill the description.</p>
             </div>
             <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                When did you first use this name in commerce? (optional)
+              </label>
+              <Input
+                type="date"
+                value={firstUse}
+                onChange={e => setFirstUse(e.target.value)}
+                className="text-base"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                US trademark rights go to the first user, not the first filer. Your date lets us tell you whether
+                anyone else got there first.
+              </p>
+            </div>
+            <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Description (optional)</label>
               <Textarea
                 value={markDescription}
