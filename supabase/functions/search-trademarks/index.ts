@@ -272,6 +272,7 @@ Be honest and practical. If marks are in completely different industries with di
       search_id: searchRecord?.id || null,
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
+      priority_analysis: priorityAnalysis,
       search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : creditsRemaining),
     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
