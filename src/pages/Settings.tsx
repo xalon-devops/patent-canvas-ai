@@ -81,6 +81,24 @@ const Settings = () => {
     loadUserAndPreferences();
   }, [navigate]);
 
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      if (!data?.url) throw new Error('No billing portal link was returned.');
+      window.location.href = data.url as string;
+    } catch (error) {
+      console.error('Error opening billing portal:', error);
+      toast({
+        title: "Couldn't open billing",
+        description: error instanceof Error ? error.message : 'Please try again in a moment.',
+        variant: "destructive",
+      });
+      setPortalLoading(false);
+    }
+  };
+
   const handleToggle = (key: keyof EmailPreferences) => {
     setPreferences(prev => ({
       ...prev,
