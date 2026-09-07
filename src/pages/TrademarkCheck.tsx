@@ -262,9 +262,15 @@ export default function TrademarkCheck() {
 
   const [generatingReport, setGeneratingReport] = useState(false);
 
-  const highRisk = results.filter(r => r.similarity_score >= 0.7).length;
-  const medRisk = results.filter(r => r.similarity_score >= 0.4 && r.similarity_score < 0.7).length;
-  const lowRisk = results.filter(r => r.similarity_score < 0.4).length;
+  const isRegisteredResult = (r: TrademarkResult) =>
+    !!(r.registration_number || r.serial_number) && (r.status || '').toUpperCase() !== 'UNREGISTERED';
+  const registeredResults = results.filter(isRegisteredResult);
+  const commonLawResults = results.filter(r => !isRegisteredResult(r));
+
+  const highRisk = registeredResults.filter(r => r.similarity_score >= 0.7).length;
+  const medRisk = registeredResults.filter(r => r.similarity_score >= 0.4 && r.similarity_score < 0.7).length;
+  const lowRisk = registeredResults.filter(r => r.similarity_score < 0.4).length;
+
 
   const generateOpinionReport = async () => {
     if (results.length === 0) return;
