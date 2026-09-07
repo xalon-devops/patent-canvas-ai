@@ -577,6 +577,70 @@ export default function TrademarkCheck() {
         {/* Results Summary */}
         {!loading && results.length > 0 && (
           <>
+            {/* First-to-use priority */}
+            {priority && (
+              <Card className={`mb-6 ${
+                priority.verdict === 'SENIOR_USER_EXISTS' ? 'border-amber-500/30 bg-amber-500/5'
+                : priority.verdict === 'YOU_ARE_FIRST' ? 'border-green-500/30 bg-green-500/5'
+                : 'border-border'
+              }`}>
+                <CardContent className="py-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+                    <div>
+                      <h3 className="font-semibold text-foreground text-base">Who used it first?</h3>
+                      <p className="text-xs text-muted-foreground">Priority analysis for "{markName}"</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {priority.verdict === 'YOU_ARE_FIRST' ? 'You appear to be first'
+                        : priority.verdict === 'SENIOR_USER_EXISTS' ? 'An earlier user exists'
+                        : 'Needs your first-use date'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">{priority.summary}</p>
+
+                  {priority.timeline?.length > 0 && (
+                    <div className="mt-4 space-y-1.5">
+                      {priority.timeline.map((t: any, i: number) => (
+                        <div
+                          key={i}
+                          className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-xs ${
+                            t.is_you ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <span className="font-medium text-foreground">{t.mark_name}</span>
+                            {t.owner && <span className="text-muted-foreground"> — {t.owner}</span>}
+                            {t.evidence && <p className="text-muted-foreground mt-0.5">{t.evidence}</p>}
+                          </div>
+                          <span className="font-mono text-foreground flex-shrink-0">{t.priority_date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => navigate('/trademark-application', {
+                        state: {
+                          mark_name: markName.trim(),
+                          mark_description: markDescription.trim() || undefined,
+                          nice_classes: selectedClasses,
+                          first_use_date: priority.your_first_use_date || firstUse || undefined,
+                        },
+                      })}
+                      className="btn-dark rounded-xl"
+                    >
+                      File this trademark
+                    </Button>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+                    {priority.rule}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid grid-cols-3 gap-3 mb-6">
               <Card className="border-red-500/20 bg-red-500/5">
                 <CardContent className="py-4 text-center">
