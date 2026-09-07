@@ -326,14 +326,16 @@ Return 5-15 results. NEVER return empty array. Include well-known brands even wi
 }
 
 // ==================== SOURCE 2: FIRECRAWL WEB SEARCH ====================
-async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: string | undefined): Promise<any[]> {
+async function searchWithFirecrawl(markName: string, classInfo: string, apiKey: string | undefined, variants: string[] = []): Promise<any[]> {
   if (!apiKey) return [];
 
   try {
     const queries = [
       `"${markName}" trademark registration USPTO`,
       `"${markName}" brand company ${classInfo ? 'software technology' : ''}`,
+      ...variants.slice(0, 3).map((v) => `"${v}" trademark registration USPTO`),
     ];
+
 
     const allResults: any[] = [];
 
