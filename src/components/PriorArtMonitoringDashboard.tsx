@@ -126,6 +126,48 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
     }
   };
 
+  const createMonitor = async () => {
+    if (!newQuery.trim() || !newTarget) return;
+    setCreating(true);
+    try {
+      const [kind, targetId] = newTarget.split(':');
+      const { error } = await supabase
+        .from('prior_art_monitoring')
+        .insert({
+          search_query: newQuery.trim(),
+          patent_idea_id: kind === 'idea' ? targetId : null,
+          patent_session_id: kind === 'session' ? targetId : null,
+          is_active: true,
+          last_search_at: new Date().toISOString(),
+        } as any);
+      if (error) throw error;
+      setNewQuery('');
+      setNewTarget('');
+      setShowAdd(false);
+      fetchMonitors();
+    } catch (e: any) {
+      toast({ title: "Couldn't add that watch", description: e.message, variant: 'destructive' });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteMonitor = async (monitor: MonitoringRecord) => {
+    setDeletingId(monitor.id);
+    try {
+      const { error } = await supabase
+        .from('prior_art_monitoring')
+        .delete()
+        .eq('id', monitor.id);
+      if (error) throw error;
+      setMonitors(prev => prev.filter(m => m.id !== monitor.id));
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const toggleActive = async (monitor: MonitoringRecord) => {
     try {
       await supabase
