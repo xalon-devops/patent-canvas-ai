@@ -443,6 +443,93 @@ function extractPatentNumber(url: string | undefined): string | null {
   return match ? match[0] : null;
 }
 
+// PRIMARY AUTHORITATIVE: USPTO Open Data Portal (official patent register)
+async function searchUSPTOOfficial(keywords: string[]): Promise<any[]> {
+  const apiKey = Deno.env.get('USPTO_API_KEY');
+  if (!apiKey) {
+    console.log('[USPTO] No USPTO_API_KEY, skipping official search');
+    return [];
+  }
+
+  const terms = keywords.filter(k => k.length > 3).slice(0, 6);
+  if (terms.length === 0) return [];
+
+  const collected: any[] = [];
+  const seen = new Set<string>();
+
+  // Progressive relaxation: start with the most specific AND query, then widen
+  const attempts: string[][] = [];
+  for (let n = Math.min(4, terms.length); n >= 2; n--) {
+    attempts.push(terms.slice(0, n));
+  }
+
+  for (const attempt of attempts) {
+    if (collected.length >= 10) break;
+    const q = `applicationMetaData.inventionTitle:(${attempt.join(' AND ')})`;
+
+    try {
+      const response = await fetch('https://api.uspto.gov/api/v1/patent/applications/search', {
+        method: 'POST',
+        headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          q,
+          fields: [
+            'applicationNumberText',
+            'applicationMetaData.inventionTitle',
+            'applicationMetaData.filingDate',
+            'applicationMetaData.grantDate',
+            'applicationMetaData.firstApplicantName',
+            'applicationMetaData.patentNumber',
+            'applicationMetaData.earliestPublicationNumber',
+            'applicationMetaData.applicationStatusDescriptionText',
+          ],
+          pagination: { offset: 0, limit: 10 },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('[USPTO] API error:', response.status, (await response.text()).slice(0, 200));
+        continue;
+      }
+
+      const data = await response.json();
+      const bag = data?.patentFileWrapperDataBag || [];
+      console.log(`[USPTO] Query "${attempt.join(' AND ')}" -> total ${data?.count ?? 0}, returned ${bag.length}`);
+
+      for (const item of bag) {
+        const meta = item?.applicationMetaData || {};
+        const pubNumber = meta.patentNumber
+          ? `US${String(meta.patentNumber).replace(/[^0-9A-Za-z]/g, '')}`
+          : (meta.earliestPublicationNumber || (item.applicationNumberText ? `US App ${item.applicationNumberText}` : null));
+        if (!pubNumber) continue;
+        const key = pubNumber.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const status = meta.applicationStatusDescriptionText || 'Unknown status';
+        collected.push({
+          title: meta.inventionTitle || pubNumber,
+          publication_number: pubNumber,
+          summary: `Official USPTO record. Status: ${status}. Filed ${meta.filingDate || 'unknown date'}${meta.grantDate ? `, granted ${meta.grantDate}` : ''}. Applicant: ${meta.firstApplicantName || 'Unknown'}.`,
+          assignee: meta.firstApplicantName || 'Unknown',
+          patent_date: meta.grantDate || meta.filingDate || null,
+          url: `https://patents.google.com/patent/${pubNumber.replace(/\s+/g, '')}`,
+          overlap_claims: [],
+          difference_claims: [],
+        });
+        if (collected.length >= 12) break;
+      }
+    } catch (e) {
+      console.error('[USPTO] Query error:', e);
+    }
+  }
+
+  console.log('[USPTO] Official results:', collected.length);
+  return collected;
+}
+
+
+
 // SECONDARY: Google Patents via Firecrawl
 async function searchGooglePatents(keywords: string[], context: string, apiKey: string | undefined): Promise<any[]> {
   if (!apiKey) {
