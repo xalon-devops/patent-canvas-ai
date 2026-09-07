@@ -199,14 +199,21 @@ Be honest and practical. If marks are in completely different industries with di
       const similarity = result._verified
         ? Math.min(Math.max(rawSimilarity, 0.75), 0.99)
         : rawSimilarity;
+
+      // A hit is only a real trademark conflict if it exists on the register.
+      // Web/AI discovery often surfaces plain brand usage (including the
+      // applicant's own website) with no filing behind it — label those clearly
+      // as common-law usage instead of presenting them as registrations.
+      const isRegistered = !!(result._verified || result.registration_number || result.serial_number);
+
       const resultEntry: any = {
         mark_name: result.mark_name,
-        registration_number: result.registration_number,
-        serial_number: result.serial_number,
-        status: result.status,
+        registration_number: isRegistered ? result.registration_number : null,
+        serial_number: isRegistered ? result.serial_number : null,
+        status: isRegistered ? result.status : 'UNREGISTERED',
         owner: result.owner,
-        filing_date: result.filing_date,
-        registration_date: result.registration_date,
+        filing_date: isRegistered ? result.filing_date : null,
+        registration_date: isRegistered ? result.registration_date : null,
         nice_classes: result.nice_classes || [],
         goods_services: result.goods_services,
         similarity_score: similarity,
@@ -216,9 +223,10 @@ Be honest and practical. If marks are in completely different industries with di
         verdict_summary: result._verdict_summary || null,
         likelihood_of_confusion: result._likelihood || null,
         recommendation: result._recommendation || null,
-        source: result.source || 'USPTO',
+        source: isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
         url: result.url,
       };
+
       if (searchRecord) resultEntry.search_id = searchRecord.id;
       analyzedResults.push(resultEntry);
     }
