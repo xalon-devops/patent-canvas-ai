@@ -77,6 +77,8 @@ export default function TrademarkCheck() {
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
+  const [expandedCommonLaw, setExpandedCommonLaw] = useState<number | null>(null);
+
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
@@ -873,7 +875,11 @@ export default function TrademarkCheck() {
                 </p>
                 <div className="space-y-2">
                   {commonLawResults.map((result, i) => (
-                    <Card key={`cl-${i}`} className="border-dashed">
+                    <Card
+                      key={`cl-${i}`}
+                      className="border-dashed cursor-pointer transition-all hover:shadow-card"
+                      onClick={() => setExpandedCommonLaw(expandedCommonLaw === i ? null : i)}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -899,22 +905,139 @@ export default function TrademarkCheck() {
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{result.goods_services}</p>
                             )}
                           </div>
-                          {result.url && (
-                            <a
-                              href={result.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline inline-flex items-center gap-1 flex-shrink-0"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Visit
-                            </a>
-                          )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="text-right">
+                              <p className={`text-sm font-bold ${getSimilarityColor(result.similarity_score)}`}>
+                                {Math.round((result.similarity_score || 0) * 100)}%
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">name match</p>
+                            </div>
+                            {expandedCommonLaw === i
+                              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
                         </div>
+
+                        {expandedCommonLaw === i && (
+                          <div className="mt-4 pt-4 border-t border-border space-y-3">
+                            <div className="p-3 rounded-lg bg-muted/50">
+                              <h5 className="text-xs font-semibold uppercase tracking-wider text-foreground mb-1">
+                                What this means
+                              </h5>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {result.is_applicant_use
+                                  ? 'This is your own brand in use online. Because the US is first-to-use, this public use supports your priority — but it gives you rights only where you actually trade. Filing with the USPTO extends that priority nationwide.'
+                                  : 'This brand is used publicly with no USPTO filing on record. It cannot block your application outright, but a senior common-law user can oppose or limit your rights in the areas where they trade.'}
+                              </p>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div className="p-3 rounded-lg border border-border">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Earliest use found</p>
+                                <p className="text-sm font-medium text-foreground">
+                                  {result.first_use_date || 'Not established'}
+                                </p>
+                                {result.first_use_evidence && (
+                                  <p className="text-xs text-muted-foreground mt-1">{result.first_use_evidence}</p>
+                                )}
+                              </div>
+                              <div className="p-3 rounded-lg border border-border">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Where we found it</p>
+                                <p className="text-sm font-medium text-foreground break-all">
+                                  {result.source || 'Web search'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {result.likelihood_of_confusion && (
+                              <div className="p-3 rounded-lg bg-muted/50">
+                                <h5 className="text-xs font-semibold uppercase tracking-wider text-foreground mb-1">
+                                  Overlap assessment
+                                </h5>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{result.likelihood_of_confusion}</p>
+                              </div>
+                            )}
+
+                            {result.conflict_analysis?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1.5">
+                                  Points of concern
+                                </h5>
+                                <ul className="space-y-1">
+                                  {result.conflict_analysis.map((c, ci) => (
+                                    <li key={ci} className="text-sm text-foreground flex items-start gap-2">
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                                      {c}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {result.differentiation_points?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-1.5">
+                                  Points in your favor
+                                </h5>
+                                <ul className="space-y-1">
+                                  {result.differentiation_points.map((d, di) => (
+                                    <li key={di} className="text-sm text-foreground flex items-start gap-2">
+                                      <CheckCircle className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
+                                      {d}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {result.recommendation && (
+                              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                                <h5 className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                                  Recommendation
+                                </h5>
+                                <p className="text-sm text-foreground font-medium">{result.recommendation}</p>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                              {result.url && (
+                                <a
+                                  href={result.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Open source page
+                                </a>
+                              )}
+                              {result.is_applicant_use && (
+                                <Button
+                                  size="sm"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    navigate('/trademark-application', {
+                                      state: {
+                                        mark_name: markName,
+                                        mark_description: markDescription,
+                                        nice_classes: selectedClasses,
+                                        first_use_date: result.first_use_date || firstUse || undefined,
+                                      },
+                                    });
+                                  }}
+                                >
+                                  File this trademark
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+
               </div>
             )}
           </>
