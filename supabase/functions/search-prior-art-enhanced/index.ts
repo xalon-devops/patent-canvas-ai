@@ -175,11 +175,18 @@ serve(async (req) => {
     for (const result of uniqueResults.slice(0, 20)) {
       let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
 
+      // Official USPTO register records are authoritative — give them a confidence floor
+      if (result.source === 'USPTO Official') {
+        keywordScore = Math.max(keywordScore, 0.75);
+        keywordScore = Math.min(keywordScore * 1.1, 0.99);
+      }
+
       // Strongly prioritize Perplexity — it returns real, verified patent titles/abstracts
       if (result.source === 'Perplexity AI') {
         keywordScore = Math.max(keywordScore, 0.7);
         keywordScore = Math.min(keywordScore * 1.15, 0.98);
       }
+
 
       // Generate overlap/difference analysis
       let overlapClaims: string[] = result.overlap_claims || [];
