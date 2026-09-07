@@ -39,16 +39,28 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
       // Fetch monitoring records linked to user's sessions and ideas
       const { data: sessions } = await supabase
         .from('patent_sessions')
-        .select('id')
+        .select('id, idea_prompt')
         .eq('user_id', userId);
 
       const { data: ideas } = await supabase
         .from('patent_ideas')
-        .select('id')
+        .select('id, title')
         .eq('user_id', userId);
 
       const sessionIds = (sessions || []).map(s => s.id);
       const ideaIds = (ideas || []).map(i => i.id);
+
+      // Options the user can attach a new watch to
+      setWatchTargets([
+        ...(ideas || []).map(i => ({
+          value: `idea:${i.id}`,
+          label: i.title || 'Untitled idea',
+        })),
+        ...(sessions || []).map(s => ({
+          value: `session:${s.id}`,
+          label: (s.idea_prompt || 'Untitled application').slice(0, 60),
+        })),
+      ]);
 
       if (sessionIds.length === 0 && ideaIds.length === 0) {
         setMonitors([]);
