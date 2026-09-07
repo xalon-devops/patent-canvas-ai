@@ -29,8 +29,11 @@ const Settings = () => {
   const [preferences, setPreferences] = useState<EmailPreferences>(defaultPreferences);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
 
   useEffect(() => {
     const loadUserAndPreferences = async () => {
