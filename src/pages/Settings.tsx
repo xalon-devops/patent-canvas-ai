@@ -58,8 +58,18 @@ const Settings = () => {
           ...prefs
         });
       }
+
+      // Load active subscriptions so the user can see and manage what they pay for
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('id, plan, status, current_period_end')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+      setSubscriptions((subData as SubscriptionRow[]) ?? []);
+
       setLoading(false);
     };
+
 
     loadUserAndPreferences();
   }, [navigate]);
