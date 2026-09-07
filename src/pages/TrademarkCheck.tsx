@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +64,52 @@ export default function TrademarkCheck() {
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
+
+  // Searches are stored server-side; list them so results are never lost
+  const loadSearchHistory = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('trademark_searches')
+      .select('id, mark_name, mark_description, nice_classes, results_count, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) {
+      console.error('Error loading trademark search history:', error);
+      return;
+    }
+    setSearchHistory((data as unknown as TrademarkSearchHistoryRow[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    loadSearchHistory();
+  }, [loadSearchHistory]);
+
+  const openHistoryEntry = async (entry: TrademarkSearchHistoryRow) => {
+    setLoadingHistoryId(entry.id);
+    try {
+      const { data, error } = await supabase
+        .from('trademark_results')
+        .select('*')
+        .eq('search_id', entry.id)
+        .order('similarity_score', { ascending: false });
+      if (error) throw error;
+      setMarkName(entry.mark_name);
+      setMarkDescription(entry.mark_description || '');
+      setSelectedClasses(entry.nice_classes || []);
+      setResults((data as unknown as TrademarkResult[]) ?? []);
+      setHasSearched(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error: any) {
+      console.error('Error loading past search:', error);
+      toast({ title: "Couldn't load that search", description: error.message, variant: 'destructive' });
+    } finally {
+      setLoadingHistoryId(null);
+    }
+  };
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -704,6 +750,42 @@ export default function TrademarkCheck() {
                 No conflicting trademarks were found for "{markName}". This is a positive sign for registration,
                 but we still recommend consulting a trademark attorney.
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Past searches */}
+        {searchHistory.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <History className="h-4 w-4" />
+                Your past trademark searches
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tap a search to reload its results — no new search is used.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {searchHistory.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => openHistoryEntry(entry)}
+                  disabled={loadingHistoryId === entry.id}
+                  className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors disabled:opacity-60"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium truncate">{entry.mark_name}</p>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      {loadingHistoryId === entry.id ? 'Loading…' : formatDateShort(entry.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {entry.results_count ?? 0} {entry.results_count === 1 ? 'result' : 'results'}
+                    {entry.nice_classes?.length ? ` · Classes ${entry.nice_classes.join(', ')}` : ''}
+                  </p>
+                </button>
+              ))}
             </CardContent>
           </Card>
         )}

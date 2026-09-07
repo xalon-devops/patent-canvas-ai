@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthenticatedPatentData } from '@/hooks/usePatentData';
-import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2 } from 'lucide-react';
+import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2, History } from 'lucide-react';
+import { formatDateShort } from '@/lib/dateUtils';
+
+interface SearchHistoryRow {
+  id: string;
+  query: string;
+  patent_type: string | null;
+  results_count: number;
+  results: any;
+  created_at: string;
+}
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
@@ -32,8 +42,37 @@ const Check = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [localFreeSearches, setLocalFreeSearches] = useState<number | null>(null);
   const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
+  const [history, setHistory] = useState<SearchHistoryRow[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Past searches are saved so a paid search is never lost on refresh
+  const loadHistory = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('prior_art_searches')
+      .select('id, query, patent_type, results_count, results, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) {
+      console.error('Error loading search history:', error);
+      return;
+    }
+    setHistory((data as unknown as SearchHistoryRow[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) loadHistory();
+  }, [isAuthenticated, loadHistory]);
+
+  const openHistoryEntry = (entry: SearchHistoryRow) => {
+    setSearchQuery(entry.query);
+    setPriorArtResults(Array.isArray(entry.results) ? entry.results : []);
+    setSearchKeywords([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Derived state from centralized hook
   const hasSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
@@ -85,6 +124,24 @@ const Check = () => {
         // Update remaining searches locally for immediate feedback
         if (data.search_credits_remaining !== 'unlimited') {
           setLocalFreeSearches(data.search_credits_remaining);
+        }
+
+        // Persist the search so the user can come back to results they paid for
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: saveError } = await supabase
+            .from('prior_art_searches')
+            .insert({
+              user_id: user.id,
+              query: searchQuery,
+              results_count: data.results.length,
+              results: data.results,
+            } as any);
+          if (saveError) {
+            console.error('Error saving search history:', saveError);
+          } else {
+            loadHistory();
+          }
         }
       }
     } catch (error: any) {
@@ -292,6 +349,39 @@ const Check = () => {
                 searchKeywords={searchKeywords}
                 onRetrySearch={handleSearch}
               />
+            )}
+
+            {history.length > 0 && (
+              <Card className="shadow-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <History className="h-4 w-4" />
+                    Your past searches
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Tap any search to reopen its results — no new credit is used.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {history.map((entry) => (
+                    <button
+                      key={entry.id}
+                      onClick={() => openHistoryEntry(entry)}
+                      className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium truncate">{entry.query}</p>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {formatDateShort(entry.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {entry.results_count} {entry.results_count === 1 ? 'result' : 'results'}
+                      </p>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
             )}
 
             {!searching && priorArtResults.length === 0 && searchQuery && (

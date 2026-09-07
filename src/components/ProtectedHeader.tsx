@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, MoreVertical, Settings, Key, LogOut, Shield, UserIcon } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Settings, Key, LogOut, Shield, UserIcon, LayoutDashboard, FileText, Search, BadgeCheck, BarChart3 } from 'lucide-react';
 import { UserAvatar } from '@/components/UserAvatar';
 
 interface ProtectedHeaderProps {
@@ -127,7 +127,23 @@ export const ProtectedHeader: React.FC<ProtectedHeaderProps> = ({
                   <MoreVertical className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-card border border-border min-w-[180px]" style={{ boxShadow: 'var(--shadow-elegant)' }}>
+              <DropdownMenuContent align="end" className="bg-card border border-border min-w-[200px]" style={{ boxShadow: 'var(--shadow-elegant)' }}>
+                <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                  <LayoutDashboard className="h-4 w-4 mr-2" />Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/drafts')}>
+                  <FileText className="h-4 w-4 mr-2" />My Drafts
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/check')}>
+                  <Search className="h-4 w-4 mr-2" />Check &amp; See
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/trademark-check')}>
+                  <BadgeCheck className="h-4 w-4 mr-2" />Trademark Suite
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/analytics')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />Portfolio Analytics
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <UserIcon className="h-4 w-4 mr-2" />Profile
                 </DropdownMenuItem>
@@ -137,6 +153,11 @@ export const ProtectedHeader: React.FC<ProtectedHeaderProps> = ({
                 {onPasswordChange && (
                   <DropdownMenuItem onClick={onPasswordChange}>
                     <Key className="h-4 w-4 mr-2" />Change Password
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')} className="sm:hidden">
+                    <Shield className="h-4 w-4 mr-2" />Admin
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.52.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
 // FREE_SEARCHES_LIMIT - synced with src/lib/pricingConstants.ts
 const FREE_SEARCHES_LIMIT = 3;

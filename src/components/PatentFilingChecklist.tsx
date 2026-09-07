@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ChecklistItem {
   id: string;
@@ -32,6 +33,8 @@ interface PatentSection {
 
 interface PatentFilingChecklistProps {
   sections: PatentSection[];
+  /** When provided, manually ticked items are saved and restored for this session */
+  sessionId?: string;
 }
 
 const REQUIRED_DOCUMENTS: ChecklistItem[] = [
@@ -205,8 +208,45 @@ const SUBMISSION_STEPS: ChecklistItem[] = [
   },
 ];
 
-export default function PatentFilingChecklist({ sections }: PatentFilingChecklistProps) {
+export default function PatentFilingChecklist({ sections, sessionId }: PatentFilingChecklistProps) {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+
+  // Load previously ticked items so the checklist survives a refresh
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('patent_checklist_state')
+        .select('checked_items')
+        .eq('session_id', sessionId)
+        .maybeSingle();
+      if (error) {
+        console.error('Error loading checklist state:', error);
+        return;
+      }
+      const items = data?.checked_items;
+      if (!cancelled && Array.isArray(items)) {
+        setCheckedItems(new Set(items as string[]));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId]);
+
+  const persist = async (items: Set<string>) => {
+    if (!sessionId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
+      .from('patent_checklist_state')
+      .upsert({
+        session_id: sessionId,
+        user_id: user.id,
+        checked_items: Array.from(items),
+      } as any, { onConflict: 'session_id' });
+    if (error) console.error('Error saving checklist state:', error);
+  };
+
 
   // Auto-check documents based on available sections
   const autoCheckedDocs = useMemo(() => {
@@ -230,6 +270,7 @@ export default function PatentFilingChecklist({ sections }: PatentFilingChecklis
       newChecked.add(id);
     }
     setCheckedItems(newChecked);
+    persist(newChecked);
   };
 
   const isChecked = (id: string) => checkedItems.has(id) || autoCheckedDocs.has(id);

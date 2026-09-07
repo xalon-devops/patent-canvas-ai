@@ -7,14 +7,38 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { ArrowLeft, Bell, Mail, FileText, CreditCard, Shield, Loader2 } from 'lucide-react';
+import { ArrowLeft, Bell, Mail, FileText, CreditCard, Shield, Loader2, ExternalLink } from 'lucide-react';
 import { PageSEO } from '@/components/SEO';
+import { formatDate } from '@/lib/dateUtils';
+import {
+  CHECK_AND_SEE_PRICE,
+  TRADEMARK_SEARCH_PRICE,
+} from '@/lib/pricingConstants';
+
+/** Turns a stored plan slug into the customer-facing product name and price. */
+const formatPlanName = (plan: string): string => {
+  const normalized = (plan || '').toLowerCase();
+  if (normalized.includes('trademark')) {
+    return `Trademark Suite — $${TRADEMARK_SEARCH_PRICE}/mo`;
+  }
+  if (normalized.includes('check') || normalized.includes('search') || normalized === 'premium') {
+    return `Check & See — $${CHECK_AND_SEE_PRICE}/mo`;
+  }
+  return plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Subscription';
+};
 
 interface EmailPreferences {
   draft_complete: boolean;
   payment_received: boolean;
   prior_art_alert: boolean;
   weekly_digest: boolean;
+}
+
+interface SubscriptionRow {
+  id: string;
+  plan: string;
+  status: string;
+  current_period_end: string | null;
 }
 
 const defaultPreferences: EmailPreferences = {
@@ -29,8 +53,11 @@ const Settings = () => {
   const [preferences, setPreferences] = useState<EmailPreferences>(defaultPreferences);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
 
   useEffect(() => {
     const loadUserAndPreferences = async () => {
@@ -55,11 +82,43 @@ const Settings = () => {
           ...prefs
         });
       }
+
+      // Load active subscriptions so the user can see and manage what they pay for
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('id, plan, status, current_period_end')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+      setSubscriptions((subData as SubscriptionRow[]) ?? []);
+
       setLoading(false);
     };
 
+
     loadUserAndPreferences();
   }, [navigate]);
+
+  const activeSubscriptions = subscriptions.filter(
+    (sub) => sub.status === 'active' || sub.status === 'trialing'
+  );
+
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      if (error) throw error;
+      if (!data?.url) throw new Error('No billing portal link was returned.');
+      window.location.href = data.url as string;
+    } catch (error) {
+      console.error('Error opening billing portal:', error);
+      toast({
+        title: "Couldn't open billing",
+        description: error instanceof Error ? error.message : 'Please try again in a moment.',
+        variant: "destructive",
+      });
+      setPortalLoading(false);
+    }
+  };
 
   const handleToggle = (key: keyof EmailPreferences) => {
     setPreferences(prev => ({
@@ -73,31 +132,15 @@ const Settings = () => {
     setSaving(true);
 
     try {
-      // First check if user record exists
-      const { data: existingUser } = await supabase
+      // Single atomic upsert — a select-then-insert/update pair can race and throw a duplicate key
+      const { error } = await supabase
         .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (existingUser) {
-        // Update existing record
-        const { error } = await supabase
-          .from('users')
-          .update({ email_preferences: preferences } as any)
-          .eq('id', user.id);
-        if (error) throw error;
-      } else {
-        // Insert new record
-        const { error } = await supabase
-          .from('users')
-          .insert([{
-            id: user.id,
-            email: user.email,
-            email_preferences: preferences
-          }] as any);
-        if (error) throw error;
-      }
+        .upsert({
+          id: user.id,
+          email: user.email,
+          email_preferences: preferences
+        } as any, { onConflict: 'id' });
+      if (error) throw error;
 
       toast({
         title: "Settings saved",
@@ -166,6 +209,72 @@ const Settings = () => {
                 <Label className="text-xs text-muted-foreground">Email</Label>
                 <p className="text-sm font-medium truncate">{user?.email}</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Billing & Subscription */}
+          <Card className="mb-4">
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CreditCard className="w-4 h-4" />
+                Billing &amp; Subscription
+              </CardTitle>
+              <CardDescription className="text-xs">
+                View your plans, update your card, or cancel at any time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-3">
+              {activeSubscriptions.length > 0 ? (
+                <div className="space-y-2">
+                  {activeSubscriptions.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{formatPlanName(sub.plan)}</p>
+                        {sub.current_period_end && (
+                          <p className="text-xs text-muted-foreground">
+                            Renews {formatDate(sub.current_period_end)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs font-medium text-green-600 capitalize flex-shrink-0">
+                        {sub.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  You don't have an active subscription.
+                </p>
+              )}
+
+              <div className="flex flex-col xs:flex-row gap-2">
+                <Button
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
+                  variant={activeSubscriptions.length > 0 ? 'default' : 'outline'}
+                  className="gap-2"
+                >
+                  {portalLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4" />
+                  )}
+                  {portalLoading ? 'Opening…' : 'Manage billing'}
+                </Button>
+                {activeSubscriptions.length === 0 && (
+                  <Button variant="ghost" onClick={() => navigate('/pricing')} className="gap-2">
+                    View plans
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Billing is handled securely by Stripe. Cancelling stops future charges; you keep
+                access until the end of the period you've paid for.
+              </p>
             </CardContent>
           </Card>
 

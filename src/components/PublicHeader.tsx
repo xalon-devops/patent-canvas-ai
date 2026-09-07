@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface PublicHeaderProps {
   transparent?: boolean;
@@ -93,6 +94,27 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({ transparent = false 
 
         {/* Auth */}
         <nav className="flex items-center gap-2">
+          {/* Mobile menu — the section links are hidden on small screens without this */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Open menu"
+                className="md:hidden rounded-xl h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-card border border-border min-w-[160px]">
+              {navLinks.map((link) => (
+                <DropdownMenuItem key={link.label} onClick={() => handleNavClick(link.href)}>
+                  {link.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {loading ? (
             <div className="w-20 h-8 bg-muted/30 rounded-xl animate-pulse" />
           ) : user ? (

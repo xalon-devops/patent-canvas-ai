@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2.52.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -219,12 +219,20 @@ serve(async (req) => {
       );
     }
 
-    // Get public URL for main application
-    const { data: urlData } = supabase.storage
+    // patent-docs is a private bucket, so a public URL would 400. Issue a signed URL instead.
+    const { data: urlData, error: signError } = await supabase.storage
       .from('patent-docs')
-      .getPublicUrl(`${baseDir}/patent-application.html`);
+      .createSignedUrl(`${baseDir}/patent-application.html`, 60 * 60 * 24 * 365);
 
-    const downloadUrl = urlData.publicUrl;
+    if (signError || !urlData?.signedUrl) {
+      console.error('Failed to sign download URL:', signError);
+      return new Response(
+        JSON.stringify({ error: `Failed to create download link: ${signError?.message ?? 'unknown error'}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const downloadUrl = urlData.signedUrl;
 
     // Update patent session with download URL and status
     console.log('Updating patent session status');
