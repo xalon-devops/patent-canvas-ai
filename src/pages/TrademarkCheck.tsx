@@ -602,6 +602,13 @@ export default function TrademarkCheck() {
                   </div>
                   <p className="text-sm text-foreground leading-relaxed">{priority.summary}</p>
 
+                  {priority.detected_first_use_date && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Detected automatically: {priority.detected_first_use_evidence}
+                    </p>
+                  )}
+
+
                   {priority.timeline?.length > 0 && (
                     <div className="mt-4 space-y-1.5">
                       {priority.timeline.map((t: any, i: number) => (
