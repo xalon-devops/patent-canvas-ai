@@ -1136,11 +1136,16 @@ export type Database = {
           created_at: string
           differentiation_points: string[] | null
           filing_date: string | null
+          first_use_date: string | null
+          first_use_evidence: string | null
           goods_services: string | null
           id: string
+          is_applicant_use: boolean
+          likelihood_of_confusion: string | null
           mark_name: string | null
           nice_classes: string[] | null
           owner: string | null
+          recommendation: string | null
           registration_date: string | null
           registration_number: string | null
           search_id: string
@@ -1149,17 +1154,24 @@ export type Database = {
           source: string | null
           status: string | null
           url: string | null
+          verdict: string | null
+          verdict_summary: string | null
         }
         Insert: {
           conflict_analysis?: string[] | null
           created_at?: string
           differentiation_points?: string[] | null
           filing_date?: string | null
+          first_use_date?: string | null
+          first_use_evidence?: string | null
           goods_services?: string | null
           id?: string
+          is_applicant_use?: boolean
+          likelihood_of_confusion?: string | null
           mark_name?: string | null
           nice_classes?: string[] | null
           owner?: string | null
+          recommendation?: string | null
           registration_date?: string | null
           registration_number?: string | null
           search_id: string
@@ -1168,17 +1180,24 @@ export type Database = {
           source?: string | null
           status?: string | null
           url?: string | null
+          verdict?: string | null
+          verdict_summary?: string | null
         }
         Update: {
           conflict_analysis?: string[] | null
           created_at?: string
           differentiation_points?: string[] | null
           filing_date?: string | null
+          first_use_date?: string | null
+          first_use_evidence?: string | null
           goods_services?: string | null
           id?: string
+          is_applicant_use?: boolean
+          likelihood_of_confusion?: string | null
           mark_name?: string | null
           nice_classes?: string[] | null
           owner?: string | null
+          recommendation?: string | null
           registration_date?: string | null
           registration_number?: string | null
           search_id?: string
@@ -1187,6 +1206,8 @@ export type Database = {
           source?: string | null
           status?: string | null
           url?: string | null
+          verdict?: string | null
+          verdict_summary?: string | null
         }
         Relationships: [
           {
