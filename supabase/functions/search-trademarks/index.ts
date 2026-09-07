@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { mark_name, mark_description, nice_classes, skip_credit_check } = await req.json();
+    const { mark_name, mark_description, nice_classes, skip_credit_check, own_url, applicant_first_use } = await req.json();
 
     if (!mark_name?.trim()) {
       return new Response(JSON.stringify({ success: false, error: 'Trademark name is required' }), {
@@ -206,6 +206,9 @@ Be honest and practical. If marks are in completely different industries with di
       // as common-law usage instead of presenting them as registrations.
       const isRegistered = !!(result._verified || result.registration_number || result.serial_number);
 
+      // Is this hit the applicant's own use? (their own site / their own brand)
+      const isApplicantUse = !isRegistered && isSameHost(result.url, own_url);
+
       const resultEntry: any = {
         mark_name: result.mark_name,
         registration_number: isRegistered ? result.registration_number : null,
@@ -223,7 +226,12 @@ Be honest and practical. If marks are in completely different industries with di
         verdict_summary: result._verdict_summary || null,
         likelihood_of_confusion: result._likelihood || null,
         recommendation: result._recommendation || null,
-        source: isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
+        first_use_date: normalizeUseDate(result.first_use_date) || null,
+        first_use_evidence: result.first_use_evidence || null,
+        is_applicant_use: isApplicantUse,
+        source: isApplicantUse
+          ? 'Your own use (no USPTO filing found)'
+          : isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
         url: result.url,
       };
 
@@ -238,11 +246,24 @@ Be honest and practical. If marks are in completely different industries with di
       return b.similarity_score - a.similarity_score;
     });
 
+    // ===== FIRST-TO-USE PRIORITY ANALYSIS =====
+    // US trademark rights come from use in commerce, not filing. Build a
+    // timeline of every dated use we can find (registrants' sworn first-use
+    // dates plus common-law web evidence) and work out who is truly first.
+    const priorityAnalysis = buildPriorityAnalysis(
+      trimmedName,
+      analyzedResults,
+      normalizeUseDate(applicant_first_use),
+    );
 
     if (searchRecord && analyzedResults.length > 0) {
-      await supabaseClient.from('trademark_results').insert(analyzedResults.slice(0, 15));
+      const { error: insertError } = await supabaseClient
+        .from('trademark_results')
+        .insert(analyzedResults.slice(0, 15));
+      if (insertError) console.error('[TRADEMARK SEARCH] Failed to save results:', insertError);
       await supabaseClient.from('trademark_searches').update({ results_count: analyzedResults.length }).eq('id', searchRecord.id);
     }
+
 
     console.log(`[TRADEMARK SEARCH] Complete: ${analyzedResults.length} results`);
 
@@ -251,6 +272,7 @@ Be honest and practical. If marks are in completely different industries with di
       search_id: searchRecord?.id || null,
       results: analyzedResults.slice(0, 15),
       results_found: analyzedResults.length,
+      priority_analysis: priorityAnalysis,
       search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : creditsRemaining),
     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -298,13 +320,17 @@ CRITICAL: Return ONLY a raw JSON array. No markdown code blocks. No explanation 
     "registration_date": null,
     "nice_classes": ["009"],
     "goods_services": "What the brand sells or does",
+    "first_use_date": "Earliest date this brand can be shown in use in commerce, YYYY-MM-DD or YYYY, or null",
+    "first_use_evidence": "One sentence citing the evidence for that first-use date (e.g. 'company founded 2016 per About page', 'product launch press release Mar 2019'), or null",
     "conflict_analysis": ["Why this conflicts"],
     "differentiation_points": ["How it differs"],
     "url": "URL to trademark record or company website"
   }
 ]
 
-Return 5-15 results. NEVER return empty array. Include well-known brands even without exact registration numbers.`
+Return 5-15 results. NEVER return empty array. Include well-known brands even without exact registration numbers.
+
+FIRST USE MATTERS: US trademark rights are first-to-use, not first-to-file. For every brand you find, dig for the earliest verifiable date it was used in commerce — domain registration/archive dates, founding year, launch announcements, app store release dates, press coverage — and report it in first_use_date with your evidence in first_use_evidence. Never guess a date without evidence; use null instead.`
           },
           {
             role: 'user',
@@ -836,6 +862,16 @@ async function verifyAgainstTSDR(results: any[]): Promise<any[]> {
         if (classes.length) result.nice_classes = Array.from(new Set(classes));
         const description = gs.map((g: any) => g.description).filter(Boolean).join('; ');
         if (description) result.goods_services = description.slice(0, 800);
+        // Sworn first-use dates are the register's own priority evidence
+        const firstUseDates = gs
+          .flatMap((g: any) => [g.firstUseAnywhereDate, g.firstUseDate, g.firstUseInCommerceDate])
+          .map((d: any) => normalizeUseDate(d))
+          .filter(Boolean)
+          .sort();
+        if (firstUseDates.length) {
+          result.first_use_date = firstUseDates[0];
+          result.first_use_evidence = 'Sworn first-use date of record at USPTO';
+        }
         result.url = `https://tsdr.uspto.gov/#caseNumber=${result.serial_number}&caseType=SERIAL_NO&searchType=statusSearch`;
         result.source = 'USPTO Official (TSDR)';
         result._verified = true;
@@ -853,4 +889,111 @@ function normalizeSerial(value: unknown): string | null {
   if (!value) return null;
   const digits = String(value).replace(/\D/g, '');
   return digits.length === 8 ? digits : null;
+}
+
+// ==================== FIRST-TO-USE PRIORITY ====================
+function hostOf(url: unknown): string | null {
+  if (!url) return null;
+  try {
+    const raw = String(url).trim();
+    const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(withProto).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function isSameHost(a: unknown, b: unknown): boolean {
+  const ha = hostOf(a);
+  const hb = hostOf(b);
+  return !!ha && !!hb && ha === hb;
+}
+
+// Accepts YYYY, YYYY-MM, YYYY-MM-DD, MM/DD/YYYY and ISO timestamps
+function normalizeUseDate(value: unknown): string | null {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s || /^(null|unknown|n\/a)$/i.test(s)) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-01`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  m = s.match(/\b(19|20)\d{2}\b/);
+  if (m) return `${m[0]}-01-01`;
+  return null;
+}
+
+function buildPriorityAnalysis(markName: string, results: any[], applicantFirstUse: string | null) {
+  const CONFLICT_FLOOR = 0.5; // only marks close enough to actually collide
+
+  const timeline = results
+    .filter((r) => !r.is_applicant_use && r.similarity_score >= CONFLICT_FLOOR)
+    .map((r) => ({
+      mark_name: r.mark_name,
+      owner: r.owner || null,
+      registered: !!(r.registration_number || r.serial_number),
+      status: r.status || null,
+      first_use_date: r.first_use_date || null,
+      // Filing date is a fallback priority date when no use date is of record
+      priority_date: r.first_use_date || r.filing_date || null,
+      evidence: r.first_use_evidence || (r.filing_date ? 'USPTO filing date (no use date found)' : null),
+      similarity_score: r.similarity_score,
+      url: r.url || null,
+      is_you: false,
+    }))
+    .filter((e) => !!e.priority_date);
+
+  const ownUse = results.find((r) => r.is_applicant_use);
+  const yourDate = applicantFirstUse || normalizeUseDate(ownUse?.first_use_date);
+
+  const yourEntry = {
+    mark_name: markName,
+    owner: 'You',
+    registered: false,
+    status: 'YOUR USE (unregistered)',
+    first_use_date: yourDate,
+    priority_date: yourDate,
+    evidence: yourDate
+      ? (ownUse?.first_use_evidence || 'Your own use in commerce')
+      : 'No first-use date on file — add yours to establish priority',
+    similarity_score: 1,
+    url: ownUse?.url || null,
+    is_you: true,
+  };
+
+  const dated = [...timeline, ...(yourDate ? [yourEntry] : [])]
+    .sort((a, b) => String(a.priority_date).localeCompare(String(b.priority_date)));
+
+  const senior = dated.find((e) => !e.is_you) || null;
+  const earliest = dated[0] || null;
+
+  let verdict: string;
+  let summary: string;
+
+  if (!yourDate) {
+    verdict = 'UNKNOWN';
+    summary = timeline.length
+      ? `We found ${timeline.length} similar mark${timeline.length === 1 ? '' : 's'} with a datable priority claim, the earliest going back to ${senior?.priority_date?.slice(0, 4) ?? 'an unknown year'}. Tell us when you first used "${markName}" in commerce and we can tell you whether you have seniority.`
+      : `No similar mark with a datable priority claim turned up. Tell us when you first used "${markName}" in commerce to lock in your own priority date.`;
+  } else if (!senior) {
+    verdict = 'YOU_ARE_FIRST';
+    summary = `Nothing similar with an earlier use date turned up, so on this evidence your use of "${markName}" since ${yourDate} is the senior claim. Common-law rights are limited to where you actually trade — filing converts that into nationwide priority.`;
+  } else if (earliest?.is_you) {
+    verdict = 'YOU_ARE_FIRST';
+    summary = `Your use since ${yourDate} predates every similar mark we found — the closest senior claim is "${senior.mark_name}" (${senior.owner || 'owner unknown'}) from ${senior.priority_date}. As the prior user you generally have superior rights, but registration is what makes them nationwide and enforceable.`;
+  } else {
+    verdict = 'SENIOR_USER_EXISTS';
+    summary = `"${senior.mark_name}" (${senior.owner || 'owner unknown'}) shows use from ${senior.priority_date}, earlier than your ${yourDate}. If their goods and channels overlap yours, they are the senior user and can oppose or block your registration — worth a closer look before you file.`;
+  }
+
+  return {
+    rule: 'The United States is first-to-use: rights arise from actual use of the mark in commerce, and the earliest continuous user in a market has priority. Registration does not create the right — it extends priority nationwide, gives public notice and a presumption of validity, and unlocks federal court enforcement. Most other countries (EU, China, Japan) are first-to-file, so filing early matters abroad.',
+    your_first_use_date: yourDate,
+    your_use_found_online: !!ownUse,
+    verdict,
+    summary,
+    timeline: dated.slice(0, 12),
+  };
 }
