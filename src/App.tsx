@@ -216,6 +216,15 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* Resume a saved trademark application */}
+            <Route 
+              path="/trademark-application/:id" 
+              element={
+                <ProtectedRoute>
+                  <TrademarkApplication />
+                </ProtectedRoute>
+              } 
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
