@@ -267,6 +267,7 @@ export default function PatentFilingChecklist({ sections, sessionId }: PatentFil
       newChecked.add(id);
     }
     setCheckedItems(newChecked);
+    persist(newChecked);
   };
 
   const isChecked = (id: string) => checkedItems.has(id) || autoCheckedDocs.has(id);
