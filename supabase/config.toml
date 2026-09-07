@@ -139,3 +139,33 @@ verify_jwt = false
 
 [functions.analyze-brand-url]
 verify_jwt = false
+
+[functions.send-magic-link]
+verify_jwt = false
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.send-email-confirmation]
+verify_jwt = false
+
+[functions.create-trademark-checkout]
+verify_jwt = true
+
+[functions.draft-patent-pipeline]
+verify_jwt = true
+
+[functions.analyze-section-quality]
+verify_jwt = true
+
+[functions.extract-patent-glossary]
+verify_jwt = true
+
+[functions.ingest-mpep]
+verify_jwt = true
+
+[functions.ingest-mpep-full]
+verify_jwt = true
+
+[functions.send-winback-emails]
+verify_jwt = false
