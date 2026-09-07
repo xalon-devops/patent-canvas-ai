@@ -64,6 +64,34 @@ serve(async (req) => {
 
     console.log('Resolved userId:', userId);
 
+    // Ownership check: the authenticated caller must be the user the payment belongs to.
+    // Without this, anyone holding a Stripe session id could mutate another user's billing rows.
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: authData, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    const callerId = authData?.user?.id;
+    if (authError || !callerId) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (callerId !== userId) {
+      console.warn('Ownership mismatch on verify-payment', { callerId, userId });
+      return new Response(
+        JSON.stringify({ error: 'Not authorized to verify this payment' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+
     // Handle subscription payment
     if (session.mode === 'subscription' && session.subscription) {
       const subscription = session.subscription as Stripe.Subscription;
