@@ -73,31 +73,15 @@ const Settings = () => {
     setSaving(true);
 
     try {
-      // First check if user record exists
-      const { data: existingUser } = await supabase
+      // Single atomic upsert — a select-then-insert/update pair can race and throw a duplicate key
+      const { error } = await supabase
         .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-
-      if (existingUser) {
-        // Update existing record
-        const { error } = await supabase
-          .from('users')
-          .update({ email_preferences: preferences } as any)
-          .eq('id', user.id);
-        if (error) throw error;
-      } else {
-        // Insert new record
-        const { error } = await supabase
-          .from('users')
-          .insert([{
-            id: user.id,
-            email: user.email,
-            email_preferences: preferences
-          }] as any);
-        if (error) throw error;
-      }
+        .upsert({
+          id: user.id,
+          email: user.email,
+          email_preferences: preferences
+        } as any, { onConflict: 'id' });
+      if (error) throw error;
 
       toast({
         title: "Settings saved",
