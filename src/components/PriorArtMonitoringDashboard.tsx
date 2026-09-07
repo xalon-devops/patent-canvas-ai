@@ -31,6 +31,12 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
   const [monitors, setMonitors] = useState<MonitoringRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [watchTargets, setWatchTargets] = useState<{ value: string; label: string }[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newQuery, setNewQuery] = useState('');
+  const [newTarget, setNewTarget] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchMonitors = async () => {
