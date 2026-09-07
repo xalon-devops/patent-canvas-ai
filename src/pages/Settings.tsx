@@ -98,6 +98,10 @@ const Settings = () => {
     loadUserAndPreferences();
   }, [navigate]);
 
+  const activeSubscriptions = subscriptions.filter(
+    (sub) => sub.status === 'active' || sub.status === 'trialing'
+  );
+
   const handleManageBilling = async () => {
     setPortalLoading(true);
     try {
