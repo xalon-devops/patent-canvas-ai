@@ -967,7 +967,26 @@ function normalizeUseDate(value: unknown): string | null {
   return null;
 }
 
-function buildPriorityAnalysis(markName: string, results: any[], applicantFirstUse: string | null) {
+// Earliest publicly archived capture of a URL's host = provable public use date
+async function earliestArchivedUse(url: unknown): Promise<string | null> {
+  const host = hostOf(url);
+  if (!host) return null;
+  try {
+    const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(host)}&matchType=domain&output=json&fl=timestamp&filter=statuscode:200&collapse=timestamp:4&limit=1`;
+    const res = await fetch(cdx, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const ts = Array.isArray(rows) ? (rows[1]?.[0] ?? rows[0]?.[0]) : null;
+    const m = String(ts || '').match(/^(\d{4})(\d{2})(\d{2})/);
+    if (!m) return null;
+    return `${m[1]}-${m[2]}-${m[3]}`;
+  } catch (e) {
+    console.error('[TRADEMARK] Wayback lookup failed for', host, e);
+    return null;
+  }
+}
+
+function buildPriorityAnalysis(markName: string, results: any[], applicantFirstUse: string | null, detectedEvidence: string | null = null) {
   const CONFLICT_FLOOR = 0.5; // only marks close enough to actually collide
 
   const timeline = results
@@ -989,6 +1008,7 @@ function buildPriorityAnalysis(markName: string, results: any[], applicantFirstU
 
   const ownUse = results.find((r) => r.is_applicant_use);
   const yourDate = applicantFirstUse || normalizeUseDate(ownUse?.first_use_date);
+
 
   const yourEntry = {
     mark_name: markName,
