@@ -32,8 +32,37 @@ const Check = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [localFreeSearches, setLocalFreeSearches] = useState<number | null>(null);
   const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
+  const [history, setHistory] = useState<SearchHistoryRow[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Past searches are saved so a paid search is never lost on refresh
+  const loadHistory = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('prior_art_searches')
+      .select('id, query, patent_type, results_count, results, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) {
+      console.error('Error loading search history:', error);
+      return;
+    }
+    setHistory((data as unknown as SearchHistoryRow[]) ?? []);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) loadHistory();
+  }, [isAuthenticated, loadHistory]);
+
+  const openHistoryEntry = (entry: SearchHistoryRow) => {
+    setSearchQuery(entry.query);
+    setPriorArtResults(Array.isArray(entry.results) ? entry.results : []);
+    setSearchKeywords([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Derived state from centralized hook
   const hasSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
