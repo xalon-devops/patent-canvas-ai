@@ -255,7 +255,7 @@ Be honest and practical. If marks are in completely different industries with di
 });
 
 // ==================== SOURCE 1: PERPLEXITY ====================
-async function searchWithPerplexity(markName: string, description: string, niceClasses: string[], apiKey: string | undefined): Promise<any[]> {
+async function searchWithPerplexity(markName: string, description: string, niceClasses: string[], apiKey: string | undefined, variants: string[] = []): Promise<any[]> {
   if (!apiKey) return [];
 
   try {
