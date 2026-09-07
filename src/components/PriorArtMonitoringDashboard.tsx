@@ -198,12 +198,55 @@ export default function PriorArtMonitoringDashboard({ userId }: PriorArtMonitori
             <Radar className="w-4 h-4 text-primary" />
             Prior Art Monitoring
           </CardTitle>
-          <Badge variant="outline" className="text-[10px]">
-            {monitors.filter(m => m.is_active).length} active
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {monitors.filter(m => m.is_active).length} active
+            </Badge>
+            {watchTargets.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px] gap-1"
+                onClick={() => setShowAdd(v => !v)}
+              >
+                <Plus className="w-2.5 h-2.5" />
+                {showAdd ? 'Cancel' : 'Add watch'}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+        {showAdd && (
+          <div className="rounded-md border border-border p-2.5 space-y-2">
+            <Input
+              value={newQuery}
+              onChange={(e) => setNewQuery(e.target.value)}
+              placeholder="What should we keep watching for?"
+              className="h-8 text-xs"
+            />
+            <Select value={newTarget} onValueChange={setNewTarget}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Attach to an idea or application" />
+              </SelectTrigger>
+              <SelectContent>
+                {watchTargets.map(t => (
+                  <SelectItem key={t.value} value={t.value} className="text-xs">
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="w-full h-7 text-[10px]"
+              disabled={creating || !newQuery.trim() || !newTarget}
+              onClick={createMonitor}
+            >
+              {creating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : 'Start watching'}
+            </Button>
+          </div>
+        )}
         {monitors.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
             No monitoring set up yet. Save an idea or create a patent application to enable monitoring.
