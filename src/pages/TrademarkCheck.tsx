@@ -77,6 +77,8 @@ export default function TrademarkCheck() {
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedResult, setExpandedResult] = useState<number | null>(null);
+  const [expandedCommonLaw, setExpandedCommonLaw] = useState<number | null>(null);
+
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
