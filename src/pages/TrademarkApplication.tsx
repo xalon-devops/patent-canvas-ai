@@ -91,12 +91,16 @@ interface AiReview {
 }
 
 export default function TrademarkApplication() {
+  const { id: routeAppId } = useParams<{ id: string }>();
   const [step, setStep] = useState(1);
-  const [appId, setAppId] = useState<string | null>(null);
+  const [appId, setAppId] = useState<string | null>(routeAppId ?? null);
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [loadingApp, setLoadingApp] = useState(!!routeAppId);
+  const [drafts, setDrafts] = useState<TrademarkDraftRow[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
 
   // Step 1: Mark Info
   const [markName, setMarkName] = useState('');
