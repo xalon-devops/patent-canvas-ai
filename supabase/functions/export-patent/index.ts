@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'npm:@supabase/supabase-js@2.52.1';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } from 'npm:docx@8.5.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } from 'https://esm.sh/docx@8.5.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
