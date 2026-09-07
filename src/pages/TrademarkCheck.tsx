@@ -872,6 +872,14 @@ export default function TrademarkCheck() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <h4 className="font-medium text-foreground text-sm">{result.mark_name}</h4>
                               <Badge variant="outline" className="text-[10px]">No USPTO filing</Badge>
+                              {result.is_applicant_use && (
+                                <Badge className="text-[10px]">This is your own use</Badge>
+                              )}
+                              {result.first_use_date && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  in use since {result.first_use_date}
+                                </span>
+                              )}
                             </div>
                             {result.owner && (
                               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
