@@ -326,6 +326,7 @@ async function searchWithPerplexity(context: string, apiKey: string | undefined)
     const technicalKeywords = extractKeywords(context).slice(0, 8).join(', ');
     
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      signal: AbortSignal.timeout(45000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -477,6 +478,7 @@ async function searchUSPTOOfficial(keywords: string[]): Promise<any[]> {
 
     try {
       const response = await fetch('https://api.uspto.gov/api/v1/patent/applications/search', {
+      signal: AbortSignal.timeout(45000),
         method: 'POST',
         headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
@@ -552,6 +554,7 @@ async function searchGooglePatents(keywords: string[], context: string, apiKey: 
     const googlePatentsUrl = `https://patents.google.com/?q=${encodeURIComponent(searchTerms)}&oq=${encodeURIComponent(searchTerms)}`;
     
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      signal: AbortSignal.timeout(45000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
