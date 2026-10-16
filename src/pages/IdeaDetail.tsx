@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -201,30 +202,11 @@ const IdeaDetail = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.IdeaDetail />
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/ideas')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Ideas
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Idea" backTo="/ideas" backLabel="Ideas">
+        <Button variant="outline" size="sm" onClick={handleDelete} disabled={deleting} aria-label="Delete idea">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </ProtectedHeader>
 
       <main className="container mx-auto px-4 py-12 max-w-4xl">
         {/* Idea Header */}

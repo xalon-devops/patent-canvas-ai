@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -309,42 +310,7 @@ const Claims = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Claims />
       {/* Header */}
-      <header className="border-b bg-card/90 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate(`/session/${id}`)}
-                className="p-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-lg font-semibold flex items-center gap-2">
-                  <TreeDeciduous className="h-5 w-5 text-primary" />
-                  Claims Tree
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {patentSession.idea_prompt ? 
-                    patentSession.idea_prompt.slice(0, 60) + (patentSession.idea_prompt.length > 60 ? '...' : '') :
-                    'Patent Claims Structure'
-                  }
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => navigate(`/session/${id}`)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Back to Canvas
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Claims Tree" backTo={`/session/${id}`} backLabel="Patent Canvas" />
 
       <div className="container mx-auto px-4 py-6">
         {claims.length > 0 ? (

@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -136,29 +137,7 @@ const Drafts = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Drafts />
       {/* Header */}
-      <header className="border-b bg-card/90 backdrop-blur-xl sticky top-0 z-50 shadow-card">
-        <div className="safe-area px-4 sm:px-6">
-          <div className="content-width">
-            <div className="flex items-center gap-2 sm:gap-4 py-3 sm:py-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => navigate('/dashboard')}
-                className="text-muted-foreground hover:text-foreground flex-shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden xs:inline ml-2">Dashboard</span>
-              </Button>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate">Draft Applications</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                  Continue where you left off
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="My Drafts" />
 
       <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">

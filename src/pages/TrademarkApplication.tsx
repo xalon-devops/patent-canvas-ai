@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -371,22 +372,9 @@ export default function TrademarkApplication() {
       <PageSEO.Check />
 
       {/* Header */}
-      <header className="border-b border-border bg-card/95 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between py-3 gap-2">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="text-muted-foreground">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h1 className="text-base font-semibold text-foreground flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" />
-                Trademark Application
-              </h1>
-            </div>
-            <Badge variant="outline" className="text-xs">{TRADEMARK_FILING_PRICE_DISPLAY} filing fee</Badge>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Trademark Application" backTo="/trademark-check" backLabel="Trademark Search">
+        <Badge variant="outline" className="text-xs hidden sm:inline-flex">{TRADEMARK_FILING_PRICE_DISPLAY} filing fee</Badge>
+      </ProtectedHeader>
 
       {/* Progress */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-4">

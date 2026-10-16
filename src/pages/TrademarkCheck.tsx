@@ -441,37 +441,20 @@ export default function TrademarkCheck() {
       <PageSEO.Check />
 
       {/* Header */}
-      <header className="border-b border-border bg-card/95 backdrop-blur-xl sticky top-0 z-50" style={{ boxShadow: 'var(--shadow-xs)' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between py-3 sm:py-4 gap-2">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="text-muted-foreground">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Dashboard</span>
-              </Button>
-              <div className="h-5 w-px bg-border hidden sm:block" />
-              <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" />
-                Trademark Search
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              {creditsRemaining !== null && (
-                <Badge variant="outline" className="text-xs">
-                  {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
-                </Badge>
-              )}
-              {creditsRemaining !== 'unlimited' && !tmAdmin.canBypassPaywall && !tmAdmin.loading && (
-                <Button size="sm" variant="default" onClick={() => setShowSubscribe(true)} className="gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Subscribe {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</span>
-                  <span className="sm:hidden">Subscribe</span>
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Trademark Search">
+        {creditsRemaining !== null && (
+          <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+            {creditsRemaining === 'unlimited' ? 'Unlimited searches' : `${creditsRemaining} free searches left`}
+          </Badge>
+        )}
+        {creditsRemaining !== 'unlimited' && !tmAdmin.canBypassPaywall && !tmAdmin.loading && (
+          <Button size="sm" variant="default" onClick={() => setShowSubscribe(true)} className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Subscribe {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</span>
+            <span className="sm:hidden">Subscribe</span>
+          </Button>
+        )}
+      </ProtectedHeader>
 
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
