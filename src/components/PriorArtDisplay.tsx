@@ -59,6 +59,9 @@ export default function PriorArtDisplay({
 }: PriorArtDisplayProps) {
   const [riskData, setRiskData] = useState<{ overall_risk: string; disclaimer: string; byKey: Record<string, any> } | null>(null);
   const [riskLoading, setRiskLoading] = useState(false);
+  const [matchFilter, setMatchFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'enforceable' | 'not_enforceable'>('all');
+  const [sortBy, setSortBy] = useState<'match' | 'risk' | 'newest'>('match');
   const [riskError, setRiskError] = useState<string | null>(null);
 
   const runRiskCheck = async () => {
@@ -216,6 +219,27 @@ export default function PriorArtDisplay({
   const mediumRiskCount = priorArt.filter(p => p.similarity_score >= 0.6 && p.similarity_score < 0.8).length;
   const lowRiskCount = priorArt.filter(p => p.similarity_score < 0.6).length;
 
+  const riskFor = (r: PriorArtResult) => riskData?.byKey[r.id] || riskData?.byKey[(r.publication_number || '').toUpperCase().replace(/[\s\/,.-]/g, '')];
+  const riskRank: Record<string, number> = { High: 0, Medium: 1, Unknown: 2, Low: 3, None: 4 };
+  const visible = priorArt
+    .filter(r => matchFilter === 'all'
+      || (matchFilter === 'high' && r.similarity_score >= 0.8)
+      || (matchFilter === 'medium' && r.similarity_score >= 0.6 && r.similarity_score < 0.8)
+      || (matchFilter === 'low' && r.similarity_score < 0.6))
+    .filter(r => {
+      if (statusFilter === 'all' || !riskData) return true;
+      const a = riskFor(r);
+      const enforceable = a && (a.status_label === 'Active' || a.status_label === 'Pending') && a.risk !== 'None';
+      return statusFilter === 'enforceable' ? !!enforceable : !enforceable;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'risk' && riskData) return (riskRank[riskFor(a)?.risk] ?? 5) - (riskRank[riskFor(b)?.risk] ?? 5);
+      if (sortBy === 'newest') return String(b.patent_date || '').localeCompare(String(a.patent_date || ''));
+      return b.similarity_score - a.similarity_score;
+    });
+
+  const chip = (active: boolean) => `rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted'}`;
+
   return (
     <div className="space-y-6">
       {/* Summary Card */}
@@ -293,9 +317,35 @@ export default function PriorArtDisplay({
         </CardContent>
       </Card>
 
+      {/* Filter toolbar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+        <span className="text-xs font-medium text-muted-foreground mr-1">Match</span>
+        {([['all', `All (${priorArt.length})`], ['high', `High (${highRiskCount})`], ['medium', `Medium (${mediumRiskCount})`], ['low', `Low (${lowRiskCount})`]] as const).map(([k, l]) => (
+          <button key={k} className={chip(matchFilter === k)} onClick={() => setMatchFilter(k)}>{l}</button>
+        ))}
+        {riskData && (
+          <>
+            <span className="mx-1 h-5 w-px bg-border" />
+            <span className="text-xs font-medium text-muted-foreground mr-1">Status</span>
+            {([['all', 'All'], ['enforceable', 'Can be enforced'], ['not_enforceable', 'Expired / not enforceable']] as const).map(([k, l]) => (
+              <button key={k} className={chip(statusFilter === k)} onClick={() => setStatusFilter(k)}>{l}</button>
+            ))}
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <label htmlFor="pa-sort" className="text-xs font-medium text-muted-foreground">Sort</label>
+          <select id="pa-sort" value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
+            <option value="match">Closest match</option>
+            {riskData && <option value="risk">Highest operating risk</option>}
+            <option value="newest">Newest</option>
+          </select>
+        </div>
+      </div>
+
       {/* Results List */}
       <div className="space-y-4">
-        {priorArt.map((result, index) => {
+        {visible.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No results match these filters.</p>}
+        {visible.map((result, index) => {
           const risk = getRiskLevel(result.similarity_score);
           const isExpanded = expandedResults.has(result.id);
           

@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -84,26 +85,12 @@ const Analytics = () => {
       <PageSEO.Dashboard />
       
       {/* Header */}
-      <header className="border-b border-border bg-card/95 backdrop-blur-xl sticky top-0 z-50" style={{ boxShadow: 'var(--shadow-xs)' }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between py-3 sm:py-4">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Dashboard
-              </Button>
-              <div className="w-px h-5 bg-border" />
-              <div>
-                <h1 className="text-lg font-semibold text-foreground tracking-tight">Portfolio Analytics</h1>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-xs gap-1.5 font-medium">
-              <Activity className="w-3 h-3" />
-              Live
-            </Badge>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Portfolio Analytics">
+        <Badge variant="outline" className="text-xs gap-1.5 font-medium">
+          <Activity className="w-3 h-3" />
+          Live
+        </Badge>
+      </ProtectedHeader>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* KPI Cards */}

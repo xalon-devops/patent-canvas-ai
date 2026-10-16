@@ -1,3 +1,4 @@
+import { ProtectedHeader } from '@/components/ProtectedHeader';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -243,33 +244,7 @@ const Check = () => {
     <div className="min-h-screen bg-gradient-subtle">
       <PageSEO.Check />
       {/* Header */}
-      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded-lg">
-                  <Search className="h-6 w-6 text-secondary" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold">Check & See</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Search for existing patents before you file
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ProtectedHeader title="Check & See" />
 
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-5xl">
         {!hasSubscription && freeSearchesRemaining === 0 ? (
