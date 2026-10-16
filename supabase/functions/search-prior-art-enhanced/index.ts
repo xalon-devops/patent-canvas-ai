@@ -159,87 +159,27 @@ serve(async (req) => {
       return true;
     });
 
-    // Score and analyze results
-    const rankedResults: any[] = (await Promise.all(uniqueResults.slice(0, 15).map(async (result: any) => {
-      let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
+    // Score every candidate on real technical relevance with one AI pass.
+    // No source gets an automatic score floor: an official record that is off-topic must rank low.
+    const candidates = uniqueResults.slice(0, 30);
+    const aiScores = await scoreRelevanceWithAI(contextText, candidates);
 
-      // Official USPTO register records are authoritative — give them a confidence floor
-      if (result.source === 'USPTO Official') {
-        keywordScore = Math.max(keywordScore, 0.75);
-        keywordScore = Math.min(keywordScore * 1.1, 0.99);
-      }
-
-      // Strongly prioritize Perplexity — it returns real, verified patent titles/abstracts
-      if (result.source === 'Perplexity AI') {
-        keywordScore = Math.max(keywordScore, 0.7);
-        keywordScore = Math.min(keywordScore * 1.15, 0.98);
-      }
-
-
-      // Generate overlap/difference analysis
-      let overlapClaims: string[] = result.overlap_claims || [];
-      let differenceClaims: string[] = result.difference_claims || [];
-
-      // Use OpenAI for detailed analysis if available and score is high
-      if (OPENAI_API_KEY && keywordScore > 0.25 && overlapClaims.length === 0) {
-        try {
-          const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { 
-                  role: 'system', 
-                  content: `Analyze patent overlap. Return JSON only: {"overlaps":["specific overlap 1","specific overlap 2"],"differences":["key difference 1","key difference 2"]}. 2-4 items each. Be specific and technical.`
-                },
-                { 
-                  role: 'user', 
-                  content: `USER INVENTION:\n${contextText.substring(0, 1500)}\n\nEXISTING PATENT:\nTitle: ${result.title}\nAbstract: ${result.summary}` 
-                }
-              ],
-              temperature: 0.3,
-            }),
-            signal: AbortSignal.timeout(20000),
-          });
-          
-          if (analysisResponse.ok) {
-            const analysisData = await analysisResponse.json();
-            const analysisText = analysisData.choices?.[0]?.message?.content || '{}';
-            try {
-              const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                overlapClaims = parsed.overlaps || [];
-                differenceClaims = parsed.differences || [];
-              }
-            } catch {}
-          }
-        } catch (e) {
-          console.error('[ENHANCED SEARCH] Analysis failed:', e);
-        }
-      }
-
-      // Fallback to generic analysis
-      if (overlapClaims.length === 0) {
-        overlapClaims = generateGenericOverlaps(result.title, contextText);
-      }
-      if (differenceClaims.length === 0) {
-        differenceClaims = generateGenericDifferences(result.title, contextText);
-      }
-
+    const rankedResults: any[] = candidates.map((result: any, i: number) => {
+      const keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
+      const ai = aiScores?.[i];
+      const score = ai ? ai.score : keywordScore;
+      const overlapClaims = ai?.overlaps?.length ? ai.overlaps : (result.overlap_claims?.length ? result.overlap_claims : generateGenericOverlaps(result.title, contextText));
+      const differenceClaims = ai?.differences?.length ? ai.differences : (result.difference_claims?.length ? result.difference_claims : generateGenericDifferences(result.title, contextText));
       return {
         ...result,
-        similarity_score: Math.min(keywordScore, 0.99),
-        semantic_score: keywordScore,
+        similarity_score: Math.min(score, 0.99),
+        semantic_score: ai ? ai.score : null,
         keyword_score: keywordScore,
+        relevance_reason: ai?.reason || null,
         overlap_claims: overlapClaims,
         difference_claims: differenceClaims,
       };
-    }))).filter(Boolean);
+    }).filter((r: any) => aiScores ? r.similarity_score >= 0.3 : true);
 
     // Deduct credit only after a successful search
     if (!hasActiveSubscription && hasCredits) {
@@ -704,4 +644,42 @@ function generateGenericDifferences(patentTitle: string, context: string): strin
     `Your invention may have a unique implementation approach`,
     `Different specific application or use case`,
   ];
+}
+
+
+// Batch relevance scoring: compares each candidate's title/abstract to the invention.
+async function scoreRelevanceWithAI(invention: string, candidates: any[]): Promise<Array<{ score: number; reason: string; overlaps: string[]; differences: string[] }> | null> {
+  const key = Deno.env.get('LOVABLE_API_KEY');
+  if (!key || candidates.length === 0) return null;
+  const list = candidates.map((c, i) => `[${i}] ${c.publication_number || ''} | ${c.title || ''}\n${String(c.summary || '').substring(0, 600)}`).join('\n\n');
+  try {
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(60000),
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'You are a patent examiner assessing prior art. For each numbered reference, judge how closely it anticipates or renders obvious the user invention, based on technical subject matter (not shared generic words). Score 0.0-1.0: 0.85+ = same core system; 0.6-0.85 = substantially overlapping; 0.3-0.6 = related field, partial overlap; below 0.3 = unrelated. Unrelated fields (e.g., IT asset monitoring vs elderly care) must score below 0.2. Return ONLY JSON: {"items":[{"i":0,"score":0.0,"reason":"one sentence","overlaps":["specific technical overlap"],"differences":["specific technical difference"]}]} covering every reference, 1-3 overlaps and differences each.' },
+          { role: 'user', content: `USER INVENTION:\n${invention.substring(0, 3500)}\n\nREFERENCES:\n${list}` },
+        ],
+      }),
+    });
+    if (!res.ok) { console.error('[ENHANCED SEARCH] AI scoring failed', res.status, await res.text()); return null; }
+    const data = await res.json();
+    const raw: string = data?.choices?.[0]?.message?.content || '';
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const items: any[] = JSON.parse(m[0]).items || [];
+    const out = candidates.map(() => null as any);
+    for (const it of items) {
+      if (typeof it?.i === 'number' && it.i >= 0 && it.i < out.length) {
+        out[it.i] = { score: Math.max(0, Math.min(1, Number(it.score) || 0)), reason: String(it.reason || ''), overlaps: Array.isArray(it.overlaps) ? it.overlaps : [], differences: Array.isArray(it.differences) ? it.differences : [] };
+      }
+    }
+    return out.map((o) => o ?? { score: 0, reason: 'Not assessed', overlaps: [], differences: [] });
+  } catch (e) {
+    console.error('[ENHANCED SEARCH] AI scoring error', (e as Error).message);
+    return null;
+  }
 }
