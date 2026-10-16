@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -392,7 +393,7 @@ const Session = () => {
 
       if (searchError) {
         console.error('Search-prior-art error:', searchError);
-        throw new Error(searchError.message || 'Failed to search prior art');
+        throw new Error((await getEdgeErrorMessage(searchError, 'Failed to search prior art')).message);
       }
 
       if (!searchData?.success) {

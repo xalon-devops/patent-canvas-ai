@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +56,7 @@ const Pending = () => {
       const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: { session_id: sessionId }
       });
-      if (searchError) throw new Error(searchError.message || 'Failed to search prior art');
+      if (searchError) throw new Error((await getEdgeErrorMessage(searchError, 'Failed to search prior art')).message);
       if (!searchData?.success) throw new Error(searchData?.error || 'Prior art search failed');
 
       toast({

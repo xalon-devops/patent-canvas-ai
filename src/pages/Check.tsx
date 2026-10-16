@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthenticatedPatentData } from '@/hooks/usePatentData';
 import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2, History } from 'lucide-react';
 import { formatDateShort } from '@/lib/dateUtils';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 
 interface SearchHistoryRow {
   id: string;
@@ -102,7 +103,8 @@ const Check = () => {
       });
 
       if (error) {
-        if (error.message?.includes('subscription')) {
+        const parsed = await getEdgeErrorMessage(error, 'Failed to search prior art. Please try again.');
+        if (parsed.requiresSubscription) {
           toast({
             title: "Subscription Required",
             description: `You've used all ${FREE_SEARCHES_LIMIT} free searches. Subscribe to continue!`,
@@ -111,7 +113,7 @@ const Check = () => {
           setShowCheckout(true);
           return;
         }
-        throw error;
+        throw new Error(parsed.message);
       }
 
       if (data?.results) {
