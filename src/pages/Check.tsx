@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -86,9 +86,9 @@ const Check = () => {
   // Derived state from centralized hook; admins and free grants always have unlimited access
   const hasSubscription = adminStatus.canBypassPaywall || subscription?.status === 'active' || subscription?.status === 'trialing';
 
-  const handleReadWebsite = async () => {
-    let url = websiteUrl.trim();
-    if (!url) return;
+  const handleReadWebsite = async (override?: string): Promise<{ title: string; description: string } | null> => {
+    let url = (override ?? websiteUrl).trim();
+    if (!url) return null;
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
     setReadingSite(true);
     try {
@@ -99,12 +99,17 @@ const Check = () => {
       }
       const content: string = (data?.content || '').replace(/\s+/g, ' ').trim();
       if (!content) throw new Error('No readable text was found on that website.');
-      if (!searchQuery.trim()) {
-        try { setSearchQuery(new URL(url).hostname.replace(/^www\./, '')); } catch { /* ignore */ }
+      let title = searchQuery.trim();
+      if (!title) {
+        try { title = new URL(url).hostname.replace(/^www\./, ''); } catch { title = url; }
+        setSearchQuery(title);
       }
-      setSearchDescription(content.slice(0, 3000));
+      const description = content.slice(0, 3000);
+      setSearchDescription(description);
+      return { title, description };
     } catch (e: any) {
       toast({ title: 'Website could not be read', description: e.message, variant: 'destructive' });
+      return null;
     } finally {
       setReadingSite(false);
     }
@@ -113,8 +118,24 @@ const Check = () => {
 
   // Auth is enforced by ProtectedRoute wrapper; no internal redirect needed.
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+  const [searchParams] = useSearchParams();
+  const [autoRan, setAutoRan] = useState(false);
+  useEffect(() => {
+    const u = searchParams.get('url');
+    if (!u || autoRan || loading || adminStatus.loading) return;
+    setAutoRan(true);
+    setWebsiteUrl(u);
+    (async () => {
+      const read = await handleReadWebsite(u);
+      if (read) await handleSearch(read.title, read.description);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, autoRan, loading, adminStatus.loading]);
+
+  const handleSearch = async (titleOverride?: string, descOverride?: string) => {
+    const qTitle = titleOverride ?? searchQuery;
+    const qDesc = descOverride ?? searchDescription;
+    if (!qTitle.trim()) {
       toast({
         title: "Search query required",
         description: "Please enter a patent idea or description to search.",
@@ -129,8 +150,8 @@ const Check = () => {
     try {
       const { data, error } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: {
-          ideaTitle: searchQuery,
-          ideaDescription: searchDescription || searchQuery,
+          ideaTitle: qTitle,
+          ideaDescription: qDesc || qTitle,
         }
       });
 
@@ -153,7 +174,7 @@ const Check = () => {
         setSearchKeywords(data.keywords_used || []);
         
         // Track successful prior art search
-        trackPriorArtSearch(searchQuery);
+        trackPriorArtSearch(qTitle);
         
         // Update remaining searches locally for immediate feedback
         if (data.search_credits_remaining !== 'unlimited') {
@@ -167,7 +188,7 @@ const Check = () => {
             .from('prior_art_searches')
             .insert({
               user_id: user.id,
-              query: searchQuery,
+              query: qTitle,
               results_count: data.results.length,
               results: data.results,
             } as any);
@@ -190,7 +211,7 @@ const Check = () => {
     }
   };
 
-  if (loading) {
+  if (loading || adminStatus.loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="text-center">
@@ -347,7 +368,7 @@ const Check = () => {
                       onChange={(e) => setWebsiteUrl(e.target.value)}
                       disabled={searching || readingSite}
                     />
-                    <Button variant="outline" onClick={handleReadWebsite} disabled={!websiteUrl.trim() || readingSite || searching}>
+                    <Button variant="outline" onClick={() => handleReadWebsite()} disabled={!websiteUrl.trim() || readingSite || searching}>
                       {readingSite ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Read site'}
                     </Button>
                   </div>
@@ -375,7 +396,7 @@ const Check = () => {
                   />
                 </div>
                 <Button 
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   disabled={searching || !searchQuery.trim()}
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 >

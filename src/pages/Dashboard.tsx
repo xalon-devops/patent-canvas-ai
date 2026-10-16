@@ -20,6 +20,7 @@ import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useUserProfile } from '@/contexts/UserProfileContext';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { 
   PATENT_APPLICATION_PRICE_DISPLAY, 
   CHECK_AND_SEE_PRICE_DISPLAY,
@@ -62,6 +63,9 @@ function AdminButton({ userId }: { userId: string | undefined }) {
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
+  const accessStatus = useAdminStatus(user?.id);
+  const fullAccess = accessStatus.canBypassPaywall;
+  const [quickUrl, setQuickUrl] = useState('');
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -269,6 +273,22 @@ const Dashboard = () => {
           }}
         />
 
+        {/* Quick company website patent search */}
+        <div className="pricing-card !p-5 sm:!p-6 mb-6">
+          <h3 className="text-base font-semibold text-foreground mb-1">Search patents by company website</h3>
+          <p className="text-sm text-muted-foreground mb-3">Paste a company or product website. PatentBot reads it and runs a prior art search on what it does.</p>
+          <form
+            className="flex flex-col sm:flex-row gap-2"
+            onSubmit={(e) => { e.preventDefault(); if (quickUrl.trim()) navigate(`/check?url=${encodeURIComponent(quickUrl.trim())}`); }}
+          >
+            <Input placeholder="e.g., yourcompany.com" value={quickUrl} onChange={(e) => setQuickUrl(e.target.value)} className="h-10" />
+            <Button type="submit" disabled={!quickUrl.trim()} className="btn-dark h-10 rounded-xl text-sm">
+              <Search className="h-4 w-4" />
+              Run Search
+            </Button>
+          </form>
+        </div>
+
         {/* Action Cards */}
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-10">
           {/* File Patent */}
@@ -290,8 +310,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-            <div className="text-2xl font-bold text-foreground mb-1">{PATENT_APPLICATION_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-4">One-time per application</p>
+            <div className="text-2xl font-bold text-foreground mb-1">{fullAccess ? 'Included' : <>{PATENT_APPLICATION_PRICE_DISPLAY}</>}</div>
+            <p className="text-xs text-muted-foreground mb-4">{fullAccess ? 'Full access on your account' : 'One-time per application'}</p>
             <div className="space-y-2">
               <Button onClick={() => navigate('/new-application')} className="w-full btn-dark h-10 rounded-xl text-sm">
                 Start New Patent
@@ -322,8 +342,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-            <div className="text-2xl font-bold text-foreground mb-1">{CHECK_AND_SEE_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-4">Monthly subscription</p>
+            <div className="text-2xl font-bold text-foreground mb-1">{fullAccess ? 'Included' : <>{CHECK_AND_SEE_PRICE_DISPLAY}</>}</div>
+            <p className="text-xs text-muted-foreground mb-4">{fullAccess ? 'Full access on your account' : 'Monthly subscription'}</p>
             <Button onClick={() => navigate('/check')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <Search className="h-4 w-4" />
               Search Patents
@@ -349,8 +369,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_SEARCH_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-4">Monthly subscription</p>
+            <div className="text-2xl font-bold text-foreground mb-1">{fullAccess ? 'Included' : <>{TRADEMARK_SEARCH_PRICE_DISPLAY}</>}</div>
+            <p className="text-xs text-muted-foreground mb-4">{fullAccess ? 'Full access on your account' : 'Monthly subscription'}</p>
             <Button onClick={() => navigate('/trademark-check')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <Tag className="h-4 w-4" />
               Search Trademarks
@@ -376,8 +396,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_FILING_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-4">Per application</p>
+            <div className="text-2xl font-bold text-foreground mb-1">{fullAccess ? 'Included' : <>{TRADEMARK_FILING_PRICE_DISPLAY}</>}</div>
+            <p className="text-xs text-muted-foreground mb-4">{fullAccess ? 'Full access on your account' : 'Per application'}</p>
             <Button onClick={() => navigate('/trademark-application')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <PenTool className="h-4 w-4" />
               Draft Application
