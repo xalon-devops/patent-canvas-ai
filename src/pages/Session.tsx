@@ -1,3 +1,4 @@
+import ItemActionsMenu from '@/components/ItemActionsMenu';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEdgeErrorMessage } from '@/lib/edgeError';
@@ -878,12 +879,24 @@ const Session = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-sm sm:text-lg font-semibold truncate">
-                  {patentSession.idea_prompt ? 
-                    patentSession.idea_prompt.slice(0, 60) + (patentSession.idea_prompt.length > 60 ? '...' : '') :
-                    'New Patent Application'
-                  }
-                </h1>
+                <div className="flex items-center gap-1 min-w-0">
+                  <h1 className="text-sm sm:text-lg font-semibold truncate">
+                    {(patentSession as any).title || (patentSession.idea_prompt ? 
+                      patentSession.idea_prompt.slice(0, 60) + (patentSession.idea_prompt.length > 60 ? '...' : '') :
+                      'New Patent Application')
+                    }
+                  </h1>
+                  <ItemActionsMenu
+                    name={(patentSession as any).title || patentSession.idea_prompt?.slice(0, 60) || 'New Patent Application'}
+                    itemLabel="application"
+                    onRename={async (t) => {
+                      const { error } = await supabase.from('patent_sessions').update({ title: t } as any).eq('id', patentSession.id);
+                      if (error) throw error;
+                      setPatentSession({ ...(patentSession as any), title: t });
+                      window.dispatchEvent(new CustomEvent('patentbot:renamed', { detail: { id: patentSession.id, name: t } }));
+                    }}
+                  />
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Created {formatDate(patentSession.created_at)}
                 </p>

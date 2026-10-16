@@ -630,6 +630,7 @@ export type Database = {
           patentability_score: number | null
           status: string | null
           technical_analysis: string | null
+          title: string | null
           user_id: string
           visual_analysis: Json | null
         }
@@ -644,6 +645,7 @@ export type Database = {
           patentability_score?: number | null
           status?: string | null
           technical_analysis?: string | null
+          title?: string | null
           user_id: string
           visual_analysis?: Json | null
         }
@@ -658,6 +660,7 @@ export type Database = {
           patentability_score?: number | null
           status?: string | null
           technical_analysis?: string | null
+          title?: string | null
           user_id?: string
           visual_analysis?: Json | null
         }
@@ -844,6 +847,7 @@ export type Database = {
           query: string
           results: Json
           results_count: number
+          title: string | null
           user_id: string
         }
         Insert: {
@@ -853,6 +857,7 @@ export type Database = {
           query: string
           results?: Json
           results_count?: number
+          title?: string | null
           user_id: string
         }
         Update: {
@@ -862,6 +867,7 @@ export type Database = {
           query?: string
           results?: Json
           results_count?: number
+          title?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1229,6 +1235,7 @@ export type Database = {
           results_count: number | null
           search_type: string | null
           status: string | null
+          title: string | null
           user_id: string
         }
         Insert: {
@@ -1240,6 +1247,7 @@ export type Database = {
           results_count?: number | null
           search_type?: string | null
           status?: string | null
+          title?: string | null
           user_id: string
         }
         Update: {
@@ -1251,6 +1259,7 @@ export type Database = {
           results_count?: number | null
           search_type?: string | null
           status?: string | null
+          title?: string | null
           user_id?: string
         }
         Relationships: []
