@@ -56,12 +56,12 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          "Authorization": req.headers.get("Authorization") ?? "",
+          "apikey": Deno.env.get("SUPABASE_ANON_KEY") ?? "",
         },
         body: JSON.stringify({
-          query: searchQuery,
-          sessionId: sessionId,
-          maxResults: 10,
+          search_query: searchQuery,
+          session_id: sessionId,
         }),
       }
     );
