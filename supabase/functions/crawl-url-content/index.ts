@@ -124,8 +124,44 @@ serve(async (req) => {
 
     console.log('Extracted text content, length:', textContent.length);
 
+    // Many modern sites render their text with JavaScript, so a plain fetch sees almost nothing.
+    // Fall back to Firecrawl (renders the page in a real browser), then to meta tags.
+    if (textContent.length < 300) {
+      const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
+      if (firecrawlKey) {
+        try {
+          const fc = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${firecrawlKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: validUrl.href, formats: ['markdown'], onlyMainContent: true, waitFor: 2500 }),
+            signal: AbortSignal.timeout(45000),
+          });
+          if (fc.ok) {
+            const fcData = await fc.json();
+            const md: string = fcData?.data?.markdown || '';
+            const cleaned = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
+            console.log('Firecrawl rendered content length:', cleaned.length);
+            if (cleaned.length > textContent.length) textContent = cleaned.substring(0, 8000);
+          } else {
+            console.warn('Firecrawl scrape failed:', fc.status);
+          }
+        } catch (e) {
+          console.warn('Firecrawl error:', (e as Error).message);
+        }
+      }
+      if (textContent.length < 300) {
+        const metas: string[] = [];
+        const grab = (re: RegExp) => { const m = html.match(re); if (m?.[1]) metas.push(m[1].trim()); };
+        grab(/<title[^>]*>([^<]+)<\/title>/i);
+        grab(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+        grab(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+        const metaText = [...new Set(metas)].join('\n');
+        if (metaText.length > 0) textContent = `${metaText}\n${textContent}`.trim();
+      }
+    }
+
     // Basic content validation
-    if (textContent.length < 100) {
+    if (textContent.length < 40) {
       console.warn('Very little content extracted from URL');
       return new Response(
         JSON.stringify({ 
