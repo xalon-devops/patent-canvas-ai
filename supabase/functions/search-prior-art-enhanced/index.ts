@@ -322,12 +322,11 @@ Find patents that could pose novelty or obviousness challenges to this invention
 1. Patents with overlapping technical implementations
 2. Patents claiming similar methods or systems
 3. Foundation patents that this invention might depend on
-4. Recent patents (last 5 years) in the same technical space`
+4. Granted patents and published applications of any age in the same technical space (older patents still count as prior art)`
           }
         ],
         max_tokens: 4000,
         temperature: 0.1,
-        search_recency_filter: 'year', // Focus on recent patents
       }),
     });
 
