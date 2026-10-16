@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { supabase } from '@/integrations/supabase/client';
 import { PageSEO } from '@/components/SEO';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
@@ -81,6 +82,9 @@ export default function TrademarkCheck() {
 
   const [creditsRemaining, setCreditsRemaining] = useState<number | string | null>(null);
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [tmUserId, setTmUserId] = useState<string | undefined>(undefined);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setTmUserId(data.user?.id)); }, []);
+  const tmAdmin = useAdminStatus(tmUserId);
   const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
 
@@ -445,7 +449,7 @@ export default function TrademarkCheck() {
                   {creditsRemaining === 'unlimited' ? '∞ searches' : `${creditsRemaining} free searches left`}
                 </Badge>
               )}
-              {creditsRemaining !== 'unlimited' && (
+              {creditsRemaining !== 'unlimited' && !tmAdmin.canBypassPaywall && !tmAdmin.loading && (
                 <Button size="sm" variant="default" onClick={() => setShowSubscribe(true)} className="gap-1.5">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Subscribe {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</span>

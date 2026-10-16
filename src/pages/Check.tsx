@@ -10,6 +10,7 @@ import { useAuthenticatedPatentData } from '@/hooks/usePatentData';
 import { Search, ArrowLeft, Sparkles, Lock, Zap, CheckCircle, Loader2, History } from 'lucide-react';
 import { formatDateShort } from '@/lib/dateUtils';
 import { getEdgeErrorMessage } from '@/lib/edgeError';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 interface SearchHistoryRow {
   id: string;
@@ -44,6 +45,13 @@ const Check = () => {
   const [localFreeSearches, setLocalFreeSearches] = useState<number | null>(null);
   const [searchKeywords, setSearchKeywords] = useState<string[]>([]);
   const [history, setHistory] = useState<SearchHistoryRow[]>([]);
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [readingSite, setReadingSite] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id));
+  }, []);
+  const adminStatus = useAdminStatus(currentUserId);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -75,8 +83,32 @@ const Check = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Derived state from centralized hook
-  const hasSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
+  // Derived state from centralized hook; admins and free grants always have unlimited access
+  const hasSubscription = adminStatus.canBypassPaywall || subscription?.status === 'active' || subscription?.status === 'trialing';
+
+  const handleReadWebsite = async () => {
+    let url = websiteUrl.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    setReadingSite(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('crawl-url-content', { body: { url } });
+      if (error) {
+        const parsed = await getEdgeErrorMessage(error, 'Could not read that website.');
+        throw new Error(parsed.message);
+      }
+      const content: string = (data?.content || '').replace(/\s+/g, ' ').trim();
+      if (!content) throw new Error('No readable text was found on that website.');
+      if (!searchQuery.trim()) {
+        try { setSearchQuery(new URL(url).hostname.replace(/^www\./, '')); } catch { /* ignore */ }
+      }
+      setSearchDescription(content.slice(0, 3000));
+    } catch (e: any) {
+      toast({ title: 'Website could not be read', description: e.message, variant: 'destructive' });
+    } finally {
+      setReadingSite(false);
+    }
+  };
   const freeSearchesRemaining = localFreeSearches ?? searchCredits?.free_searches_remaining ?? FREE_SEARCHES_LIMIT;
 
   // Auth is enforced by ProtectedRoute wrapper; no internal redirect needed.
@@ -306,6 +338,23 @@ const Check = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Company or product website (optional)</label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g., yourcompany.com"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      disabled={searching || readingSite}
+                    />
+                    <Button variant="outline" onClick={handleReadWebsite} disabled={!websiteUrl.trim() || readingSite || searching}>
+                      {readingSite ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Read site'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reads the website and fills in what the product does. Edit the description to focus on what is new about it.
+                  </p>
+                </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Invention Title</label>
                   <Input
