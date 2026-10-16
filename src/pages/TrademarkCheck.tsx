@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PageSEO } from '@/components/SEO';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { ProtectedHeader } from '@/components/ProtectedHeader';
+import ItemActionsMenu from '@/components/ItemActionsMenu';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
   Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles, History
@@ -21,6 +22,7 @@ import { formatDateShort } from '@/lib/dateUtils';
 interface TrademarkSearchHistoryRow {
   id: string;
   mark_name: string;
+  title?: string | null;
   mark_description: string | null;
   nice_classes: string[] | null;
   results_count: number | null;
@@ -94,7 +96,7 @@ export default function TrademarkCheck() {
     if (!user) return;
     const { data, error } = await supabase
       .from('trademark_searches')
-      .select('id, mark_name, mark_description, nice_classes, results_count, created_at')
+      .select('id, mark_name, title, mark_description, nice_classes, results_count, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(25);
@@ -108,6 +110,16 @@ export default function TrademarkCheck() {
   useEffect(() => {
     loadSearchHistory();
   }, [loadSearchHistory]);
+
+  const renameTmSearch = async (id: string, title: string) => {
+    const { error } = await supabase.from('trademark_searches').update({ title } as any).eq('id', id);
+    if (error) throw error;
+    setSearchHistory(h => h.map(x => x.id === id ? { ...x, title } : x));
+  };
+  const deleteTmSearch = async (id: string) => {
+    const { error } = await supabase.from('trademark_searches').delete().eq('id', id);
+    if (!error) setSearchHistory(h => h.filter(x => x.id !== id));
+  };
 
   const openHistoryEntry = async (entry: TrademarkSearchHistoryRow) => {
     setLoadingHistoryId(entry.id);
@@ -1075,25 +1087,28 @@ export default function TrademarkCheck() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {searchHistory.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => openHistoryEntry(entry)}
-                  disabled={loadingHistoryId === entry.id}
-                  className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors disabled:opacity-60"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium truncate">{entry.mark_name}</p>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {loadingHistoryId === entry.id ? 'Loading…' : formatDateShort(entry.created_at)}
-                    </span>
+              {searchHistory.map((entry) => {
+                const name = entry.title || entry.mark_name;
+                return (
+                  <div
+                    key={entry.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => loadingHistoryId !== entry.id && openHistoryEntry(entry)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') openHistoryEntry(entry); }}
+                    className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {loadingHistoryId === entry.id ? 'Loading…' : formatDateShort(entry.created_at)} · {entry.results_count ?? 0} {entry.results_count === 1 ? 'result' : 'results'}
+                        {entry.nice_classes?.length ? ` · Classes ${entry.nice_classes.join(', ')}` : ''}
+                      </p>
+                    </div>
+                    <ItemActionsMenu name={name} itemLabel="search" onRename={(t) => renameTmSearch(entry.id, t)} onDelete={() => deleteTmSearch(entry.id)} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {entry.results_count ?? 0} {entry.results_count === 1 ? 'result' : 'results'}
-                    {entry.nice_classes?.length ? ` · Classes ${entry.nice_classes.join(', ')}` : ''}
-                  </p>
-                </button>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}

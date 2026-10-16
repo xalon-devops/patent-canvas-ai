@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, Crown, Loader2 } from 'lucide-react';
 import { useUserProfile } from '@/contexts/UserProfileContext';
+import AppBreadcrumbs from '@/components/AppBreadcrumbs';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -169,7 +170,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  return <>{children}</>;
+  return <><AppBreadcrumbs />{children}</>;
 };
 
 export default ProtectedRoute;

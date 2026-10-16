@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageSEO } from '@/components/SEO';
 import { formatDate, formatDateTime } from '@/lib/dateUtils';
+import ItemActionsMenu from '@/components/ItemActionsMenu';
 
 const Drafts = () => {
   const navigate = useNavigate();
@@ -41,6 +42,12 @@ const Drafts = () => {
 
   const resumeDraft = (sessionId: string) => {
     navigate(`/new-application?sessionId=${sessionId}`);
+  };
+
+  const renameDraft = async (sessionId: string, title: string) => {
+    const { error } = await supabase.from('patent_sessions').update({ title } as any).eq('id', sessionId);
+    if (error) throw error;
+    refetchSessions();
   };
 
   const deleteDraft = async (sessionId: string) => {
@@ -204,12 +211,12 @@ const Drafts = () => {
                                 </Badge>
                               </div>
                               <CardTitle className="text-base sm:text-lg leading-tight mb-2 line-clamp-2">
-                                {draft.idea_prompt ? 
+                                {(draft as any).title || (draft.idea_prompt ? 
                                   (draft.idea_prompt.length > 100 ? 
                                     `${draft.idea_prompt.substring(0, 100)}...` : 
                                     draft.idea_prompt
                                   ) : 
-                                  'Untitled Patent Application'
+                                  'Untitled Patent Application')
                                 }
                               </CardTitle>
                               <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
@@ -239,14 +246,12 @@ const Drafts = () => {
                                 <Play className="h-3 w-3" />
                                 <span className="hidden xs:inline">Resume</span>
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteDraft(draft.id)}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <ItemActionsMenu
+                                name={(draft as any).title || draft.idea_prompt?.slice(0, 60) || 'Untitled Patent Application'}
+                                itemLabel="draft"
+                                onRename={(t) => renameDraft(draft.id, t)}
+                                onDelete={() => deleteDraft(draft.id)}
+                              />
                             </div>
                           </div>
                         </CardHeader>

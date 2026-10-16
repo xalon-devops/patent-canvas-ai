@@ -15,6 +15,7 @@ import { useAdminStatus } from '@/hooks/useAdminStatus';
 interface SearchHistoryRow {
   id: string;
   query: string;
+  title?: string | null;
   patent_type: string | null;
   results_count: number;
   results: any;
@@ -23,6 +24,7 @@ interface SearchHistoryRow {
 import { EmbeddedStripeCheckout } from '@/components/EmbeddedStripeCheckout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PriorArtDisplay from '@/components/PriorArtDisplay';
+import ItemActionsMenu from '@/components/ItemActionsMenu';
 import { PageSEO } from '@/components/SEO';
 import { STRIPE_CHECK_AND_SEE_PRICE_ID, FREE_SEARCHES_LIMIT, CHECK_AND_SEE_PRICE } from '@/lib/pricingConstants';
 import { trackPriorArtSearch } from '@/hooks/useFunnelTracking';
@@ -61,7 +63,7 @@ const Check = () => {
     if (!user) return;
     const { data, error } = await supabase
       .from('prior_art_searches')
-      .select('id, query, patent_type, results_count, results, created_at')
+      .select('id, query, title, patent_type, results_count, results, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(25);
@@ -76,7 +78,22 @@ const Check = () => {
     if (isAuthenticated) loadHistory();
   }, [isAuthenticated, loadHistory]);
 
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+
+  const renameSearch = async (id: string, title: string) => {
+    const { error } = await supabase.from('prior_art_searches').update({ title } as any).eq('id', id);
+    if (error) throw error;
+    setHistory(h => h.map(x => x.id === id ? { ...x, title } : x));
+  };
+  const deleteSearch = async (id: string) => {
+    const { error } = await supabase.from('prior_art_searches').delete().eq('id', id);
+    if (error) { toast({ title: 'Could not delete search', description: error.message, variant: 'destructive' }); return; }
+    setHistory(h => h.filter(x => x.id !== id));
+    if (activeHistoryId === id) { setActiveHistoryId(null); setPriorArtResults([]); }
+  };
+
   const openHistoryEntry = (entry: SearchHistoryRow) => {
+    setActiveHistoryId(entry.id);
     setSearchQuery(entry.query);
     setPriorArtResults(Array.isArray(entry.results) ? entry.results : []);
     setSearchKeywords([]);
@@ -254,7 +271,7 @@ const Check = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-12 max-w-5xl">
+      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-5xl">
         {!hasSubscription && freeSearchesRemaining === 0 ? (
           /* Subscription Required */
           <div className="text-center space-y-8">
@@ -436,23 +453,35 @@ const Check = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {history.map((entry) => (
-                    <button
-                      key={entry.id}
-                      onClick={() => openHistoryEntry(entry)}
-                      className="w-full text-left rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium truncate">{entry.query}</p>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {formatDateShort(entry.created_at)}
-                        </span>
+                  {history.map((entry) => {
+                    const name = entry.title || entry.query;
+                    const active = activeHistoryId === entry.id;
+                    return (
+                      <div
+                        key={entry.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openHistoryEntry(entry)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') openHistoryEntry(entry); }}
+                        className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${active ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {formatDateShort(entry.created_at)} · {entry.results_count} {entry.results_count === 1 ? 'result' : 'results'}
+                            {entry.title && entry.title !== entry.query ? ` · ${entry.query}` : ''}
+                          </p>
+                        </div>
+                        {active && <span className="text-[11px] font-medium text-primary flex-shrink-0">Viewing</span>}
+                        <ItemActionsMenu
+                          name={name}
+                          itemLabel="search"
+                          onRename={(t) => renameSearch(entry.id, t)}
+                          onDelete={() => deleteSearch(entry.id)}
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {entry.results_count} {entry.results_count === 1 ? 'result' : 'results'}
-                      </p>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
