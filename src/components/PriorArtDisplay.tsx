@@ -57,7 +57,7 @@ export default function PriorArtDisplay({
   searchKeywords = [],
   productDescription = ''
 }: PriorArtDisplayProps) {
-  const [risk, setRisk] = useState<{ overall_risk: string; disclaimer: string; byKey: Record<string, any> } | null>(null);
+  const [riskData, setRiskData] = useState<{ overall_risk: string; disclaimer: string; byKey: Record<string, any> } | null>(null);
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState<string | null>(null);
 
@@ -74,7 +74,7 @@ export default function PriorArtDisplay({
       if (data?.error) throw new Error(data.error);
       const byKey: Record<string, any> = {};
       for (const a of data.assessments || []) byKey[a.key] = a;
-      setRisk({ overall_risk: data.overall_risk, disclaimer: data.disclaimer, byKey });
+      setRiskData({ overall_risk: data.overall_risk, disclaimer: data.disclaimer, byKey });
     } catch (e) {
       setRiskError((await getEdgeErrorMessage(e, 'The operating-risk check could not finish. Please try again.')).message);
     } finally { setRiskLoading(false); }
@@ -276,17 +276,17 @@ export default function PriorArtDisplay({
               </div>
               <Button onClick={runRiskCheck} disabled={riskLoading || !productDescription} size="sm" className="gap-2">
                 {riskLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                {riskLoading ? 'Checking records…' : risk ? 'Re-check operating risk' : 'Check operating risk'}
+                {riskLoading ? 'Checking records…' : riskData ? 'Re-check operating risk' : 'Check operating risk'}
               </Button>
             </div>
             {riskError && <div className="text-sm text-destructive">{riskError}</div>}
-            {risk && (
+            {riskData && (
               <div className="rounded-lg border bg-muted/40 p-3 text-sm">
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   Overall operating risk:
-                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${riskChip(risk.overall_risk)}`}>{risk.overall_risk === 'None' ? 'No enforceable conflicts' : risk.overall_risk}</span>
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${riskChip(riskData.overall_risk)}`}>{riskData.overall_risk === 'None' ? 'No enforceable conflicts' : riskData.overall_risk}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{risk.disclaimer}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{riskData.disclaimer}</p>
               </div>
             )}
           </div>
@@ -354,8 +354,8 @@ export default function PriorArtDisplay({
                     {result.summary}
                   </p>
 
-                  {risk && (() => {
-                    const a = risk.byKey[result.id] || risk.byKey[(result.publication_number || '').toUpperCase().replace(/[\s\/,.-]/g, '')];
+                  {riskData && (() => {
+                    const a = riskData.byKey[result.id] || riskData.byKey[(result.publication_number || '').toUpperCase().replace(/[\s\/,.-]/g, '')];
                     if (!a) return null;
                     return (
                       <div className="rounded-lg border bg-background p-3 space-y-2">
