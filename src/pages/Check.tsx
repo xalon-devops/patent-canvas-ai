@@ -99,12 +99,12 @@ const Check = () => {
       }
       const content: string = (data?.content || '').replace(/\s+/g, ' ').trim();
       if (!content) throw new Error('No readable text was found on that website.');
-      let title = searchQuery.trim();
+      let title: string = data?.invention_title || '';
       if (!title) {
         try { title = new URL(url).hostname.replace(/^www\./, ''); } catch { title = url; }
-        setSearchQuery(title);
       }
-      const description = content.slice(0, 3000);
+      setSearchQuery(title);
+      const description: string = data?.invention_description || content.slice(0, 3000);
       setSearchDescription(description);
       return { title, description };
     } catch (e: any) {
