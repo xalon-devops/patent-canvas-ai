@@ -396,8 +396,8 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-            <div className="text-2xl font-bold text-foreground mb-1">{TRADEMARK_FILING_PRICE_DISPLAY}</div>
-            <p className="text-xs text-muted-foreground mb-4">Per application</p>
+            <div className="text-2xl font-bold text-foreground mb-1">{fullAccess ? 'Included' : <>{TRADEMARK_FILING_PRICE_DISPLAY}</>}</div>
+            <p className="text-xs text-muted-foreground mb-4">{fullAccess ? 'Full access on your account' : 'Per application'}</p>
             <Button onClick={() => navigate('/trademark-application')} variant="outline" className="w-full h-10 rounded-xl text-sm border-border">
               <PenTool className="h-4 w-4" />
               Draft Application
