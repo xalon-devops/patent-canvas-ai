@@ -76,7 +76,7 @@ export default function PriorArtDisplay({
       for (const a of data.assessments || []) byKey[a.key] = a;
       setRisk({ overall_risk: data.overall_risk, disclaimer: data.disclaimer, byKey });
     } catch (e) {
-      setRiskError(await getEdgeErrorMessage(e, 'The operating-risk check could not finish. Please try again.'));
+      setRiskError((await getEdgeErrorMessage(e, 'The operating-risk check could not finish. Please try again.')).message);
     } finally { setRiskLoading(false); }
   };
 
