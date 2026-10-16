@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
@@ -79,7 +80,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           patent_type: sessionData.patentType,
         },
       });
-      if (invokeError) throw invokeError;
+      if (invokeError) throw new Error((await getEdgeErrorMessage(invokeError, 'Failed to search prior art')).message);
 
       // Then fetch stored results for this session
       const { data: rows, error: fetchErr } = await supabase

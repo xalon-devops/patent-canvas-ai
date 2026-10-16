@@ -13,6 +13,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  {
+    const _auth = req.headers.get("Authorization") || "";
+    const _tok = _auth.replace("Bearer ", "");
+    const _svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!_tok) {
+      return new Response(JSON.stringify({ success: false, error: "Please sign in to continue." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (_tok !== _svc) {
+      const _c = createClient(Deno.env.get("SUPABASE_URL") ?? "", _svc);
+      const { data: _u } = await _c.auth.getUser(_tok);
+      if (!_u?.user) {
+        return new Response(JSON.stringify({ success: false, error: "Your session has expired. Please sign in again." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+  }
+
   try {
     const { session_id, context } = await req.json();
     
