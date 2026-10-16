@@ -135,7 +135,7 @@ ${JSON.stringify(items)}`;
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-3.1-pro-preview",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
       }),
