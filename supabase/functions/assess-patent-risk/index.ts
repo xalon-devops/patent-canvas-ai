@@ -92,7 +92,9 @@ async function fetchPatent(r: InputResult): Promise<PatentRecord> {
       else if (/abandon|withdrawn|revoked|rejected/.test(l)) label = "Abandoned";
       else if (/pending/.test(l)) label = "Pending";
       else if (/active|granted|in force/.test(l)) label = isGranted ? "Active" : "Pending";
-      if (expiration && new Date(expiration) < new Date()) label = "Expired";
+      const isWO = /^WO/.test(pubNum);
+      if (!isWO && expiration && new Date(expiration) < new Date()) label = "Expired";
+      if (isWO) label = "Pending";
       return {
         ...base, google_url: url, found: true,
         publication_number: pubNum,
@@ -101,7 +103,7 @@ async function fetchPatent(r: InputResult): Promise<PatentRecord> {
         priority_date: pick(html, /itemprop="priorityDate" datetime="([\d-]+)"/),
         filing_date: pick(html, /itemprop="filingDate" datetime="([\d-]+)"/),
         publication_date: pick(html, /itemprop="publicationDate" datetime="([\d-]+)"/),
-        grant_date: grant, expiration_date: expiration, legal_status: legal, status_label: label,
+        grant_date: grant, expiration_date: isWO ? null : expiration, legal_status: legal, status_label: label,
         jurisdiction: pick(html, /itemprop="countryCode">([^<]+)</) || base.jurisdiction,
         is_granted: isGranted,
         first_claim: claimMatch ? strip(claimMatch[1]).slice(0, 2500) : null,
@@ -113,7 +115,7 @@ async function fetchPatent(r: InputResult): Promise<PatentRecord> {
 
 async function assessRisk(product: string, records: (PatentRecord & { title?: string; summary?: string })[]) {
   const key = Deno.env.get("LOVABLE_API_KEY");
-  const live = records.filter((r) => r.status_label === "Active" || r.status_label === "Pending" || r.status_label === "Unknown");
+  const live = records.filter((r) => (r.status_label === "Active" || r.status_label === "Pending" || r.status_label === "Unknown") && (r.jurisdiction || "").toUpperCase() !== "WO");
   if (!key || live.length === 0 || !product) return {} as Record<string, any>;
   const items = live.map((r, i) => ({
     i, number: r.publication_number, status: r.status_label, title: r.title,
@@ -173,6 +175,9 @@ serve(async (req) => {
       if (r.status_label === "Expired" || r.status_label === "Abandoned") {
         risk = "None";
         reason = `This ${r.status_label === "Expired" ? "patent has expired" : "application is abandoned"}, so it cannot be enforced. It remains prior art against new patent filings.`;
+      } else if ((r.jurisdiction || "").toUpperCase() === "WO") {
+        risk = "None";
+        reason = "This is an international (PCT) application. It is not enforceable on its own; only patents later granted in specific countries can be enforced, so check its national family members.";
       } else if (a) {
         risk = a.risk; reason = a.reason; design_around = a.design_around || null;
       } else {
