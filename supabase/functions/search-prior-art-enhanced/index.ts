@@ -23,12 +23,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization') || '';
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
+    const { data: { user } } = token ? await supabaseClient.auth.getUser(token) : { data: { user: null } };
 
     if (!user) {
-      throw new Error('Not authenticated');
+      return new Response(JSON.stringify({ success: false, error: 'Your session has expired. Please sign in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     console.log('[ENHANCED SEARCH] Starting multi-source patent search');
@@ -84,18 +85,6 @@ serve(async (req) => {
         error: 'No search credits remaining. Please subscribe to continue.',
         requires_subscription: true
       }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // Deduct credit if using free trial
-    if (!hasActiveSubscription && hasCredits) {
-      await supabaseClient
-        .from('user_search_credits')
-        .update({
-          searches_used: (credits.searches_used || 0) + 1,
-          free_searches_remaining: credits.free_searches_remaining - 1,
-          last_search_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
     }
 
     // Build context - prefer search_query if provided, otherwise build from session/idea
@@ -171,8 +160,7 @@ serve(async (req) => {
     });
 
     // Score and analyze results
-    const rankedResults = [];
-    for (const result of uniqueResults.slice(0, 20)) {
+    const rankedResults: any[] = (await Promise.all(uniqueResults.slice(0, 15).map(async (result: any) => {
       let keywordScore = calculateKeywordMatch(contextText, `${result.title} ${result.summary}`);
 
       // Official USPTO register records are authoritative — give them a confidence floor
@@ -215,6 +203,7 @@ serve(async (req) => {
               ],
               temperature: 0.3,
             }),
+            signal: AbortSignal.timeout(20000),
           });
           
           if (analysisResponse.ok) {
@@ -242,14 +231,26 @@ serve(async (req) => {
         differenceClaims = generateGenericDifferences(result.title, contextText);
       }
 
-      rankedResults.push({
+      return {
         ...result,
         similarity_score: Math.min(keywordScore, 0.99),
         semantic_score: keywordScore,
         keyword_score: keywordScore,
         overlap_claims: overlapClaims,
         difference_claims: differenceClaims,
-      });
+      };
+    }))).filter(Boolean);
+
+    // Deduct credit only after a successful search
+    if (!hasActiveSubscription && hasCredits) {
+      await supabaseClient
+        .from('user_search_credits')
+        .update({
+          searches_used: (credits.searches_used || 0) + 1,
+          free_searches_remaining: credits.free_searches_remaining - 1,
+          last_search_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
     }
 
     // Sort by score
@@ -293,7 +294,7 @@ serve(async (req) => {
       results_found: rankedResults.length,
       sources_used: sourcesUsed,
       keywords_used: searchKeywords.slice(0, 5),
-      search_credits_remaining: hasActiveSubscription ? 'unlimited' : (credits?.free_searches_remaining - 1)
+      search_credits_remaining: hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining ?? 1) - 1)
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -303,7 +304,7 @@ serve(async (req) => {
     console.error('[ENHANCED SEARCH] Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: 'The search could not be completed. Please try again in a moment.'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
