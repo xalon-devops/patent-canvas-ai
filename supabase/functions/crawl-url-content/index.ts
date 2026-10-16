@@ -175,10 +175,47 @@ serve(async (req) => {
       );
     }
 
+    // Turn marketing copy into a technical invention summary suitable for a prior art search
+    let inventionTitle: string | null = null;
+    let inventionDescription: string | null = null;
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+    if (lovableKey) {
+      try {
+        const ai = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(40000),
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: 'You are a patent analyst. From website text, ignore cookie banners, navigation, pricing, testimonials and calls to action. Describe the underlying technology as an invention for a prior art search. Return ONLY JSON: {"title": "short technical invention title", "description": "250-450 words: problem solved, system components (hardware/sensors/software), how it works step by step, and the specific features that appear novel. Technical, neutral language, no marketing."}' },
+              { role: 'user', content: `URL: ${validUrl.href}\n\n${textContent.substring(0, 12000)}` },
+            ],
+          }),
+        });
+        if (ai.ok) {
+          const aiData = await ai.json();
+          const raw: string = aiData?.choices?.[0]?.message?.content || '';
+          const m = raw.match(/\{[\s\S]*\}/);
+          if (m) {
+            const parsed = JSON.parse(m[0]);
+            inventionTitle = typeof parsed.title === 'string' ? parsed.title : null;
+            inventionDescription = typeof parsed.description === 'string' ? parsed.description : null;
+          }
+        } else {
+          console.warn('AI summary failed:', ai.status, await ai.text());
+        }
+      } catch (e) {
+        console.warn('AI summary error:', (e as Error).message);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
         url: url,
+        invention_title: inventionTitle,
+        invention_description: inventionDescription,
         content: textContent,
         content_length: textContent.length
       }), 
