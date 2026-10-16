@@ -419,6 +419,7 @@ const Check = () => {
               <PriorArtDisplay 
                 priorArt={priorArtResults} 
                 searchKeywords={searchKeywords}
+                productDescription={searchDescription || searchQuery}
                 onRetrySearch={handleSearch}
               />
             )}
