@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 import { formatDate, formatMonthYear } from '@/lib/dateUtils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 
 interface PriorArtResult {
   id: string;
@@ -44,14 +47,55 @@ interface PriorArtDisplayProps {
   isSearching?: boolean;
   onRetrySearch?: () => void;
   searchKeywords?: string[];
+  productDescription?: string;
 }
 
 export default function PriorArtDisplay({ 
   priorArt, 
   isSearching = false, 
   onRetrySearch,
-  searchKeywords = []
+  searchKeywords = [],
+  productDescription = ''
 }: PriorArtDisplayProps) {
+  const [riskData, setRiskData] = useState<{ overall_risk: string; disclaimer: string; byKey: Record<string, any> } | null>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState<string | null>(null);
+
+  const runRiskCheck = async () => {
+    setRiskLoading(true); setRiskError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('assess-patent-risk', {
+        body: {
+          product_description: productDescription,
+          results: priorArt.map(r => ({ id: r.id, publication_number: r.publication_number, title: r.title, url: r.url, summary: r.summary })),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const byKey: Record<string, any> = {};
+      for (const a of data.assessments || []) byKey[a.key] = a;
+      setRiskData({ overall_risk: data.overall_risk, disclaimer: data.disclaimer, byKey });
+    } catch (e) {
+      setRiskError((await getEdgeErrorMessage(e, 'The operating-risk check could not finish. Please try again.')).message);
+    } finally { setRiskLoading(false); }
+  };
+
+  const riskChip = (r: string) => ({
+    High: 'bg-red-600 text-white',
+    Medium: 'bg-orange-500 text-white',
+    Low: 'bg-emerald-600 text-white',
+    None: 'bg-slate-600 text-white',
+    Unknown: 'bg-slate-200 text-slate-800',
+  } as Record<string, string>)[r] || 'bg-slate-200 text-slate-800';
+
+  const statusChip = (s: string) => ({
+    Active: 'bg-red-50 text-red-800 border-red-300',
+    Pending: 'bg-amber-50 text-amber-900 border-amber-300',
+    Expired: 'bg-slate-100 text-slate-700 border-slate-300',
+    Abandoned: 'bg-slate-100 text-slate-700 border-slate-300',
+  } as Record<string, string>)[s] || 'bg-slate-100 text-slate-700 border-slate-300';
+
+  const fmt = (d?: string | null) => (d ? formatDate(d) : '—');
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (id: string) => {
@@ -199,17 +243,17 @@ export default function PriorArtDisplay({
           <div className="grid grid-cols-3 gap-4">
             <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-xl text-center border border-red-200 dark:border-red-800">
               <div className="text-3xl font-bold text-red-600">{highRiskCount}</div>
-              <div className="text-xs text-red-700 dark:text-red-400 font-medium">High Risk</div>
+              <div className="text-xs text-red-800 font-semibold">High Risk</div>
               <div className="text-[10px] text-red-500 mt-1">≥80% similar</div>
             </div>
             <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-xl text-center border border-orange-200 dark:border-orange-800">
               <div className="text-3xl font-bold text-orange-600">{mediumRiskCount}</div>
-              <div className="text-xs text-orange-700 dark:text-orange-400 font-medium">Medium Risk</div>
+              <div className="text-xs text-orange-800 font-semibold">Medium Risk</div>
               <div className="text-[10px] text-orange-500 mt-1">60-79% similar</div>
             </div>
             <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-xl text-center border border-green-200 dark:border-green-800">
               <div className="text-3xl font-bold text-green-600">{lowRiskCount}</div>
-              <div className="text-xs text-green-700 dark:text-green-400 font-medium">Low Risk</div>
+              <div className="text-xs text-green-800 font-semibold">Low Risk</div>
               <div className="text-[10px] text-green-500 mt-1">&lt;60% similar</div>
             </div>
           </div>
@@ -224,6 +268,28 @@ export default function PriorArtDisplay({
               </div>
             </div>
           )}
+          <div className="mt-4 pt-4 border-t space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Can the company keep operating?</div>
+                <div className="text-xs text-muted-foreground">Pulls each patent's owner, dates and legal status from official records, then compares its main claim against the product.</div>
+              </div>
+              <Button onClick={runRiskCheck} disabled={riskLoading || !productDescription} size="sm" className="gap-2">
+                {riskLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                {riskLoading ? 'Checking records…' : riskData ? 'Re-check operating risk' : 'Check operating risk'}
+              </Button>
+            </div>
+            {riskError && <div className="text-sm text-destructive">{riskError}</div>}
+            {riskData && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                <div className="flex items-center gap-2 font-medium text-foreground">
+                  Overall operating risk:
+                  <span className={`rounded px-2 py-0.5 text-xs font-semibold ${riskChip(riskData.overall_risk)}`}>{riskData.overall_risk === 'None' ? 'No enforceable conflicts' : riskData.overall_risk}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{riskData.disclaimer}</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -263,7 +329,7 @@ export default function PriorArtDisplay({
                           </span>
                         )}
                         {result.assignee && result.assignee !== 'Unknown' && (
-                          <span className="flex items-center gap-1 truncate max-w-[150px]">
+                          <span className="flex items-center gap-1 ">
                             <Building2 className="w-3 h-3" />
                             {result.assignee}
                           </span>
@@ -288,21 +354,46 @@ export default function PriorArtDisplay({
                     {result.summary}
                   </p>
 
+                  {riskData && (() => {
+                    const a = riskData.byKey[result.id] || riskData.byKey[(result.publication_number || '').toUpperCase().replace(/[\s\/,.-]/g, '')];
+                    if (!a) return null;
+                    return (
+                      <div className="rounded-lg border bg-background p-3 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${statusChip(a.status_label)}`}>{a.status_label}</span>
+                          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${riskChip(a.risk)}`}>Operating risk: {a.risk}</span>
+                          {a.jurisdiction && <span className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-800">{a.jurisdiction}</span>}
+                          {a.elements_total ? <span className="text-xs text-foreground">Claim elements matched: {a.elements_met}/{a.elements_total}</span> : null}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                          <div><div className="text-muted-foreground">Owner</div><div className="font-medium text-foreground">{a.owner || a.original_owner || '—'}</div></div>
+                          <div><div className="text-muted-foreground">Priority</div><div className="font-medium text-foreground">{fmt(a.priority_date)}</div></div>
+                          <div><div className="text-muted-foreground">Filed</div><div className="font-medium text-foreground">{fmt(a.filing_date)}</div></div>
+                          <div><div className="text-muted-foreground">Granted</div><div className="font-medium text-foreground">{a.is_granted ? fmt(a.grant_date || a.publication_date) : 'Not granted'}</div></div>
+                          <div><div className="text-muted-foreground">Expires</div><div className="font-medium text-foreground">{fmt(a.expiration_date)}</div></div>
+                        </div>
+                        <p className="text-xs text-foreground">{a.reason}</p>
+                        {a.missing_elements?.length > 0 && <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Not practiced by the product:</span> {a.missing_elements.join('; ')}</p>}
+                        {a.design_around && <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Design-around:</span> {a.design_around}</p>}
+                      </div>
+                    );
+                  })()}
+
                   {/* Score breakdown */}
                   {(result.semantic_score !== undefined || result.keyword_score !== undefined) && (
                     <div className="flex items-center gap-4 text-xs">
                       {result.semantic_score !== undefined && result.semantic_score > 0 && (
-                        <div className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded">
+                        <div className="flex items-center gap-1.5 border border-violet-200 bg-violet-50 px-2 py-1 rounded">
                           <Brain className="w-3 h-3 text-purple-500" />
-                          <span className="text-purple-700 dark:text-purple-300">
+                          <span className="font-medium text-violet-900">
                             Semantic: {Math.round(result.semantic_score * 100)}%
                           </span>
                         </div>
                       )}
                       {result.keyword_score !== undefined && result.keyword_score > 0 && (
-                        <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded">
+                        <div className="flex items-center gap-1.5 border border-blue-200 bg-blue-50 px-2 py-1 rounded">
                           <FileText className="w-3 h-3 text-blue-500" />
-                          <span className="text-blue-700 dark:text-blue-300">
+                          <span className="font-medium text-blue-900">
                             Keyword: {Math.round(result.keyword_score * 100)}%
                           </span>
                         </div>

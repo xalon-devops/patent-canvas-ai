@@ -169,3 +169,6 @@ verify_jwt = true
 
 [functions.send-winback-emails]
 verify_jwt = false
+
+[functions.assess-patent-risk]
+verify_jwt = false
