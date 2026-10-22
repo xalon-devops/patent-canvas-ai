@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
-import { CreditCard, Loader2 } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
+import { formatPrice } from '@/lib/pricingConstants';
 
 interface PaymentButtonProps {
   applicationId: string;
@@ -36,13 +37,13 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
         {children || (
           <>
             <CreditCard className="h-4 w-4 mr-2" />
-            Pay ${amount / 100}
+            Pay {formatPrice(amount)}
           </>
         )}
       </Button>
 
       <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{description}</DialogTitle>
           </DialogHeader>

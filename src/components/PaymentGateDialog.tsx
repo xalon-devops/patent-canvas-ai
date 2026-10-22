@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
@@ -21,9 +21,14 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
   const [showCheckout, setShowCheckout] = useState(false);
   // Admin bypass is handled server-side via user_roles table - no client-side override needed
 
+  // Start from the summary each time the dialog is reopened.
+  useEffect(() => {
+    if (!open) setShowCheckout(false);
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         {!showCheckout ? (
           <>
             <DialogHeader>
@@ -40,16 +45,16 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6 py-6">
+            <div className="space-y-6 py-4 sm:py-6">
               {/* What's Included */}
-              <div className="bg-muted/50 rounded-lg p-6 space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 sm:p-6 space-y-4">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
                   What You Get
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium">Complete Patent Application</div>
                       <div className="text-sm text-muted-foreground">
@@ -58,7 +63,7 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium">USPTO-Ready Formatting</div>
                       <div className="text-sm text-muted-foreground">
@@ -67,7 +72,7 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium">DOCX & PDF Export</div>
                       <div className="text-sm text-muted-foreground">
@@ -76,7 +81,7 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <div className="font-medium">Professional Claims</div>
                       <div className="text-sm text-muted-foreground">
@@ -88,10 +93,10 @@ export const PaymentGateDialog: React.FC<PaymentGateDialogProps> = ({
               </div>
 
               {/* Pricing */}
-              <div className="border-2 border-primary rounded-lg p-6 text-center">
+              <div className="border-2 border-primary rounded-lg p-4 sm:p-6 text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <DollarSign className="h-8 w-8 text-primary" />
-                  <span className="text-5xl font-bold text-primary">{PATENT_APPLICATION_PRICE.toLocaleString()}</span>
+                  <span className="text-4xl sm:text-5xl font-bold text-primary">{PATENT_APPLICATION_PRICE.toLocaleString()}</span>
                 </div>
                 <div className="text-muted-foreground mb-4">
                   One-time payment • No recurring fees

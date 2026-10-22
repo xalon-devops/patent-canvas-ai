@@ -15,17 +15,26 @@ serve(async (req) => {
   }
 
   try {
+    // Service role: user_search_credits has no client INSERT/UPDATE policy, so the row
+    // for a new user must be created server-side. Caller is authenticated below.
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
     );
 
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization') ?? '';
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
+    const { data: userData } = token
+      ? await supabaseClient.auth.getUser(token)
+      : { data: { user: null } };
+    const user = userData?.user;
 
     if (!user) {
-      throw new Error('Not authenticated');
+      return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Admin override: role or specific email bypasses credits/subscription checks
@@ -55,15 +64,17 @@ serve(async (req) => {
       });
     }
 
-    // Check subscription status
+    // Check subscription status: same definition as the app (active or trialing, any
+    // non-free plan — includes free_grant).
     const { data: subscription } = await supabaseClient
       .from('subscriptions')
-      .select('*')
+      .select('status, plan')
       .eq('user_id', user.id)
-      .eq('status', 'active')
       .maybeSingle();
 
-    const hasActiveSubscription = !!subscription;
+    const hasActiveSubscription = !!subscription &&
+      (subscription.status === 'active' || subscription.status === 'trialing') &&
+      !!subscription.plan && subscription.plan !== 'free';
 
     // Check/create search credits
     let { data: credits } = await supabaseClient
@@ -72,20 +83,24 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    // Create credits record if it doesn't exist
+    // Create credits record if it doesn't exist (idempotent under concurrent calls)
     if (!credits) {
-      const { data: newCredits, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from('user_search_credits')
-        .insert({
+        .upsert({
           user_id: user.id,
           searches_used: 0,
           free_searches_remaining: FREE_SEARCHES_LIMIT
-        })
-        .select()
-        .single();
-
+        }, { onConflict: 'user_id', ignoreDuplicates: true });
       if (error) throw error;
-      credits = newCredits;
+
+      const { data: fresh, error: readError } = await supabaseClient
+        .from('user_search_credits')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (readError) throw readError;
+      credits = fresh;
     }
 
     return new Response(JSON.stringify({
@@ -94,8 +109,8 @@ serve(async (req) => {
       free_searches_remaining: credits.free_searches_remaining,
       searches_used: credits.searches_used,
       can_search: hasActiveSubscription || credits.free_searches_remaining > 0,
-      subscription_status: subscription?.status || 'inactive',
-      plan: subscription?.plan || 'free_trial'
+      subscription_status: hasActiveSubscription ? subscription!.status : 'inactive',
+      plan: hasActiveSubscription ? subscription!.plan : 'free_trial'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -105,7 +120,7 @@ serve(async (req) => {
     console.error('[CHECK CREDITS] Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

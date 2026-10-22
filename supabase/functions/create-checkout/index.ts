@@ -42,8 +42,8 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { planType = "check_and_see" } = await req.json();
-    logStep("Request parsed", { planType });
+    // Plan is fixed server-side; never trust a client-supplied plan/price.
+    const planType = "check_and_see";
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
@@ -87,7 +87,7 @@ serve(async (req) => {
       
       if (existingPrice?.id) {
         logStep("Found existing PatentBot price", { priceId: existingPrice.id });
-        return existingPrice.id;
+        return { priceId: existingPrice.id, productId: product.id };
       }
 
       // 3) Create the $99.99/mo price on the PatentBot product
@@ -104,10 +104,10 @@ serve(async (req) => {
         priceId: createdPrice.id,
       });
 
-      return createdPrice.id;
+      return { priceId: createdPrice.id, productId: product.id };
     };
 
-    const priceId = await resolveSubscriptionPriceId();
+    const { priceId, productId } = await resolveSubscriptionPriceId();
     logStep("Resolved subscription price", { priceId, planType });
 
     // Check if customer exists
@@ -125,9 +125,30 @@ serve(async (req) => {
       logStep("New customer created", { customerId });
     }
 
+    // Block duplicate subscriptions and repeat free trials.
+    const existingSubs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 50 });
+    const priorCheckAndSee = existingSubs.data.filter((s) =>
+      s.items?.data?.some((it) => {
+        const prod = typeof it.price?.product === "string" ? it.price.product : it.price?.product?.id;
+        return prod === productId;
+      })
+    );
+    if (priorCheckAndSee.some((s) => ["active", "trialing", "past_due"].includes(s.status))) {
+      logStep("User already has a Check & See subscription", { customerId });
+      return new Response(JSON.stringify({
+        error: "You already have an active Check & See subscription. Manage it from Settings.",
+        alreadySubscribed: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 409,
+      });
+    }
+    const trialEligible = priorCheckAndSee.length === 0;
+    logStep("Trial eligibility", { trialEligible });
+
     const appDomain = "https://patentbot-ai.com";
     
-    // Create embedded checkout session with 7-day free trial
+    // Create embedded checkout session (7-day free trial for first-time subscribers only)
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -140,7 +161,7 @@ serve(async (req) => {
       ui_mode: "embedded",
       return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
       subscription_data: {
-        trial_period_days: 7,
+        ...(trialEligible ? { trial_period_days: 7 } : {}),
         metadata: {
           app: 'patentbot',
           user_id: user.id,

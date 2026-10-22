@@ -3,145 +3,68 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Crown, Shield, CheckCircle, Lock } from 'lucide-react';
+import { Loader2, Crown, CheckCircle, Lock } from 'lucide-react';
 import { EmbeddedStripeCheckout } from './EmbeddedStripeCheckout';
-import { CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY, PATENT_APPLICATION_PRICE_DISPLAY, FREE_SEARCHES_LIMIT } from '@/lib/pricingConstants';
-import { useAdminStatus } from '@/hooks/useAdminStatus';
+import { CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY, PATENT_APPLICATION_PRICE_DISPLAY } from '@/lib/pricingConstants';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface PaywallGateProps {
   children: React.ReactNode;
   userId: string;
+  /** If set, a completed $1,000 payment for this application also grants access. */
+  applicationId?: string;
   /** If true, always show children (for admins/free users) */
   bypassPaywall?: boolean;
 }
 
-interface SubscriptionStatus {
-  hasAccess: boolean;
-  isAdmin: boolean;
-  isFreeUser: boolean;
-  plan: string;
-  status: string;
-}
-
 /**
- * PaywallGate - Enforces subscription before allowing access to protected content
- * 
- * Flow:
- * 1. Check if user is admin (user_roles table) - bypass paywall
- * 2. Check if user has "free" grant from admin (subscriptions.plan = 'free_grant') - bypass paywall
- * 3. Check if user has active subscription - allow access
- * 4. Otherwise, show paywall with subscription options
+ * PaywallGate - Enforces payment before allowing access to protected content.
+ *
+ * Single definition of "has access" (matches ProtectedRoute / UserProfileContext):
+ *   admin (user_roles) || free_grant || active/trialing paid subscription
+ *   || (applicationId given && application_payments.status === 'completed')
  */
-export const PaywallGate: React.FC<PaywallGateProps> = ({ 
-  children, 
+export const PaywallGate: React.FC<PaywallGateProps> = ({
+  children,
   userId,
-  bypassPaywall = false 
+  applicationId,
+  bypassPaywall = false
 }) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<SubscriptionStatus | null>(null);
+  const { access, refreshAccess } = useUserProfile();
   const [showCheckout, setShowCheckout] = useState(false);
-
-  const adminStatus = useAdminStatus(userId);
+  const [appPaid, setAppPaid] = useState<boolean | null>(applicationId ? null : false);
 
   useEffect(() => {
-    // If admin status is still loading, wait
-    if (adminStatus.loading) return;
-    
-    // If user can bypass paywall (admin or free grant), grant access immediately
-    if (bypassPaywall || adminStatus.canBypassPaywall) {
-      setStatus({
-        hasAccess: true,
-        isAdmin: adminStatus.isAdmin,
-        isFreeUser: adminStatus.isFreeGrant,
-        plan: adminStatus.isAdmin ? 'admin' : 'free_grant',
-        status: 'active'
-      });
-      setLoading(false);
+    if (!applicationId || !userId) {
+      setAppPaid(false);
       return;
     }
-
-    checkAccess();
-  }, [userId, bypassPaywall, adminStatus.loading, adminStatus.canBypassPaywall]);
-
-  const checkAccess = async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Check admin role first
-      const { data: adminRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      if (adminRole) {
-        setStatus({
-          hasAccess: true,
-          isAdmin: true,
-          isFreeUser: false,
-          plan: 'admin',
-          status: 'active'
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Check subscription status
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('status, plan')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      // Check for free_grant (admin-designated free user)
-      if (subscription?.plan === 'free_grant' && subscription?.status === 'active') {
-        setStatus({
-          hasAccess: true,
-          isAdmin: false,
-          isFreeUser: true,
-          plan: 'free_grant',
-          status: 'active'
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Check for active paid subscription (including trialing)
-      const hasActiveSubscription = 
-        (subscription?.status === 'active' || subscription?.status === 'trialing') && 
-        subscription?.plan !== 'free' &&
-        subscription?.plan !== 'inactive';
-
-      setStatus({
-        hasAccess: hasActiveSubscription,
-        isAdmin: false,
-        isFreeUser: false,
-        plan: subscription?.plan || 'free',
-        status: subscription?.status || 'inactive'
+    let cancelled = false;
+    setAppPaid(null);
+    supabase
+      .from('application_payments')
+      .select('status')
+      .eq('application_id', applicationId)
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) console.error('Error checking application payment:', error);
+        setAppPaid(!!data);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, userId]);
 
-    } catch (error) {
-      console.error('Error checking paywall access:', error);
-      setStatus({
-        hasAccess: false,
-        isAdmin: false,
-        isFreeUser: false,
-        plan: 'error',
-        status: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const hasAccess = bypassPaywall || access.isAdmin || access.isFreeGrant || access.isPaid || appPaid === true;
+  const loading = !hasAccess && (!access.loaded || appPaid === null);
 
   const handlePaymentSuccess = () => {
     setShowCheckout(false);
-    checkAccess(); // Re-check access after payment
+    void refreshAccess(); // Re-check access after payment
   };
 
   if (loading) {
@@ -156,7 +79,7 @@ export const PaywallGate: React.FC<PaywallGateProps> = ({
   }
 
   // User has access - show children
-  if (status?.hasAccess) {
+  if (hasAccess) {
     return <>{children}</>;
   }
 

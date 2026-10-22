@@ -44,7 +44,11 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     if (customers.data.length === 0) {
-      throw new Error("No Stripe customer found for this user");
+      // Free-grant / admin / never-paid users have no Stripe customer: not a server error.
+      return new Response(JSON.stringify({ error: "No billing account found. You have no paid subscription to manage." , noCustomer: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
     }
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });

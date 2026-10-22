@@ -41,9 +41,42 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const { applicationId } = await req.json();
-    if (!applicationId) throw new Error("Application ID is required");
+    const { applicationId } = await req.json().catch(() => ({}));
+    if (!applicationId || typeof applicationId !== "string") {
+      return new Response(JSON.stringify({ error: "Application ID is required" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
     logStep("Request parsed", { applicationId });
+
+    // Ownership: the caller must own the patent session they are paying for.
+    const { data: application, error: appError } = await supabaseClient
+      .from("patent_sessions")
+      .select("id, user_id")
+      .eq("id", applicationId)
+      .maybeSingle();
+    if (appError) throw new Error(`Failed to load application: ${appError.message}`);
+    if (!application || application.user_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Application not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    // Already paid? Don't charge twice.
+    const { data: existingPayment, error: existingPaymentError } = await supabaseClient
+      .from("application_payments")
+      .select("id, status")
+      .eq("application_id", applicationId)
+      .maybeSingle();
+    if (existingPaymentError) throw new Error(`Failed to load payment: ${existingPaymentError.message}`);
+    if (existingPayment?.status === "completed") {
+      return new Response(JSON.stringify({ error: "This application is already paid for.", alreadyPaid: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 409,
+      });
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
@@ -138,9 +171,14 @@ serve(async (req) => {
       mode: "payment",
       ui_mode: "embedded",
       return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
+      client_reference_id: user.id,
       metadata: {
         user_id: user.id,
-        application_id: applicationId
+        application_id: applicationId,
+        app: "patentbot"
+      },
+      payment_intent_data: {
+        metadata: { user_id: user.id, application_id: applicationId, app: "patentbot" }
       }
     });
 
@@ -161,16 +199,31 @@ serve(async (req) => {
         metadata: { stripe_customer_id: customerId }
       });
 
-    const { error: appPaymentError } = await supabaseClient
-      .from("application_payments")
-      .insert({
-        user_id: user.id,
-        application_id: applicationId,
-        stripe_session_id: session.id,
-        amount: 100000,
-        currency: "usd",
-        status: "pending"
-      });
+    // application_payments has UNIQUE(application_id): reuse the existing pending row
+    // (pointing it at this newest session) instead of failing on a second attempt.
+    const { error: appPaymentError } = existingPayment
+      ? await supabaseClient
+          .from("application_payments")
+          .update({
+            user_id: user.id,
+            stripe_session_id: session.id,
+            amount: 100000,
+            currency: "usd",
+            status: "pending",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingPayment.id)
+          .neq("status", "completed")
+      : await supabaseClient
+          .from("application_payments")
+          .insert({
+            user_id: user.id,
+            application_id: applicationId,
+            stripe_session_id: session.id,
+            amount: 100000,
+            currency: "usd",
+            status: "pending"
+          });
 
     if (txError) {
       logStep("Error recording payment transaction", { error: txError });

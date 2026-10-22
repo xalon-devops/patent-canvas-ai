@@ -81,6 +81,25 @@ serve(async (req) => {
     const customerId = customers.data[0]?.id
       ?? (await stripe.customers.create({ email: user.email, metadata: { user_id: user.id } })).id;
 
+    // Block duplicate subscriptions and repeat free trials.
+    const existingSubs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 50 });
+    const priorTrademark = existingSubs.data.filter((s) =>
+      s.items?.data?.some((it) => {
+        const prod = typeof it.price?.product === "string" ? it.price.product : it.price?.product?.id;
+        return prod === product!.id;
+      })
+    );
+    if (priorTrademark.some((s) => ["active", "trialing", "past_due"].includes(s.status))) {
+      return new Response(JSON.stringify({
+        error: "You already have an active Trademark Suite subscription. Manage it from Settings.",
+        alreadySubscribed: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 409,
+      });
+    }
+    const trialEligible = priorTrademark.length === 0;
+
     const appDomain = "https://patentbot-ai.com";
 
     const session = await stripe.checkout.sessions.create({
@@ -90,7 +109,7 @@ serve(async (req) => {
       ui_mode: "embedded",
       return_url: `${appDomain}/payment/return?session_id={CHECKOUT_SESSION_ID}`,
       subscription_data: {
-        trial_period_days: 7,
+        ...(trialEligible ? { trial_period_days: 7 } : {}),
         metadata: { app: "patentbot", user_id: user.id, plan_type: "trademark_suite" },
       },
       metadata: { user_id: user.id, plan_type: "trademark_suite", app: "patentbot" },
@@ -98,7 +117,7 @@ serve(async (req) => {
 
     log("session created", { id: session.id });
 
-    await supabaseClient.from("payment_transactions").insert({
+    const { error: txError } = await supabaseClient.from("payment_transactions").insert({
       user_id: user.id,
       stripe_session_id: session.id,
       amount: 4999,
@@ -108,6 +127,7 @@ serve(async (req) => {
       description: "PatentBot AI — Trademark Suite Subscription",
       metadata: { price_id: price.id, plan_type: "trademark_suite" },
     });
+    if (txError) log("Error recording transaction", { error: txError });
 
     return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

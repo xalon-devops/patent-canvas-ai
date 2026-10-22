@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 import { 
   Check, 
   Crown, 
@@ -21,104 +19,17 @@ import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
 import { 
   PATENT_APPLICATION_PRICE_DISPLAY, 
-  CHECK_AND_SEE_PRICE_DISPLAY, 
-  STRIPE_CHECK_AND_SEE_PRICE_ID 
+  CHECK_AND_SEE_PRICE_DISPLAY
 } from '@/lib/pricingConstants';
 import { PublicHeader } from '@/components/PublicHeader';
 
 const Pricing = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [userSubscription, setUserSubscription] = useState<any>(null);
+  // Shared, once-per-login access state (admin / free_grant / paid subscription).
+  const { user, access } = useUserProfile();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkUserSubscription(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const checkUserSubscription = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      setUserSubscription(data);
-    } catch (error: any) {
-      console.error('Error checking subscription:', error);
-    }
-  };
-
-  const handleUpgrade = async () => {
-    if (!user) {
-      navigate('/auth?tab=signup');
-      return;
-    }
-
-    setLoading(true);
-    
-    try {
-      toast({
-        title: "Redirecting to checkout...",
-        description: "Please wait while we prepare your subscription.",
-      });
-
-      // Create Stripe checkout session
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: {
-          priceId: STRIPE_CHECK_AND_SEE_PRICE_ID,
-          planType: 'premium'
-        }
-      });
-
-      if (error) {
-        console.error('Error creating checkout session:', error);
-        toast({
-          title: "Checkout Error",
-          description: "Failed to create checkout session. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data?.url) {
-        // Redirect to Stripe Checkout in new tab
-        window.open(data.url, '_blank');
-      } else {
-        throw new Error('No checkout URL received');
-      }
-    } catch (error: any) {
-      console.error('Error during upgrade:', error);
-      toast({
-        title: "Upgrade Failed",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isPremium = (userSubscription?.status === 'active' || userSubscription?.status === 'trialing') && userSubscription?.plan !== 'free';
+  // Subscription CTA goes to /check, which hosts the embedded Stripe checkout.
+  const isPremium = access.isAdmin || access.isPaid;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">

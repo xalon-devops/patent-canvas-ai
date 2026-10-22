@@ -1,102 +1,152 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, ArrowRight, FileText, Search } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, ArrowRight, FileText, Search, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY } from '@/lib/pricingConstants';
+import { PATENT_APPLICATION_PRICE_DISPLAY, CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY, TRADEMARK_SEARCH_PRICE_DISPLAY_MO } from '@/lib/pricingConstants';
 import { PageSEO } from '@/components/SEO';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
-type PaymentStatus = 'verifying' | 'success' | 'error' | 'processing';
+type PaymentStatus = 'verifying' | 'success' | 'error' | 'processing' | 'cancelled';
 type PaymentType = 'payment' | 'subscription' | null;
+
+/** How long to keep polling a 'processing' payment before handing control back to the user. */
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLLS = 10;
+
+/** Pull the JSON error body out of a non-2xx edge-function response. */
+async function functionErrorMessage(error: unknown): Promise<string> {
+  const fallback = error instanceof Error ? error.message : 'Could not verify payment.';
+  const ctx = (error as { context?: Response })?.context;
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const body = await ctx.clone().json();
+      if (body?.error) return body.error as string;
+    } catch {
+      /* not JSON */
+    }
+  }
+  return fallback;
+}
 
 export default function PaymentReturn() {
   const [status, setStatus] = useState<PaymentStatus>('verifying');
   const [paymentType, setPaymentType] = useState<PaymentType>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [alreadyProcessed, setAlreadyProcessed] = useState(false);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [pollsExhausted, setPollsExhausted] = useState(false);
   const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session_id');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { refreshAccess } = useUserProfile();
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollCount = useRef(0);
+  const unmounted = useRef(false);
 
-  useEffect(() => {
-    const verifyPayment = async () => {
-      const sessionId = searchParams.get('session_id');
-      
-      if (!sessionId) {
+  const verifyPayment = useCallback(async () => {
+    if (pollTimer.current) {
+      clearTimeout(pollTimer.current);
+      pollTimer.current = null;
+    }
+
+    if (!sessionId) {
+      setStatus('error');
+      setErrorDetail('No payment session found in the link. If you completed a payment, check your dashboard or email.');
+      return;
+    }
+
+    try {
+      // Edge function confirms the session with Stripe and that it belongs to this user.
+      const { data, error } = await supabase.functions.invoke('verify-payment', {
+        body: { sessionId }
+      });
+      if (unmounted.current) return;
+
+      if (error) {
+        const message = await functionErrorMessage(error);
+        if (unmounted.current) return;
+        console.error('Error verifying payment:', message);
         setStatus('error');
-        toast({
-          title: "Invalid Payment Session",
-          description: "No payment session found. Please try again.",
-          variant: "destructive"
-        });
+        setErrorDetail(message);
         return;
       }
 
-      try {
-        console.log('Verifying payment session:', sessionId);
+      setPaymentType(data?.type ?? null);
+      if (data?.payment?.applicationId) setApplicationId(data.payment.applicationId);
+      if (data?.subscription?.plan) setPlan(data.subscription.plan);
 
-        // Call edge function to verify payment with Stripe and update database
-        const { data, error } = await supabase.functions.invoke('verify-payment', {
-          body: { sessionId }
-        });
-
-        if (error) {
-          console.error('Error verifying payment:', error);
-          setStatus('error');
-          toast({
-            title: "Verification Error",
-            description: error.message || "Could not verify payment. Please contact support.",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        console.log('Payment verification result:', data);
-
-        if (data.success) {
-          setStatus('success');
-          setPaymentType(data.type);
-          
-          if (data.type === 'payment' && data.payment?.applicationId) {
-            setApplicationId(data.payment.applicationId);
-            toast({
-              title: "Payment Successful!",
-              description: "Your patent application payment has been processed. You can now export your documents."
-            });
-          } else if (data.type === 'subscription') {
-            toast({
-              title: "Subscription Activated!",
-              description: "Your Check & See subscription is now active. You can now perform unlimited patent searches."
-            });
-          }
-        } else {
-          setStatus('processing');
-          toast({
-            title: "Payment Processing",
-            description: "Your payment is being processed. This may take a few moments.",
-          });
-        }
-        
-      } catch (error) {
-        console.error('Error verifying payment:', error);
-        setStatus('error');
-        toast({
-          title: "Verification Error",
-          description: "Could not verify payment status. Please contact support.",
-          variant: "destructive"
-        });
+      if (data?.success) {
+        setStatus('success');
+        setAlreadyProcessed(!!data.alreadyProcessed);
+        // Update headers / route guards / paywalls without a full reload.
+        await refreshAccess();
+        return;
       }
-    };
 
+      if (data?.status === 'open' || data?.status === 'expired') {
+        setStatus('cancelled');
+        return;
+      }
+
+      // Still processing (async payment method or webhook lag): poll, but not forever.
+      setStatus('processing');
+      pollCount.current += 1;
+      if (pollCount.current < MAX_POLLS) {
+        setPollsExhausted(false);
+        pollTimer.current = setTimeout(verifyPayment, POLL_INTERVAL_MS);
+      } else {
+        setPollsExhausted(true);
+      }
+    } catch (error) {
+      if (unmounted.current) return;
+      console.error('Error verifying payment:', error);
+      setStatus('error');
+      setErrorDetail('Could not verify payment status. Please try again or contact support.');
+    }
+  }, [sessionId, refreshAccess]);
+
+  useEffect(() => {
+    unmounted.current = false;
+    pollCount.current = 0;
     verifyPayment();
-  }, [searchParams, toast]);
+    return () => {
+      unmounted.current = true;
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+    };
+    // Run once per session id; refreshAccess identity changes must not re-verify.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  // One toast per outcome.
+  useEffect(() => {
+    if (status === 'success') {
+      toast(paymentType === 'payment'
+        ? { title: "Payment Successful!", description: "Your patent application payment has been processed. You can now export your documents." }
+        : { title: "Subscription Activated!", description: "Your subscription is now active." });
+    } else if (status === 'error') {
+      toast({ title: "Verification Error", description: "Could not verify payment. See details on the page.", variant: "destructive" });
+    }
+  }, [status, paymentType, toast]);
+
+  const retryVerification = () => {
+    pollCount.current = 0;
+    setPollsExhausted(false);
+    setStatus('verifying');
+    verifyPayment();
+  };
+
+  const isTrademark = plan === 'trademark_suite';
 
   const handleContinue = () => {
     if (paymentType === 'payment' && applicationId) {
       navigate(`/session/${applicationId}`);
     } else if (paymentType === 'subscription') {
-      navigate('/check');
+      navigate(isTrademark ? '/trademark-check' : '/check');
     } else {
       navigate('/dashboard');
     }
@@ -128,11 +178,13 @@ export default function PaymentReturn() {
                   <CheckCircle2 className="h-16 w-16 text-green-600 dark:text-green-400" />
                 </div>
               </div>
-              <CardTitle className="text-2xl">Payment Successful!</CardTitle>
+              <CardTitle className="text-2xl">{alreadyProcessed ? 'Already Paid' : 'Payment Successful!'}</CardTitle>
               <CardDescription>
                 {paymentType === 'payment' 
                   ? `Your ${PATENT_APPLICATION_PRICE_DISPLAY} patent application payment has been processed.`
-                  : `Your ${CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY} Check & See subscription is now active.`}
+                  : isTrademark
+                    ? `Your ${TRADEMARK_SEARCH_PRICE_DISPLAY_MO} Trademark Suite subscription is now active.`
+                    : `Your ${CHECK_AND_SEE_PRICE_DISPLAY_MONTHLY} Check & See subscription is now active.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -156,11 +208,11 @@ export default function PaymentReturn() {
                   <ul className="space-y-2">
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span>Unlimited patent searches</span>
+                      <span>{isTrademark ? 'Unlimited trademark searches' : 'Unlimited patent searches'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span>Prior art analysis with AI</span>
+                      <span>{isTrademark ? 'Likelihood-of-confusion analysis with AI' : 'Prior art analysis with AI'}</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -178,7 +230,7 @@ export default function PaymentReturn() {
                 ) : (
                   <>
                     <Search className="h-4 w-4 mr-2" />
-                    Start Searching Patents
+                    {isTrademark ? 'Start Searching Trademarks' : 'Start Searching Patents'}
                   </>
                 )}
                 <ArrowRight className="h-4 w-4 ml-2" />
@@ -201,10 +253,18 @@ export default function PaymentReturn() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {errorDetail && (
+                <p className="text-sm text-destructive text-center break-words">{errorDetail}</p>
+              )}
               <p className="text-sm text-muted-foreground">
                 If you've been charged, don't worry - your payment will be verified shortly. Check your email for confirmation or contact our support team.
               </p>
               <div className="space-y-2">
+                {sessionId && (
+                  <Button onClick={retryVerification} variant="outline" className="w-full">
+                    Try Again
+                  </Button>
+                )}
                 <Button onClick={() => navigate('/dashboard')} className="w-full">
                   Go to Dashboard
                 </Button>
@@ -224,19 +284,55 @@ export default function PaymentReturn() {
           <>
             <CardHeader className="text-center pb-4">
               <div className="flex justify-center mb-4">
-                <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                {pollsExhausted
+                  ? <Clock className="h-16 w-16 text-primary" />
+                  : <Loader2 className="h-16 w-16 animate-spin text-primary" />}
               </div>
               <CardTitle className="text-2xl">Payment Processing</CardTitle>
               <CardDescription>
-                Your payment has been received and is being processed. This usually takes just a few moments.
+                Your payment has been received and is being processed.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground text-sm text-center">
-                Please wait while we verify your payment with our payment processor. This page will automatically update.
+                {pollsExhausted
+                  ? "This is taking longer than usual (some payment methods take a few days to clear). We'll email you once it's confirmed — you can safely leave this page."
+                  : 'Checking with our payment processor. This page updates automatically.'}
               </p>
-              <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
-                Refresh Status
+              <div className="space-y-2">
+                <Button onClick={retryVerification} variant="outline" className="w-full">
+                  Refresh Status
+                </Button>
+                <Button onClick={() => navigate('/dashboard')} variant="ghost" className="w-full">
+                  Go to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </>
+        )}
+
+        {status === 'cancelled' && (
+          <>
+            <CardHeader className="text-center pb-4">
+              <div className="flex justify-center mb-4">
+                <div className="rounded-full bg-muted p-3">
+                  <XCircle className="h-16 w-16 text-muted-foreground" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl">Checkout Not Completed</CardTitle>
+              <CardDescription>
+                Your checkout was cancelled or has expired. You have not been charged.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button
+                onClick={() => navigate(paymentType === 'subscription' ? '/check' : applicationId ? `/session/${applicationId}` : '/pricing')}
+                className="w-full"
+              >
+                Try Again
+              </Button>
+              <Button onClick={() => navigate('/dashboard')} variant="outline" className="w-full">
+                Go to Dashboard
               </Button>
             </CardContent>
           </>
