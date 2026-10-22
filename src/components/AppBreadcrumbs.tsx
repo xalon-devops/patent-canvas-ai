@@ -71,20 +71,20 @@ export const AppBreadcrumbs: React.FC = () => {
 
   return (
     <nav className="border-b border-border bg-muted/40">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-0.5">
         <Breadcrumb>
           <BreadcrumbList className="text-xs">
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/dashboard" className="flex items-center gap-1"><Home className="h-3.5 w-3.5" />Dashboard</Link>
+                <Link to="/dashboard" className="flex items-center gap-1 py-1.5"><Home className="h-3.5 w-3.5" />Dashboard</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             {crumbs.map((c, i) => (
               <React.Fragment key={i}>
                 <BreadcrumbSeparator />
-                <BreadcrumbItem className="max-w-[220px]">
+                <BreadcrumbItem className="max-w-[160px] sm:max-w-[320px]">
                   {c.to ? (
-                    <BreadcrumbLink asChild><Link to={c.to} className="truncate">{c.label}</Link></BreadcrumbLink>
+                    <BreadcrumbLink asChild><Link to={c.to} className="block truncate py-1.5">{c.label}</Link></BreadcrumbLink>
                   ) : (
                     <BreadcrumbPage className="truncate font-medium">{c.label}</BreadcrumbPage>
                   )}
