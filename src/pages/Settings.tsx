@@ -31,6 +31,7 @@ interface EmailPreferences {
   draft_complete: boolean;
   payment_received: boolean;
   prior_art_alert: boolean;
+  trademark_alert: boolean;
   weekly_digest: boolean;
 }
 
@@ -45,6 +46,7 @@ const defaultPreferences: EmailPreferences = {
   draft_complete: true,
   payment_received: true,
   prior_art_alert: true,
+  trademark_alert: true,
   weekly_digest: true,
 };
 
@@ -73,7 +75,12 @@ const Settings = () => {
         .from('users')
         .select('email_preferences')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading email preferences:', error);
+        toast({ title: "Couldn't load your preferences", description: 'Showing defaults. Please refresh to try again.', variant: 'destructive' });
+      }
 
       if (userData?.email_preferences) {
         const prefs = userData.email_preferences as unknown as EmailPreferences;
@@ -96,6 +103,7 @@ const Settings = () => {
 
 
     loadUserAndPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   const activeSubscriptions = subscriptions.filter(
@@ -352,15 +360,36 @@ const Settings = () => {
 
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-purple-500/10 rounded-lg flex-shrink-0">
+                    <Bell className="w-3 h-3 text-purple-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <Label htmlFor="trademark_alert" className="text-sm font-medium">
+                      Trademark Alerts
+                    </Label>
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      Conflicting marks found by trademark monitoring
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="trademark_alert"
+                  checked={preferences.trademark_alert}
+                  onCheckedChange={() => handleToggle('trademark_alert')}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className="p-1.5 bg-blue-500/10 rounded-lg flex-shrink-0">
                     <Mail className="w-3 h-3 text-blue-500" />
                   </div>
                   <div className="min-w-0">
                     <Label htmlFor="weekly_digest" className="text-sm font-medium">
-                      Weekly Digest
+                      Digest &amp; Product Updates
                     </Label>
                     <p className="text-xs text-muted-foreground hidden sm:block">
-                      Weekly activity summary
+                      Activity summaries, tips &amp; occasional product updates
                     </p>
                   </div>
                 </div>

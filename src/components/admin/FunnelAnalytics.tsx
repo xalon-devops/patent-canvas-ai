@@ -56,7 +56,8 @@ export function FunnelAnalytics() {
 
       const { data: events, error } = await supabase
         .from('funnel_events')
-        .select('*')
+        // Only the columns the funnel needs (keeps the payload small)
+        .select('session_id, funnel_step')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 

@@ -10,8 +10,8 @@ max_rows = 1000
 [auth]
 enabled = true
 port = 54322
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://jdkogqskjsmwlhigaecb.supabase.co"]
+site_url = "https://patentbot-ai.com"
+additional_redirect_urls = ["https://patentbot-ai.com/**", "https://www.patentbot-ai.com/**", "http://localhost:8080/**", "https://jdkogqskjsmwlhigaecb.supabase.co"]
 jwt_expiry = 3600
 enable_signup = true
 enable_email_confirmations = false

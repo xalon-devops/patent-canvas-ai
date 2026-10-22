@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { getUserConnection, getValidAccessToken } from '../supabase-oauth-init/oauth-token.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +28,9 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { organizationId } = await req.json();
@@ -37,27 +40,22 @@ serve(async (req) => {
     }
 
     // Get the user's most recent OAuth connection (pending or active)
-    const { data: connection, error: connError } = await supabase
-      .from('supabase_connections')
-      .select('*')
-      .eq('user_id', user.id)
-      .in('connection_status', ['pending', 'active'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const connection = await getUserConnection(supabase, user.id);
 
-    if (connError || !connection) {
+    if (!connection) {
       throw new Error('No Supabase connection found. Please start the OAuth flow first.');
     }
 
     console.log('Found connection for projects:', connection.id);
 
-    // Fetch projects for the organization using the stored access token
+    const accessToken = await getValidAccessToken(supabase, connection);
+
+    // Fetch projects using the stored access token (server-side only)
     const projectsResponse = await fetch(
-      `https://api.supabase.com/v1/projects?organization_id=${organizationId}`,
+      `https://api.supabase.com/v1/projects?organization_id=${encodeURIComponent(String(organizationId))}`,
       {
         headers: {
-          'Authorization': `Bearer ${connection.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       }
     );
@@ -66,7 +64,12 @@ serve(async (req) => {
       throw new Error('Failed to fetch projects from Supabase Management API');
     }
 
-    const projects = await projectsResponse.json();
+    const allProjects = await projectsResponse.json();
+    // GET /v1/projects lists every project the token can see; keep the selected org's
+    const list = Array.isArray(allProjects) ? allProjects : [];
+    const inOrg = list.filter((p: any) => !p?.organization_id || p.organization_id === organizationId);
+    // Fall back to the full list if the API uses a different org identifier format
+    const projects = inOrg.length > 0 ? inOrg : list;
 
     return new Response(
       JSON.stringify({

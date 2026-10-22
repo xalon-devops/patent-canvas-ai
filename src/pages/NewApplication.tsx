@@ -464,7 +464,7 @@ const NewApplication = () => {
 
         // Listen for messages from the popup
         const handleMessage = (event: MessageEvent) => {
-          const allowed = event.origin === window.location.origin || event.origin.includes('supabase.co');
+          const allowed = event.origin === window.location.origin || event.origin === 'https://jdkogqskjsmwlhigaecb.supabase.co';
           if (!allowed) return;
           
           if (event.data.type === 'supabase-oauth-success') {

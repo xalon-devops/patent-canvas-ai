@@ -27,183 +27,178 @@ serve(async (req) => {
   try {
     logStep("Winback email function started");
 
-    // Verify admin authorization
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing Authorization header');
-    }
-
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    // Verify the user is an admin
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
+    // Authorization: either the service-role key (pg_cron / server-to-server)
+    // or a signed-in admin.
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    const isServiceCall = !!serviceRoleKey && token === serviceRoleKey;
 
-    // Check if user is admin
-    const { data: roleData } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
-
-    if (!roleData) {
-      throw new Error('Admin access required');
+    if (!isServiceCall) {
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: roleData } = await supabaseClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      if (!roleData) {
+        return new Response(JSON.stringify({ error: 'Admin access required' }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY is not set");
 
     const resend = new Resend(resendApiKey);
-    
-    const { targetType, dryRun = false } = await req.json();
-    logStep("Request parsed", { targetType, dryRun });
 
-    // Find inactive/unpaid users based on targetType
-    // IMPORTANT: Only target users who exist in our public.users table (actual app users)
-    // and have email preferences allowing winback emails
-    let targetUsers: { id: string; email: string; created_at: string; last_activity?: string }[] = [];
-
-    // Get all registered app users from our users table (not auth.users which includes all Supabase users)
-    const { data: registeredUsers, error: usersError } = await supabaseClient
-      .from('users')
-      .select('id, email, created_at, email_preferences');
-    
-    if (usersError) {
-      logStep("Error fetching registered users", { error: usersError.message });
-      throw new Error(`Failed to fetch users: ${usersError.message}`);
+    const body = await req.json().catch(() => ({}));
+    const dryRun = body?.dryRun === true;
+    const VALID_TYPES = ['never_started', 'abandoned_draft', 'churned_subscription', 'all_inactive'];
+    // Scheduled runs (no targetType / 'scheduled') cycle through the specific segments.
+    const requestedType: string = body?.targetType ?? 'scheduled';
+    const typesToRun: string[] = requestedType === 'scheduled'
+      ? ['abandoned_draft', 'churned_subscription', 'never_started']
+      : VALID_TYPES.includes(requestedType) ? [requestedType] : [];
+    if (typesToRun.length === 0) {
+      return new Response(JSON.stringify({ error: 'Invalid targetType' }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    // Hard cap per invocation keeps us inside the edge-function time limit; the
+    // cooldown below makes repeated runs pick up where the previous one stopped.
+    const MAX_SENDS_PER_RUN = Math.min(Math.max(Number(body?.limit) || 50, 1), 100);
+    const TYPE_COOLDOWN_DAYS = 30;   // same segment email at most once per 30 days
+    const ANY_WINBACK_COOLDOWN_DAYS = 7; // never more than one winback email per week
+    const MIN_ACCOUNT_AGE_DAYS = 3;  // don't "we miss you" brand-new signups
+    logStep("Request parsed", { requestedType, dryRun, isServiceCall });
 
-    // Filter to only users with valid emails who haven't opted out of winback emails
-    const eligibleUsers = (registeredUsers || []).filter(u => {
+    const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+
+    // PostgREST caps responses at max_rows (1000) - page through everything.
+    const PAGE = 1000;
+    const fetchAll = async <T,>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>): Promise<T[]> => {
+      const out: T[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build(from, from + PAGE - 1);
+        if (error) throw new Error(error.message);
+        out.push(...(data ?? []));
+        if (!data || data.length < PAGE) break;
+      }
+      return out;
+    };
+
+    const registeredUsers = await fetchAll<{ id: string; email: string | null; created_at: string | null; email_preferences: any }>(
+      (f, t) => supabaseClient.from('users').select('id, email, created_at, email_preferences').order('id').range(f, t)
+    );
+
+    // Users who opted out of marketing (weekly_digest is the general opt-in) are excluded.
+    const accountAgeCutoff = daysAgo(MIN_ACCOUNT_AGE_DAYS);
+    const eligibleUsers = registeredUsers.filter(u => {
       if (!u.email) return false;
-      // Check email preferences - default to true if not set
       const prefs = u.email_preferences as Record<string, boolean> | null;
-      // Allow if no preferences set, or if weekly_digest is true (use this as general marketing opt-in)
-      return !prefs || prefs.weekly_digest !== false;
+      if (prefs && prefs.weekly_digest === false) return false;
+      return !u.created_at || new Date(u.created_at).getTime() <= new Date(accountAgeCutoff).getTime();
     });
+    const eligibleById = new Map(eligibleUsers.map(u => [u.id, u]));
 
-    logStep(`Found ${eligibleUsers.length} eligible registered users out of ${registeredUsers?.length || 0} total`);
+    // Recent winback history (idempotency / cooldown)
+    const recentWinbacks = await fetchAll<{ user_id: string | null; email_type: string; sent_at: string | null }>(
+      (f, t) => supabaseClient.from('email_notifications')
+        .select('user_id, email_type, sent_at')
+        .like('email_type', 'winback_%')
+        .gte('created_at', daysAgo(TYPE_COOLDOWN_DAYS))
+        .order('created_at')
+        .range(f, t)
+    );
+    const anyCutoff = daysAgo(ANY_WINBACK_COOLDOWN_DAYS);
+    const recentlyWonBackAny = new Set(recentWinbacks.filter(r => !!r.sent_at && new Date(r.sent_at).getTime() >= new Date(anyCutoff).getTime()).map(r => r.user_id));
+    const recentlyWonBackType = new Set(recentWinbacks.map(r => `${r.user_id}:${r.email_type}`));
 
-    if (targetType === 'never_started') {
-      // Users who signed up but never started a session
-      const { data: usersWithSessions } = await supabaseClient
-        .from('patent_sessions')
-        .select('user_id')
-        .not('user_id', 'is', null);
+    logStep(`Found ${eligibleUsers.length} eligible registered users out of ${registeredUsers.length} total`);
 
-      const userIdsWithSessions = new Set(usersWithSessions?.map(s => s.user_id) || []);
-      
-      targetUsers = eligibleUsers
-        .filter(u => !userIdsWithSessions.has(u.id))
-        .map(u => ({
-          id: u.id,
-          email: u.email!,
-          created_at: u.created_at
-        }));
+    const findTargets = async (targetType: string) => {
+      const targets: { id: string; email: string; created_at: string; last_activity?: string }[] = [];
+      const push = (id: string, last_activity?: string) => {
+        const u = eligibleById.get(id);
+        if (!u?.email) return;
+        if (recentlyWonBackAny.has(id) || recentlyWonBackType.has(`${id}:winback_${targetType}`)) return;
+        if (targets.some(t => t.id === id)) return;
+        targets.push({ id, email: u.email, created_at: u.created_at ?? '', last_activity });
+      };
 
-    } else if (targetType === 'abandoned_draft') {
-      // Users with draft sessions but no payment
-      const { data: draftSessions } = await supabaseClient
-        .from('patent_sessions')
-        .select('user_id, created_at')
-        .eq('status', 'draft')
-        .order('created_at', { ascending: false });
-
-      const { data: paidUsers } = await supabaseClient
-        .from('application_payments')
-        .select('user_id')
-        .eq('status', 'completed');
-
-      const paidUserIds = new Set(paidUsers?.map(p => p.user_id) || []);
-      const eligibleUserIds = new Set(eligibleUsers.map(u => u.id));
-      
-      // Only include users who are in our eligible users list AND have draft sessions AND haven't paid
-      const unpaidUserIds = [...new Set(
-        (draftSessions || [])
-          .filter(s => !paidUserIds.has(s.user_id) && eligibleUserIds.has(s.user_id))
-          .map(s => s.user_id)
-      )];
-
-      for (const userId of unpaidUserIds) {
-        const user = eligibleUsers.find(u => u.id === userId);
-        if (user?.email) {
-          targetUsers.push({
-            id: userId,
-            email: user.email,
-            created_at: user.created_at,
-            last_activity: draftSessions?.find(s => s.user_id === userId)?.created_at
-          });
-        }
+      if (targetType === 'never_started') {
+        const withSessions = await fetchAll<{ user_id: string }>(
+          (f, t) => supabaseClient.from('patent_sessions').select('user_id').not('user_id', 'is', null).order('id').range(f, t)
+        );
+        const ids = new Set(withSessions.map(s => s.user_id));
+        for (const u of eligibleUsers) if (!ids.has(u.id)) push(u.id);
+      } else if (targetType === 'abandoned_draft') {
+        // Drafts untouched for 2+ days whose owner has never paid
+        const drafts = await fetchAll<{ user_id: string; created_at: string }>(
+          (f, t) => supabaseClient.from('patent_sessions').select('user_id, created_at')
+            .in('status', ['draft', 'in_progress']).lte('created_at', daysAgo(2))
+            .order('created_at', { ascending: false }).range(f, t)
+        );
+        const paid = await fetchAll<{ user_id: string }>(
+          (f, t) => supabaseClient.from('application_payments').select('user_id').eq('status', 'completed').order('id').range(f, t)
+        );
+        const paidIds = new Set(paid.map(p => p.user_id));
+        for (const d of drafts) if (!paidIds.has(d.user_id)) push(d.user_id, d.created_at);
+      } else if (targetType === 'churned_subscription') {
+        const churned = await fetchAll<{ user_id: string; updated_at: string }>(
+          (f, t) => supabaseClient.from('subscriptions').select('user_id, updated_at')
+            .in('status', ['canceled', 'expired', 'past_due']).order('id').range(f, t)
+        );
+        for (const sub of churned) push(sub.user_id, sub.updated_at);
+      } else if (targetType === 'all_inactive') {
+        const active = await fetchAll<{ user_id: string }>(
+          (f, t) => supabaseClient.from('subscriptions').select('user_id').eq('status', 'active').order('id').range(f, t)
+        );
+        const paid = await fetchAll<{ user_id: string }>(
+          (f, t) => supabaseClient.from('application_payments').select('user_id').eq('status', 'completed').order('id').range(f, t)
+        );
+        const excluded = new Set([...active.map(s => s.user_id), ...paid.map(p => p.user_id)]);
+        for (const u of eligibleUsers) if (!excluded.has(u.id)) push(u.id);
       }
+      return targets;
+    };
 
-    } else if (targetType === 'churned_subscription') {
-      // Users with canceled/expired subscriptions
-      const { data: churnedSubs } = await supabaseClient
-        .from('subscriptions')
-        .select('user_id, updated_at')
-        .in('status', ['canceled', 'expired', 'past_due']);
-
-      const eligibleUserIds = new Set(eligibleUsers.map(u => u.id));
-
-      for (const sub of churnedSubs || []) {
-        // Only include if user is in our eligible list
-        if (!eligibleUserIds.has(sub.user_id)) continue;
-        
-        const user = eligibleUsers.find(u => u.id === sub.user_id);
-        if (user?.email) {
-          targetUsers.push({
-            id: sub.user_id,
-            email: user.email,
-            created_at: user.created_at,
-            last_activity: sub.updated_at
-          });
-        }
-      }
-
-    } else if (targetType === 'all_inactive') {
-      // All registered users without active subscription AND no completed payments
-      const { data: activeSubscribers } = await supabaseClient
-        .from('subscriptions')
-        .select('user_id')
-        .eq('status', 'active');
-
-      const { data: paidUsers } = await supabaseClient
-        .from('application_payments')
-        .select('user_id')
-        .eq('status', 'completed');
-
-      const paidOrActiveIds = new Set([
-        ...(activeSubscribers?.map(s => s.user_id) || []),
-        ...(paidUsers?.map(p => p.user_id) || [])
-      ]);
-
-      targetUsers = eligibleUsers
-        .filter(u => !paidOrActiveIds.has(u.id))
-        .map(u => ({
-          id: u.id,
-          email: u.email!,
-          created_at: u.created_at
-        }));
+    const plan: { targetType: string; targets: Awaited<ReturnType<typeof findTargets>> }[] = [];
+    for (const t of typesToRun) {
+      const targets = await findTargets(t);
+      // A user picked in an earlier segment this run is not emailed twice
+      for (const tg of targets) recentlyWonBackAny.add(tg.id);
+      plan.push({ targetType: t, targets });
+      logStep(`Found ${targets.length} target users`, { targetType: t });
     }
-
-    logStep(`Found ${targetUsers.length} target users`, { targetType });
+    const totalTargets = plan.reduce((n, p) => n + p.targets.length, 0);
 
     if (dryRun) {
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           dryRun: true,
-          targetCount: targetUsers.length,
-          targetUsers: targetUsers.slice(0, 10) // Preview first 10
+          targetCount: totalTargets,
+          willSendThisRun: Math.min(totalTargets, MAX_SENDS_PER_RUN),
+          targetUsers: plan.flatMap(p => p.targets).slice(0, 10) // Preview first 10
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -326,18 +321,15 @@ serve(async (req) => {
       `;
     };
 
-    // Rate limiting: send in batches with delays to avoid API throttling
-    const BATCH_SIZE = 10;
-    const DELAY_BETWEEN_EMAILS_MS = 200; // 200ms between individual emails
-    const DELAY_BETWEEN_BATCHES_MS = 2000; // 2s between batches
-
+    // Rate limiting: send with small delays to avoid API throttling
+    const DELAY_BETWEEN_EMAILS_MS = 200;
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    for (let i = 0; i < targetUsers.length; i += BATCH_SIZE) {
-      const batch = targetUsers.slice(i, i + BATCH_SIZE);
-      logStep(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`, { batchSize: batch.length, totalProcessed: i });
-
-      for (const targetUser of batch) {
+    let attempted = 0;
+    outer: for (const { targetType, targets } of plan) {
+      for (const targetUser of targets) {
+        if (attempted >= MAX_SENDS_PER_RUN) break outer;
+        attempted++;
         try {
           const emailResult = await resend.emails.send({
             from: EMAIL_FROM,
@@ -345,34 +337,27 @@ serve(async (req) => {
             subject: getWinbackSubject(targetType),
             html: getWinbackContent(targetType)
           });
+          if ((emailResult as any)?.error) throw new Error((emailResult as any).error.message ?? 'Resend error');
 
-          // Log to email_notifications table
-          await supabaseClient.from('email_notifications').insert({
+          // Log to email_notifications table (this row is what makes re-runs idempotent)
+          const { error: logError } = await supabaseClient.from('email_notifications').insert({
             user_id: targetUser.id,
             recipient_email: targetUser.email,
             email_type: `winback_${targetType}`,
             subject: getWinbackSubject(targetType),
             status: 'sent',
             sent_at: new Date().toISOString(),
-            metadata: { resend_id: emailResult.data?.id, target_type: targetType }
+            metadata: { resend_id: emailResult.data?.id, target_type: targetType, source: isServiceCall ? 'cron' : 'admin' }
           });
+          if (logError) logStep('Failed to log winback email', { error: logError.message });
 
           sentCount++;
-          logStep(`Sent email to ${targetUser.email}`);
-          
-          // Small delay between individual emails
           await sleep(DELAY_BETWEEN_EMAILS_MS);
         } catch (emailError: any) {
           errorCount++;
-          errors.push(`${targetUser.email}: ${emailError.message}`);
-          logStep(`Failed to send to ${targetUser.email}`, { error: emailError.message });
+          errors.push(`${targetUser.id}: ${emailError.message}`);
+          logStep(`Failed to send winback`, { userId: targetUser.id, error: emailError.message });
         }
-      }
-
-      // Longer delay between batches
-      if (i + BATCH_SIZE < targetUsers.length) {
-        logStep(`Waiting between batches...`);
-        await sleep(DELAY_BETWEEN_BATCHES_MS);
       }
     }
 
@@ -383,7 +368,8 @@ serve(async (req) => {
         success: true, 
         sentCount, 
         errorCount,
-        totalTargeted: targetUsers.length,
+        totalTargeted: totalTargets,
+        remaining: Math.max(totalTargets - attempted, 0),
         errors: errors.slice(0, 10) // Return first 10 errors
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

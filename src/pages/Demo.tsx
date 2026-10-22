@@ -81,7 +81,9 @@ const Demo = () => {
   useEffect(() => {
     let currentText = '';
     let targetText = '';
-    let timeoutId: NodeJS.Timeout;
+    // Track every timer so none fire (and setState) after unmount / phase change
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (fn: () => void, ms: number) => { timers.push(setTimeout(fn, ms)); };
 
     if (currentPhase === 'intro') {
       targetText = introText;
@@ -96,32 +98,33 @@ const Demo = () => {
           setTypewriterText(currentText);
           
           if (index < targetText.length) {
-            timeoutId = setTimeout(() => typeCharacter(index + 1), 50);
+            later(() => typeCharacter(index + 1), 50);
           } else if (currentPhase === 'intro') {
             // After intro is done, start demo phase
-            setTimeout(() => {
+            later(() => {
               setCurrentPhase('demo');
               setTypewriterText('');
             }, 1000);
           } else if (currentPhase === 'outro') {
             // Show CTA after outro is done
-            setTimeout(() => setShowCTA(true), 1000);
+            later(() => setShowCTA(true), 1000);
           }
         }
       };
 
-      timeoutId = setTimeout(() => typeCharacter(0), 500);
+      later(() => typeCharacter(0), 500);
     }
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      timers.forEach(clearTimeout);
     };
   }, [currentPhase]);
 
   // Demo sequence phases
   useEffect(() => {
-    let phaseTimeout: NodeJS.Timeout;
-    let stepTimeout: NodeJS.Timeout;
+    let phaseTimeout: ReturnType<typeof setTimeout> | undefined;
+    let stepTimeout: ReturnType<typeof setTimeout> | undefined;
+    let sectionInterval: ReturnType<typeof setInterval> | undefined;
 
     if (currentPhase === 'demo') {
       const runDemoSequence = () => {
@@ -137,7 +140,8 @@ const Demo = () => {
               setCurrentSectionIndex(0);
               
               // Animate sections filling up
-              const sectionInterval = setInterval(() => {
+              if (sectionInterval) clearInterval(sectionInterval);
+              sectionInterval = setInterval(() => {
                 setCurrentSectionIndex(prev => {
                   if (prev < mockPatentSections.length - 1) {
                     return prev + 1;
@@ -178,6 +182,7 @@ const Demo = () => {
     return () => {
       if (phaseTimeout) clearTimeout(phaseTimeout);
       if (stepTimeout) clearTimeout(stepTimeout);
+      if (sectionInterval) clearInterval(sectionInterval);
     };
   }, [currentPhase, showCTA]);
 
@@ -203,8 +208,8 @@ const Demo = () => {
           </div>
           
           {/* Typewriter text positioned below logo */}
-          <div className="max-w-2xl px-8 mt-6">
-            <p className="text-2xl text-white/90 leading-relaxed">
+          <div className="max-w-2xl px-6 sm:px-8 mt-6">
+            <p className="text-lg sm:text-2xl text-white/90 leading-relaxed">
               {typewriterText}
               {(currentPhase === 'intro' || currentPhase === 'outro') && typewriterText.length > 0 && (
                 <span className="animate-pulse">|</span>
@@ -227,23 +232,23 @@ const Demo = () => {
       {/* Demo Background */}
       <div className="absolute inset-0">
         {currentPhase === 'demo' ? (
-          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-background to-primary/10 flex items-center justify-center p-4">
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-background to-primary/10 flex items-center justify-center p-2 sm:p-4 pt-14 sm:pt-4">
             <div className="relative w-full max-w-7xl mx-auto h-full">
               {/* Browser Window */}
               <div className="bg-card rounded-xl shadow-2xl overflow-hidden h-full animate-scale-in border border-border/50">
                 {/* Browser Header */}
-                <div className="bg-muted h-10 flex items-center px-4 gap-2 border-b border-border">
+                <div className="bg-muted h-10 flex items-center px-3 sm:px-4 gap-2 border-b border-border overflow-hidden">
                   <div className="flex gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                   </div>
                   <div className="flex items-center gap-3 ml-4">
-                    <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-md">
-                      patentbot.ai/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : demoStep === 4 ? 'assessment' : 'export'}
+                    <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-md truncate">
+                      patentbot-ai.com/{demoStep === 0 ? 'dashboard' : demoStep === 1 ? 'interview' : demoStep === 2 ? 'search' : demoStep === 3 ? 'generate' : demoStep === 4 ? 'assessment' : 'export'}
                     </div>
                     {/* Mini logo in browser header during demo */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
                       <div className="w-4 h-4 bg-gradient-to-br from-primary to-primary/60 rounded flex items-center justify-center">
                         <Brain className="h-2.5 w-2.5 text-white" />
                       </div>
@@ -253,12 +258,12 @@ const Demo = () => {
                 </div>
                 
                 {/* Demo Content */}
-                <div className="p-6 h-full bg-background overflow-auto">
+                <div className="p-3 sm:p-6 h-[calc(100%-2.5rem)] bg-background overflow-auto">
                   {/* Step 0: Dashboard */}
                   {demoStep === 0 && (
                     <div className="space-y-6 animate-fade-in">
-                        <div className="flex items-center justify-between">
-                         <h1 className="text-3xl font-bold text-foreground">Welcome to PatentBot AI™</h1>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                         <h1 className="text-xl sm:text-3xl font-bold text-foreground">Welcome to PatentBot AI™</h1>
                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                            <Shield className="h-4 w-4" />
                           AI-Powered Protection

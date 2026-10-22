@@ -30,16 +30,70 @@ serve(async (req) => {
     );
 
     const resend = new Resend(resendApiKey);
-    
-    const requestBody = await req.json();
-    const { type, userId, sessionId, planType, userEmail, userName, stripeSessionId, sessionMode, amount, paymentType, applicationTitle } = requestBody;
-    logStep("Request parsed", { type });
+
+    // --- Caller authentication -------------------------------------------
+    // Server-to-server callers (stripe-webhook, draft generation, crons) present the
+    // service-role key as bearer and may send any template. End users may only
+    // trigger their own welcome email, to their own address.
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    const isServiceCall = !!serviceRoleKey && bearer === serviceRoleKey;
+
+    const requestBody = await req.json().catch(() => ({}));
+    let { type, userId, userEmail, userName, applicationTitle } = requestBody;
+    const { sessionId, planType, stripeSessionId, sessionMode, amount, paymentType } = requestBody;
+    logStep("Request parsed", { type, isServiceCall });
+
+    if (!isServiceCall) {
+      if (!bearer) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      const { data: authData, error: authError } = await supabaseClient.auth.getUser(bearer);
+      const authUser = authData?.user;
+      if (authError || !authUser?.email) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      if (type !== "welcome") {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+      // Never trust client-supplied recipient / identity
+      userId = authUser.id;
+      userEmail = authUser.email;
+      userName = authUser.email.split("@")[0];
+      applicationTitle = undefined;
+
+      // Only one welcome email per user
+      const { data: priorWelcome } = await supabaseClient
+        .from("email_notifications")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("email_type", "welcome")
+        .limit(1);
+      if (priorWelcome && priorWelcome.length > 0) {
+        return new Response(JSON.stringify({ skipped: true, reason: "already_sent" }), {
+          status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
+    // Escape any free text interpolated into HTML templates
+    const escapeHtml = (v: unknown) =>
+      String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+    userName = userName ? escapeHtml(String(userName).slice(0, 80)) : userName;
+    applicationTitle = applicationTitle ? escapeHtml(String(applicationTitle).slice(0, 120)) : applicationTitle;
 
     let emailData: {
       to: string;
       subject: string;
       html: string;
       emailType: string;
+      claimId?: string;
     };
 
     // Get user email if not provided
@@ -51,6 +105,26 @@ serve(async (req) => {
 
     if (!recipientEmail) {
       throw new Error("No recipient email found");
+    }
+
+    // Respect users.email_preferences for optional notification types
+    const PREF_KEY: Record<string, string> = {
+      patent_completion: "draft_complete",
+      payment_received: "payment_received",
+    };
+    if (userId && PREF_KEY[type]) {
+      const { data: prefRow } = await supabaseClient
+        .from("users")
+        .select("email_preferences")
+        .eq("id", userId)
+        .maybeSingle();
+      const prefs = (prefRow?.email_preferences ?? {}) as Record<string, unknown>;
+      if (prefs[PREF_KEY[type]] === false) {
+        logStep("User opted out of this email type", { type, userId });
+        return new Response(JSON.stringify({ skipped: true, reason: "opted_out" }), {
+          status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
     }
 
     // App branding constants
@@ -140,7 +214,7 @@ serve(async (req) => {
           .from('patent_sessions')
           .select('idea_prompt, status, download_url')
           .eq('id', sessionId)
-          .single();
+          .maybeSingle();
 
         // Extract a clean, short title for display (idea_prompt may contain scraped/markdown-heavy content)
         const extractDisplayTitle = (raw: string | null | undefined) => {

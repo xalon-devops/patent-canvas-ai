@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { CONNECTION_COLS, getValidAccessToken } from "../supabase-oauth-init/oauth-token.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,20 +34,37 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await ourSupabase.auth.getUser(token);
     
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // If a session is given it must belong to the caller
+    if (session_id) {
+      const { data: ownedSession } = await ourSupabase
+        .from('patent_sessions')
+        .select('id')
+        .eq('id', session_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!ownedSession) {
+        return new Response(JSON.stringify({ success: false, error: 'Session not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     let managementApiToken = null;
     let projectRef = null;
     let targetUrl = user_supabase_url;
 
-    // If OAuth mode, fetch connection from database
+    // If OAuth mode, fetch connection from database (tokens never leave the server)
     if (use_oauth) {
       console.log('[SUPABASE SCANNER] Fetching OAuth connection...');
       
       const { data: connection, error: connError } = await ourSupabase
         .from('supabase_connections')
-        .select('*')
+        .select(`${CONNECTION_COLS}, project_name`)
         .eq('user_id', user.id)
         .eq('is_active', true)
         .eq('connection_status', 'active')
@@ -58,18 +76,13 @@ serve(async (req) => {
         throw new Error('No active Supabase connection found. Please connect your Supabase project first.');
       }
 
-      // Check if token is expired
-      const expiresAt = new Date(connection.token_expires_at);
-      if (expiresAt < new Date()) {
-        throw new Error('Supabase connection expired. Please reconnect your project.');
-      }
-
       // Check if project_ref is set (connection was finalized)
       if (!connection.project_ref) {
         throw new Error('Supabase connection not finalized. Please complete the project selection.');
       }
 
-      managementApiToken = connection.access_token;
+      // Refreshes the token when it is expired (throws a reconnect message if that fails)
+      managementApiToken = await getValidAccessToken(ourSupabase, connection);
       projectRef = connection.project_ref;
       targetUrl = `https://${projectRef}.supabase.co`;
       
@@ -78,8 +91,12 @@ serve(async (req) => {
     } else if (!user_supabase_key) {
       throw new Error('Either enable OAuth or provide a service role key');
     } else {
-      // Extract project ref from URL
-      projectRef = user_supabase_url.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+      // Only real Supabase project URLs (prevents using this function to call arbitrary hosts)
+      projectRef = String(user_supabase_url ?? '').trim().match(/^https:\/\/([a-z0-9]{20})\.supabase\.co\/?$/)?.[1];
+      if (!projectRef) {
+        throw new Error('Invalid Supabase URL. Expected https://<project-ref>.supabase.co');
+      }
+      targetUrl = `https://${projectRef}.supabase.co`;
     }
 
     console.log('[SUPABASE SCANNER] Target project:', projectRef);
@@ -267,7 +284,8 @@ serve(async (req) => {
             scanned_at: new Date().toISOString()
           }
         })
-        .eq('id', session_id);
+        .eq('id', session_id)
+        .eq('user_id', user.id);
     }
 
     // Generate AI summary using Lovable AI

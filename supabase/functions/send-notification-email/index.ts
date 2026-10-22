@@ -15,11 +15,31 @@ serve(async (req) => {
   }
 
   try {
+    // Server-to-server only: caller must present the service-role key as bearer.
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!serviceRoleKey || bearer !== serviceRoleKey) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const { user_id, type, session_id, payment_amount } = await req.json();
+
+    const ALLOWED_TYPES = ['draft_complete', 'payment_received', 'prior_art_alert'];
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!ALLOWED_TYPES.includes(type) || !UUID_RE.test(String(user_id ?? '')) ||
+        (session_id != null && !UUID_RE.test(String(session_id)))) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid request' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceRoleKey
     );
 
     // Get user info
@@ -27,7 +47,7 @@ serve(async (req) => {
       .from('users')
       .select('email, email_preferences')
       .eq('id', user_id)
-      .single();
+      .maybeSingle();
 
     if (!userData || !userData.email) {
       throw new Error('User email not found');
@@ -35,7 +55,7 @@ serve(async (req) => {
 
     // Check if user wants this notification
     const prefs = userData.email_preferences || {};
-    if (!prefs[type]) {
+    if (prefs[type] === false) {
       console.log(`User opted out of ${type} emails`);
       return new Response(JSON.stringify({ success: true, skipped: true }), {
         status: 200,
@@ -46,7 +66,7 @@ serve(async (req) => {
     // Generate email content based on type
     const emailContent = generateEmailContent(type, {
       session_id,
-      payment_amount,
+      payment_amount: Number.isFinite(Number(payment_amount)) ? Number(payment_amount) : undefined,
       base_url: 'https://patentbot-ai.com',
       logo_url: 'https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png'
     });

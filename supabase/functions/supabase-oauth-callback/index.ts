@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { verifyState, originFromUntrustedState, scriptLiteral } from '../supabase-oauth-init/oauth-state.ts';
+
+const htmlHeaders = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'Referrer-Policy': 'no-referrer',
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,19 +29,27 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
 
     if (error) {
-      throw new Error(`OAuth error: ${error}`);
+      throw new Error(`OAuth error: ${String(error).slice(0, 200)}`);
     }
 
     if (!code || !state) {
       throw new Error('Missing code or state parameter');
     }
 
-    // Decode state
-    const stateData = JSON.parse(atob(state));
+    // Verify HMAC-signed, unexpired state minted by supabase-oauth-init (CSRF protection).
+    const stateData = await verifyState(state);
+    if (!stateData) {
+      throw new Error('Invalid or expired authorization request. Please try connecting again.');
+    }
     const { userId, origin } = stateData;
-    
-    console.log('[OAUTH-CALLBACK] Decoded origin:', origin);
-    console.log('[OAUTH-CALLBACK] User ID:', userId);
+
+    // Make sure the user still exists
+    const { data: stateUser } = await supabase.auth.admin.getUserById(userId);
+    if (!stateUser?.user) {
+      throw new Error('Invalid authorization request.');
+    }
+
+    console.log('[OAUTH-CALLBACK] State verified for user:', userId);
 
     // Exchange code for tokens
     const clientId = Deno.env.get('SUPABASE_OAUTH_CLIENT_ID') || Deno.env.get('PATENTBOT_OAUTH_CLIENT_ID');
@@ -62,7 +77,8 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      throw new Error(`Failed to exchange code for token: ${errorData}`);
+      console.error('[OAUTH-CALLBACK] Token exchange failed:', errorData);
+      throw new Error('Failed to exchange authorization code. Please try again.');
     }
 
     const tokenData = await tokenResponse.json();
@@ -92,7 +108,8 @@ serve(async (req) => {
     }
 
     // Store connection in database as PENDING (user needs to select project)
-    const expiresAt = new Date(Date.now() + (expires_in * 1000));
+    const expiresAt = new Date(Date.now() + (Number(expires_in) > 0 ? Number(expires_in) : 3600) * 1000);
+    if (!access_token) throw new Error("No access token returned by Supabase");
     
     const connectionMetadata: Record<string, any> = {
       oauth_callback_at: new Date().toISOString(),
@@ -146,82 +163,62 @@ serve(async (req) => {
     // Send success message to parent window and close popup
     console.log('[OAUTH-CALLBACK] Sending success message to parent');
     
-    return new Response(`
-      <!DOCTYPE html>
+    return new Response(`<!DOCTYPE html>
       <html>
         <head>
           <title>Connection Successful</title>
         </head>
         <body>
           <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'supabase-oauth-success'
-              }, '${origin}');
-              window.close();
-            } else {
-              window.location.href = '${origin}/select-supabase-project';
-            }
+            (function () {
+              var origin = ${scriptLiteral(origin)};
+              if (window.opener) {
+                window.opener.postMessage({ type: 'supabase-oauth-success' }, origin);
+                window.close();
+              } else {
+                window.location.href = origin + '/select-supabase-project';
+              }
+            })();
           </script>
           <p>Connection successful! This window will close automatically...</p>
         </body>
       </html>
     `, {
       status: 200,
-      headers: {
-        'Content-Type': 'text/html',
-      },
+      headers: htmlHeaders,
     });
 
   } catch (error) {
     console.error('Error in supabase-oauth-callback:', error);
     
-    // Try to get origin from state first, fallback to referer
-    let errorOrigin = 'https://yourapp.com';
-    try {
-      const url = new URL(req.url);
-      const errorState = url.searchParams.get('state');
-      if (errorState) {
-        const stateData = JSON.parse(atob(errorState));
-        errorOrigin = stateData.origin;
-      }
-    } catch {
-      // Fallback to referer
-      const referer = req.headers.get('referer');
-      if (referer) {
-        const refUrl = new URL(referer);
-        errorOrigin = `${refUrl.protocol}//${refUrl.host}`;
-      }
-    }
-    
-    console.log('[OAUTH-CALLBACK] Sending error message to parent');
-    
-    return new Response(`
-      <!DOCTYPE html>
+    // Origin is always passed through the allow-list (never trust the raw state here)
+    const errorOrigin = originFromUntrustedState(new URL(req.url).searchParams.get('state'));
+    const message = error instanceof Error ? error.message : 'Connection failed';
+
+    return new Response(`<!DOCTYPE html>
       <html>
         <head>
           <title>Connection Failed</title>
         </head>
         <body>
           <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'supabase-oauth-error',
-                error: '${error.message.replace(/'/g, "\\'")}'
-              }, '${errorOrigin}');
-              window.close();
-            } else {
-              window.location.href = '${errorOrigin}/new-application?error=${encodeURIComponent(error.message)}';
-            }
+            (function () {
+              var origin = ${scriptLiteral(errorOrigin)};
+              var message = ${scriptLiteral(message)};
+              if (window.opener) {
+                window.opener.postMessage({ type: 'supabase-oauth-error', error: message }, origin);
+                window.close();
+              } else {
+                window.location.href = origin + '/new-application?error=' + encodeURIComponent(message);
+              }
+            })();
           </script>
-          <p>Connection failed. This window will close automatically...</p>
+          <p>Connection failed. You can close this window and try again.</p>
         </body>
       </html>
     `, {
       status: 200,
-      headers: {
-        'Content-Type': 'text/html',
-      },
+      headers: htmlHeaders,
     });
   }
 });

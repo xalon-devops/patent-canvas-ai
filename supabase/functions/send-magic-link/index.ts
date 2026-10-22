@@ -39,19 +39,51 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
-    const { email } = await req.json();
-    logStep("Request parsed", { email });
+    const { email, redirectPath } = await req.json();
+    // Only same-origin relative paths are allowed as post-login targets
+    const safePath = typeof redirectPath === 'string' && /^\/(?![\/\\])[^\s]*$/.test(redirectPath) && redirectPath.length < 512
+      ? redirectPath
+      : '/dashboard';
+    logStep("Request parsed");
 
     if (!email) {
       throw new Error("Email is required");
     }
 
+    // Normalize + validate, and rate-limit per recipient so this public endpoint
+    // cannot be used to mail-bomb an address.
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return new Response(JSON.stringify({ error: "Invalid email address" }), {
+        status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    {
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recent } = await supabaseClient
+        .from("email_notifications")
+        .select("sent_at")
+        .eq("email_type", "magic_link")
+        .eq("recipient_email", normalizedEmail)
+        .gte("sent_at", since)
+        .order("sent_at", { ascending: false })
+        .limit(5);
+      const lastSent = recent?.[0]?.sent_at ? new Date(recent[0].sent_at).getTime() : 0;
+      if ((recent?.length ?? 0) >= 5 || Date.now() - lastSent < 60 * 1000) {
+        logStep("Rate limited", { email: normalizedEmail });
+        // Respond as success so the endpoint does not leak state; client shows generic message
+        return new Response(JSON.stringify({ success: true, rateLimited: true }), {
+          status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
     // Generate magic link using Supabase Admin API
     const { data, error } = await supabaseClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: email,
+      email: normalizedEmail,
       options: {
-        redirectTo: `${APP_DOMAIN}/dashboard`
+        redirectTo: `${APP_DOMAIN}${safePath}`
       }
     });
 
@@ -70,7 +102,7 @@ serve(async (req) => {
     // Send branded email via Resend
     const emailResponse = await resend.emails.send({
       from: EMAIL_FROM,
-      to: [email],
+      to: [normalizedEmail],
       subject: `Sign In to ${APP_NAME} - Magic Link`,
       html: `
         <!DOCTYPE html>
@@ -147,7 +179,7 @@ serve(async (req) => {
 
     // Log to database
     await supabaseClient.from('email_notifications').insert({
-      recipient_email: email,
+      recipient_email: normalizedEmail,
       email_type: 'magic_link',
       subject: `Sign In to ${APP_NAME} - Magic Link`,
       status: 'sent',

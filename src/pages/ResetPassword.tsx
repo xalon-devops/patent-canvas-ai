@@ -16,37 +16,49 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   useEffect(() => {
-    // Check if we arrived here via a recovery link (Supabase sets the session automatically)
-    const checkRecoverySession = async () => {
-      // Check URL hash for recovery token (Supabase puts type=recovery in the hash)
-      const hash = window.location.hash;
-      const params = new URLSearchParams(hash.replace('#', ''));
-      const type = params.get('type');
-      const accessToken = params.get('access_token');
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-      if (type === 'recovery' && accessToken) {
-        // Supabase will have already set the session via the hash
-        // Wait briefly for onAuthStateChange to fire
-        const { data: { session } } = await supabase.auth.getSession();
-        setValidSession(!!session);
-      } else {
-        // Also check if user has an active session (maybe redirected from auth?type=recovery)
-        const { data: { session } } = await supabase.auth.getSession();
-        setValidSession(!!session);
-      }
-    };
+    // Recovery links land here with tokens (or an error) in the URL hash; supabase-js
+    // consumes the tokens and fires PASSWORD_RECOVERY.
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const query = new URLSearchParams(window.location.search);
+    const errDesc = params.get('error_description') || query.get('error_description');
+    const isRecoveryLink = params.get('type') === 'recovery' || !!params.get('access_token') || !!query.get('code');
 
-    // Listen for PASSWORD_RECOVERY event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        if (timer) clearTimeout(timer);
         setValidSession(true);
       }
     });
 
-    checkRecoverySession();
+    if (errDesc) {
+      setLinkError(errDesc.replace(/\+/g, ' '));
+      setValidSession(false);
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (cancelled) return;
+        if (session) {
+          setValidSession(true);
+        } else if (isRecoveryLink) {
+          // Token exchange may still be in flight - give it a moment before failing
+          timer = setTimeout(() => { if (!cancelled) setValidSession((v) => v ?? false); }, 4000);
+        } else {
+          setValidSession(false);
+        }
+      });
+    }
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -71,7 +83,7 @@ const ResetPassword = () => {
       toast({ title: 'Password updated!', description: 'Your password has been successfully reset.' });
 
       // Redirect to dashboard after a brief delay
-      setTimeout(() => navigate('/dashboard'), 2000);
+      setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
     } catch (error: any) {
       toast({ title: 'Reset failed', description: error.message || 'Failed to update password.', variant: 'destructive' });
     } finally {
@@ -100,7 +112,7 @@ const ResetPassword = () => {
             <Lock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-bold text-foreground mb-2">Invalid or Expired Link</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              This password reset link is invalid or has expired. Please request a new one.
+              {linkError ? `${linkError}. ` : ''}This password reset link is invalid or has expired. Please request a new one.
             </p>
             <Button onClick={() => navigate('/auth')} className="w-full btn-dark h-11 rounded-xl">
               Back to Sign In

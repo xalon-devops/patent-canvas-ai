@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { signState, safeAppOrigin } from './oauth-state.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,14 +27,16 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
     }
 
-    // Get app origin from Referer header (more reliable than origin header)
-    const referer = req.headers.get('referer') || req.headers.get('origin') || 'http://localhost:8080';
-    const appUrl = new URL(referer);
-    const origin = `${appUrl.protocol}//${appUrl.host}`;
-    
+    // App origin (Origin preferred, then Referer) - restricted to an allow-list so the
+    // callback can never postMessage/redirect tokens' status to a foreign site.
+    const origin = safeAppOrigin(req.headers.get('origin') || req.headers.get('referer'));
+
     const callbackUrl = `${supabaseUrl}/functions/v1/supabase-oauth-callback`;
 
     // Build Supabase OAuth URL (with safe fallbacks)
@@ -46,11 +49,8 @@ serve(async (req) => {
     console.log('[OAUTH-INIT] Using origin:', origin);
     console.log('[OAUTH-INIT] Callback URL:', callbackUrl);
 
-    const state = btoa(JSON.stringify({
-      userId: user.id,
-      timestamp: Date.now(),
-      origin
-    }));
+    // HMAC-signed, expiring state (validated in supabase-oauth-callback)
+    const state = await signState(user.id, origin);
 
     const authUrl = new URL('https://api.supabase.com/v1/oauth/authorize');
     authUrl.searchParams.set('client_id', clientId);

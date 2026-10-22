@@ -57,7 +57,22 @@ export function MpepKnowledgeBaseCard() {
         },
       )
       .subscribe();
+
+    // Polling fallback in case ingest_jobs isn't in the realtime publication
+    const poll = setInterval(async () => {
+      const { data } = await supabase.from("ingest_jobs").select("*").eq("id", activeJob.id).maybeSingle();
+      if (!data) return;
+      const next = data as unknown as IngestJob;
+      setActiveJob((prev) => (prev && prev.id === next.id ? next : prev));
+      if (next.status === "completed" || next.status === "completed_with_errors" || next.status === "failed") {
+        setLoading(false);
+        clearInterval(poll);
+        void refreshCount();
+      }
+    }, 5000);
+
     return () => {
+      clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [activeJob?.id]);
@@ -80,8 +95,9 @@ export function MpepKnowledgeBaseCard() {
         return;
       }
       // Fetch initial row
-      const { data: job } = await supabase.from("ingest_jobs").select("*").eq("id", jobId).single();
-      if (job) setActiveJob(job as unknown as IngestJob);
+      const { data: job } = await supabase.from("ingest_jobs").select("*").eq("id", jobId).maybeSingle();
+      // Even if the row isn't readable yet, track the job id so polling picks it up
+      setActiveJob((job as unknown as IngestJob) ?? ({ id: jobId, status: "running", total_chunks: 0, completed_chunks: 0, total_urls: 0, scraped_urls: 0 } as unknown as IngestJob));
     } catch (err) {
       setSeedResult(err instanceof Error ? err.message : "Failed");
       setLoading(false);

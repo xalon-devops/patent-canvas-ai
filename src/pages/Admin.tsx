@@ -85,7 +85,10 @@ const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessions, setSessions] = useState<AdminPatentSession[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<AdminPatentSession[]>([]);
+  const [sessionsPage, setSessionsPage] = useState(0);
+  const [sessionsTotal, setSessionsTotal] = useState(0);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [revenueStats, setRevenueStats] = useState<RevenueStats>({
     totalRevenue: 0,
     subscriptionRevenue: 0,
@@ -108,7 +111,7 @@ const Admin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('analytics');
   const [winbackLoading, setWinbackLoading] = useState(false);
-  const [winbackPreview, setWinbackPreview] = useState<{ targetCount: number; targetUsers: any[] } | null>(null);
+  const [winbackPreview, setWinbackPreview] = useState<{ targetCount: number; willSendThisRun: number; targetUsers: any[] } | null>(null);
   const [selectedWinbackType, setSelectedWinbackType] = useState<string>('never_started');
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -146,9 +149,9 @@ const Admin = () => {
         .select('role')
         .eq('user_id', userId)
         .eq('role', 'admin')
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       
       if (data) {
         setIsAdmin(true);
@@ -173,72 +176,120 @@ const Admin = () => {
 
   const fetchAllData = useCallback(async () => {
     setLoading(true);
+    // Sessions are paginated server-side and loaded when the Sessions tab is opened
     await Promise.all([
-      fetchAllSessions(),
       fetchRevenueStats(),
       fetchAnalytics()
     ]);
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchAllSessions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('patent_sessions')
-        .select(`*, users!patent_sessions_user_id_fkey(email)`)
-        .order('created_at', { ascending: false })
-        .limit(SUPABASE_QUERY_LIMIT);
+  const SESSIONS_PAGE_SIZE = 25;
 
+  const fetchSessionsPage = useCallback(async (page: number, search: string, status: string) => {
+    setSessionsLoading(true);
+    try {
+      let query = supabase
+        .from('patent_sessions')
+        // Only the columns the list renders (data_source / analyses can be very large)
+        .select('id, idea_prompt, status, created_at, download_url, user_id, users!patent_sessions_user_id_fkey(email)', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+      if (status !== 'all') query = query.eq('status', status);
+
+      const term = search.trim();
+      if (term) {
+        if (/^[0-9a-f-]{36}$/i.test(term)) {
+          query = query.eq('id', term);
+        } else if (term.includes('@')) {
+          const { data: matchedUsers } = await supabase
+            .from('users')
+            .select('id')
+            .ilike('email', `%${term}%`)
+            .limit(100);
+          const ids = (matchedUsers || []).map((u) => u.id);
+          if (ids.length === 0) {
+            setSessions([]);
+            setSessionsTotal(0);
+            return;
+          }
+          query = query.in('user_id', ids);
+        } else {
+          query = query.ilike('idea_prompt', `%${term.replace(/[%_]/g, '')}%`);
+        }
+      }
+
+      const from = page * SESSIONS_PAGE_SIZE;
+      const { data, error, count } = await query.range(from, from + SESSIONS_PAGE_SIZE - 1);
       if (error) throw error;
-      
-      const sessionsWithUserEmail = data?.map(session => ({
-        ...session,
-        user_email: session.users?.email || 'Unknown'
-      })) || [];
-      
-      setSessions(sessionsWithUserEmail);
-      setFilteredSessions(sessionsWithUserEmail);
+
+      setSessions((data || []).map((row: any) => ({
+        ...row,
+        user_email: row.users?.email || 'Unknown',
+      })));
+      setSessionsTotal(count ?? 0);
     } catch (error: any) {
       console.error('Error loading sessions:', error);
+      toast({ title: 'Error loading sessions', description: error.message, variant: 'destructive' });
+    } finally {
+      setSessionsLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setSessionsPage(0);
+  }, [debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== 'sessions') return;
+    fetchSessionsPage(sessionsPage, debouncedSearch, statusFilter);
+  }, [isAdmin, activeTab, sessionsPage, debouncedSearch, statusFilter, fetchSessionsPage]);
 
   const fetchRevenueStats = async () => {
     try {
-      // Fetch completed payment transactions
-      const { data: transactions } = await supabase
-        .from('payment_transactions')
-        .select('amount, status, payment_type, metadata, created_at')
-        .eq('status', 'completed')
-        .limit(SUPABASE_QUERY_LIMIT);
-
-      // Fetch completed application payments
-      const { data: appPayments } = await supabase
-        .from('application_payments')
-        .select('amount, status, created_at')
-        .eq('status', 'completed')
-        .limit(SUPABASE_QUERY_LIMIT);
-
-      // Fetch active subscriptions
-      const { data: activeSubs } = await supabase
-        .from('subscriptions')
-        .select('id, status, plan')
-        .eq('status', 'active')
-        .neq('plan', 'free_grant') // Exclude free grants
-        .limit(SUPABASE_QUERY_LIMIT);
-
-      // Fetch pending payments
-      const { data: pendingTx } = await supabase
-        .from('payment_transactions')
-        .select('id')
-        .eq('status', 'pending')
-        .limit(SUPABASE_QUERY_LIMIT);
-
-      const { data: pendingApp } = await supabase
-        .from('application_payments')
-        .select('id')
-        .eq('status', 'pending')
-        .limit(SUPABASE_QUERY_LIMIT);
+      const [
+        { data: transactions },
+        { data: appPayments },
+        { count: activeSubsCount },
+        { count: pendingTxCount },
+        { count: pendingAppCount },
+      ] = await Promise.all([
+        // Completed payment transactions
+        supabase
+          .from('payment_transactions')
+          .select('amount, payment_type')
+          .eq('status', 'completed')
+          .limit(SUPABASE_QUERY_LIMIT),
+        // Completed application payments
+        supabase
+          .from('application_payments')
+          .select('amount')
+          .eq('status', 'completed')
+          .gt('amount', 0)
+          .limit(SUPABASE_QUERY_LIMIT),
+        // Active paid subscriptions (exclude free grants)
+        supabase
+          .from('subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .neq('plan', 'free_grant'),
+        supabase
+          .from('payment_transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        supabase
+          .from('application_payments')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+      ]);
 
       const subscriptionRevenue = (transactions || [])
         .filter(tx => tx.payment_type === 'subscription')
@@ -253,8 +304,8 @@ const Admin = () => {
         subscriptionRevenue,
         patentRevenue,
         totalTransactions: (transactions?.length || 0) + (appPayments?.filter(p => p.amount > 0).length || 0),
-        activeSubscriptions: activeSubs?.length || 0,
-        pendingPayments: (pendingTx?.length || 0) + (pendingApp?.length || 0),
+        activeSubscriptions: activeSubsCount || 0,
+        pendingPayments: (pendingTxCount || 0) + (pendingAppCount || 0),
       });
     } catch (error: any) {
       console.error('Error fetching revenue stats:', error);
@@ -267,87 +318,63 @@ const Admin = () => {
       const twoWeeksAgo = new Date();
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
-      // Fetch users by day
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('created_at')
-        .gte('created_at', twoWeeksAgo.toISOString());
+      const since = twoWeeksAgo.toISOString();
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const subCount = (status: string) => supabase
+        .from('subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', status)
+        .neq('plan', 'free_grant');
 
-      // Fetch patent sessions by day
-      const { data: sessionsData } = await supabase
-        .from('patent_sessions')
-        .select('created_at, status')
-        .gte('created_at', twoWeeksAgo.toISOString());
-
-      // Fetch PatentBot payments by day (filter by description containing 'Patent')
-      const { data: paymentsData } = await supabase
-        .from('application_payments')
-        .select('created_at, amount, status')
-        .eq('status', 'completed')
-        .gte('created_at', twoWeeksAgo.toISOString());
-
-      // Fetch PatentBot subscription payments (filter by description)
-      const { data: subPayments } = await supabase
-        .from('payment_transactions')
-        .select('created_at, amount, status, payment_type, description')
-        .eq('status', 'completed')
-        .gte('created_at', twoWeeksAgo.toISOString());
+      // All independent queries run in parallel; totals use head-only counts
+      const [
+        { data: usersData },
+        { data: sessionsData },
+        { data: paymentsData },
+        { data: subPayments },
+        { count: totalUsers },
+        { data: uniqueSessionUsers },
+        { count: completedSessions },
+        { data: paidAppUsers },
+        { count: trialingCountRaw },
+        { count: activeSubCountRaw },
+        { count: cancelledCountRaw },
+        { count: canceledCountRaw },
+        { count: pastDueCountRaw },
+        { count: freeGrantCount },
+        { count: abandonedCount },
+      ] = await Promise.all([
+        supabase.from('users').select('created_at').gte('created_at', since),
+        supabase.from('patent_sessions').select('created_at, status').gte('created_at', since),
+        supabase.from('application_payments').select('created_at, amount, status').eq('status', 'completed').gte('created_at', since),
+        supabase.from('payment_transactions').select('created_at, amount, status, payment_type, description').eq('status', 'completed').gte('created_at', since),
+        supabase.from('users').select('id', { count: 'exact', head: true }),
+        // NOTE: capped by PostgREST max_rows (1000); distinct counts need an RPC for exactness
+        supabase.from('patent_sessions').select('user_id').limit(SUPABASE_QUERY_LIMIT),
+        supabase.from('patent_sessions').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+        supabase.from('application_payments').select('user_id').eq('status', 'completed').limit(SUPABASE_QUERY_LIMIT),
+        subCount('trialing'),
+        subCount('active'),
+        subCount('cancelled'),
+        subCount('canceled'),
+        subCount('past_due'),
+        supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('plan', 'free_grant').eq('status', 'active'),
+        supabase.from('payment_transactions').select('id', { count: 'exact', head: true }).eq('status', 'pending').lt('created_at', oneHourAgo),
+      ]);
 
       // Filter to PatentBot only (descriptions contain 'Patent' or 'Check & See')
-      const patentbotSubPayments = (subPayments || []).filter(p => 
-        p.description?.includes('Patent') || 
+      const patentbotSubPayments = (subPayments || []).filter(p =>
+        p.description?.includes('Patent') ||
         p.description?.includes('Check & See') ||
         p.payment_type === 'subscription'
       );
 
-      // Get user counts for funnel
-      const { count: totalUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-      const { data: uniqueSessionUsers } = await supabase
-        .from('patent_sessions')
-        .select('user_id');
-      
       const usersWithSessions = new Set(uniqueSessionUsers?.map(s => s.user_id)).size;
-
-      const { count: completedSessions } = await supabase
-        .from('patent_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'completed');
-
-      const { data: paidAppUsers } = await supabase
-        .from('application_payments')
-        .select('user_id')
-        .eq('status', 'completed');
-      
       const uniquePaidUsers = new Set(paidAppUsers?.map(p => p.user_id)).size;
-
-      // Get subscription statuses for funnel
-      const { data: allSubscriptions } = await supabase
-        .from('subscriptions')
-        .select('status, plan')
-        .neq('plan', 'free_grant');
-
-      const trialingCount = allSubscriptions?.filter(s => s.status === 'trialing').length || 0;
-      const activeSubCount = allSubscriptions?.filter(s => s.status === 'active').length || 0;
-      const cancelledCount = allSubscriptions?.filter(s => s.status === 'cancelled' || s.status === 'canceled').length || 0;
-      const pastDueCount = allSubscriptions?.filter(s => s.status === 'past_due').length || 0;
-
-      // Get free grant users count
-      const { count: freeGrantCount } = await supabase
-        .from('subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('plan', 'free_grant')
-        .eq('status', 'active');
-
-      // Get abandoned checkout count (pending payments older than 1 hour)
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { count: abandonedCount } = await supabase
-        .from('payment_transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .lt('created_at', oneHourAgo);
+      const trialingCount = trialingCountRaw || 0;
+      const activeSubCount = activeSubCountRaw || 0;
+      const cancelledCount = (cancelledCountRaw || 0) + (canceledCountRaw || 0);
+      const pastDueCount = pastDueCountRaw || 0;
 
       // Generate daily metrics for last 7 days (signups-based, no fake visitors)
       const dailyMetrics = [];
@@ -443,34 +470,21 @@ const Admin = () => {
     }
   };
 
-  useEffect(() => {
-    let filtered = sessions;
-
-    if (searchTerm) {
-      filtered = filtered.filter(session => 
-        session.idea_prompt?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        session.id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(session => session.status === statusFilter);
-    }
-
-    setFilteredSessions(filtered);
-  }, [searchTerm, statusFilter, sessions]);
-
   const updateSessionStatus = async (sessionId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('patent_sessions')
         .update({ status: newStatus })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .select('id');
 
       if (error) throw error;
+      // RLS silently filters rows the caller may not update - report instead of faking success
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error('Update was not applied (no admin UPDATE permission on patent_sessions).');
+      }
 
-      setSessions(sessions.map(session => 
+      setSessions(prev => prev.map(session => 
         session.id === sessionId ? { ...session, status: newStatus } : session
       ));
 
@@ -489,16 +503,20 @@ const Admin = () => {
       if (error) throw error;
 
       if (data?.success && data.download_url) {
-        await supabase
+        // Persisting the URL needs an admin UPDATE policy; the link itself works regardless
+        const { error: persistError } = await supabase
           .from('patent_sessions')
           .update({ download_url: data.download_url })
           .eq('id', sessionId);
+        if (persistError) console.warn('Could not persist download_url:', persistError);
 
-        setSessions(sessions.map(session => 
+        setSessions(prev => prev.map(session => 
           session.id === sessionId ? { ...session, download_url: data.download_url } : session
         ));
 
         toast({ title: "Download Generated", description: "Patent document is ready for download" });
+      } else {
+        throw new Error(data?.error || 'Export did not return a download link.');
       }
     } catch (error: any) {
       toast({ title: "Error generating download", description: error.message, variant: "destructive" });
@@ -545,12 +563,13 @@ const Admin = () => {
 
       setWinbackPreview({
         targetCount: data.targetCount,
+        willSendThisRun: data.willSendThisRun ?? data.targetCount,
         targetUsers: data.targetUsers || []
       });
 
       toast({
         title: "Preview Ready",
-        description: `Found ${data.targetCount} users to email`,
+        description: `Found ${data.targetCount} users to email${data.willSendThisRun < data.targetCount ? ` (up to ${data.willSendThisRun} per run)` : ''}`,
       });
     } catch (error: any) {
       toast({
@@ -583,7 +602,7 @@ const Admin = () => {
 
       toast({
         title: "Winback Emails Sent!",
-        description: `Successfully sent ${data.sentCount} emails (${data.errorCount} errors)`,
+        description: `Sent ${data.sentCount} emails (${data.errorCount} errors)${data.remaining ? `. ${data.remaining} remaining - send again to continue.` : ''}`,
       });
 
       setWinbackPreview(null);
@@ -620,8 +639,8 @@ const Admin = () => {
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
                 <ArrowLeft className="h-4 w-4" />
                 Back
@@ -639,7 +658,7 @@ const Admin = () => {
                 <Activity className="h-3 w-3 mr-1" />
                 Live
               </Badge>
-              <Button variant="outline" size="sm" onClick={fetchAllData}>
+              <Button variant="outline" size="sm" onClick={() => { fetchAllData(); if (activeTab === 'sessions') fetchSessionsPage(sessionsPage, debouncedSearch, statusFilter); }}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
@@ -661,27 +680,27 @@ const Admin = () => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-green-500">{formatPrice(revenueStats.totalRevenue)}</div>
+                <div className="text-lg sm:text-2xl font-bold text-green-500">{formatPrice(revenueStats.totalRevenue)}</div>
                 <div className="text-xs text-muted-foreground mt-1">Total Revenue</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-primary">{formatPrice(revenueStats.patentRevenue)}</div>
+                <div className="text-lg sm:text-2xl font-bold text-primary">{formatPrice(revenueStats.patentRevenue)}</div>
                 <div className="text-xs text-muted-foreground mt-1">Patent Apps</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-secondary">{formatPrice(revenueStats.subscriptionRevenue)}</div>
+                <div className="text-lg sm:text-2xl font-bold text-secondary">{formatPrice(revenueStats.subscriptionRevenue)}</div>
                 <div className="text-xs text-muted-foreground mt-1">Subscriptions</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-foreground">{revenueStats.totalTransactions}</div>
+                <div className="text-lg sm:text-2xl font-bold text-foreground">{revenueStats.totalTransactions}</div>
                 <div className="text-xs text-muted-foreground mt-1">Paid Transactions</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-blue-500">{revenueStats.activeSubscriptions}</div>
+                <div className="text-lg sm:text-2xl font-bold text-blue-500">{revenueStats.activeSubscriptions}</div>
                 <div className="text-xs text-muted-foreground mt-1">Active Subs</div>
               </div>
               <div className="p-4 bg-card rounded-lg border text-center">
-                <div className="text-2xl font-bold text-yellow-500">{revenueStats.pendingPayments}</div>
+                <div className="text-lg sm:text-2xl font-bold text-yellow-500">{revenueStats.pendingPayments}</div>
                 <div className="text-xs text-muted-foreground mt-1">Pending</div>
               </div>
             </div>
@@ -747,7 +766,7 @@ const Admin = () => {
                   Filters & Search
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex gap-4">
+              <CardContent className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <Input
                     placeholder="Search by idea, email, or session ID..."
@@ -756,11 +775,12 @@ const Admin = () => {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="filed">Filed</SelectItem>
@@ -770,7 +790,11 @@ const Admin = () => {
             </Card>
 
             <div className="space-y-4">
-              {filteredSessions.length === 0 ? (
+              {sessionsLoading && sessions.length === 0 ? (
+                <div className="flex justify-center py-12">
+                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : sessions.length === 0 ? (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -783,12 +807,12 @@ const Admin = () => {
                   </CardContent>
                 </Card>
               ) : (
-                filteredSessions.slice(0, 50).map((session) => (
+                sessions.map((session) => (
                   <Card key={session.id} className="shadow-card border-0 bg-card/80 backdrop-blur-sm">
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-base flex items-center gap-2 mb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base flex items-center gap-2 mb-2 break-words">
                             {getStatusIcon(session.status)}
                             {session.idea_prompt ? 
                               session.idea_prompt.slice(0, 100) + (session.idea_prompt.length > 100 ? '...' : '') :
@@ -797,7 +821,7 @@ const Admin = () => {
                           <CardDescription className="space-y-1">
                             <div>User: {session.user_email}</div>
                             <div>Created: {formatDateAdmin(session.created_at)}</div>
-                            <div className="text-xs font-mono">ID: {session.id}</div>
+                            <div className="text-xs font-mono break-all">ID: {session.id}</div>
                           </CardDescription>
                         </div>
                         {getStatusBadge(session.status)}
@@ -830,8 +854,30 @@ const Admin = () => {
                   </Card>
                 ))
               )}
-              {filteredSessions.length > 50 && (
-                <p className="text-center text-sm text-muted-foreground">Showing 50 of {filteredSessions.length} sessions</p>
+              {sessionsTotal > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {sessionsPage * SESSIONS_PAGE_SIZE + 1}–{Math.min((sessionsPage + 1) * SESSIONS_PAGE_SIZE, sessionsTotal)} of {sessionsTotal} sessions
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={sessionsPage === 0 || sessionsLoading}
+                      onClick={() => setSessionsPage(p => Math.max(0, p - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={(sessionsPage + 1) * SESSIONS_PAGE_SIZE >= sessionsTotal || sessionsLoading}
+                      onClick={() => setSessionsPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </TabsContent>
@@ -964,7 +1010,7 @@ const Admin = () => {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       variant="outline"
                       onClick={handleWinbackPreview}
@@ -987,7 +1033,7 @@ const Admin = () => {
                       ) : (
                         <Send className="h-4 w-4 mr-2" />
                       )}
-                      Send to {winbackPreview?.targetCount || 0} Users
+                      Send to {winbackPreview ? Math.min(winbackPreview.willSendThisRun, winbackPreview.targetCount) : 0} Users
                     </Button>
                   </div>
 

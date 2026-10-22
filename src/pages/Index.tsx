@@ -14,7 +14,7 @@ import {
 import { PageSEO } from '@/components/SEO';
 import { getCurrentYear } from '@/lib/dateUtils';
 import PublicHeader from '@/components/PublicHeader';
-import { motion } from 'framer-motion';
+import { motion, MotionConfig } from 'framer-motion';
 import { 
   PATENT_APPLICATION_PRICE_DISPLAY, 
   CHECK_AND_SEE_PRICE_DISPLAY
@@ -71,20 +71,15 @@ const Index = () => {
   }, []);
 
   const handleAuthNav = (defaultTab: 'signin' | 'signup' = 'signup') => {
-    if (user) {
+    if (user && !loading) {
       navigate('/dashboard');
     } else {
       navigate(`/auth?tab=${defaultTab}`);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // Don't block first paint on the auth check: the landing page renders immediately
+  // and CTAs simply route signed-in users to the dashboard once the session resolves.
 
   const stats = [
     { value: '90%', label: 'Lower Cost' },
@@ -133,14 +128,15 @@ const Index = () => {
   ];
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen bg-background overflow-hidden">
       <PageSEO.Home />
       <PublicHeader />
       
       {/* ===== HERO ===== */}
       <section className="relative hero-gradient overflow-hidden">
-        <div className="orb orb-primary w-[600px] h-[600px] -top-40 -right-40 float" />
-        <div className="orb orb-accent w-[500px] h-[500px] top-1/2 -left-60 float" style={{ animationDelay: '-3s' }} />
+        <div className="orb orb-primary hidden md:block w-[600px] h-[600px] -top-40 -right-40 float motion-reduce:animate-none" />
+        <div className="orb orb-accent hidden md:block w-[500px] h-[500px] top-1/2 -left-60 float motion-reduce:animate-none" style={{ animationDelay: '-3s' }} />
         
         <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 pt-36 pb-32 sm:pt-44 sm:pb-40 lg:pt-52 lg:pb-48">
           <motion.div 
@@ -688,7 +684,7 @@ const Index = () => {
       {/* ===== FINAL CTA ===== */}
       <section className="section-spacing relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/30 to-background" />
-        <div className="orb orb-primary w-[500px] h-[500px] top-0 left-1/2 -translate-x-1/2 pulse-glow" />
+        <div className="orb orb-primary hidden md:block w-[500px] h-[500px] top-0 left-1/2 -translate-x-1/2 pulse-glow motion-reduce:animate-none" />
         
         <motion.div 
           className="relative z-10 max-w-3xl mx-auto px-5 sm:px-8 text-center"
@@ -754,6 +750,7 @@ const Index = () => {
         </div>
       </footer>
     </div>
+    </MotionConfig>
   );
 };
 

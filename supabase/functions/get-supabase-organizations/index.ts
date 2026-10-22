@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
+import { getUserConnection, getValidAccessToken } from '../supabase-oauth-init/oauth-token.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,29 +28,26 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get the user's most recent OAuth connection (pending or active)
-    const { data: connection, error: connError } = await supabase
-      .from('supabase_connections')
-      .select('*')
-      .eq('user_id', user.id)
-      .in('connection_status', ['pending', 'active'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const connection = await getUserConnection(supabase, user.id);
 
-    if (connError || !connection) {
+    if (!connection) {
       throw new Error('No Supabase connection found. Please start the OAuth flow first.');
     }
 
     console.log('Found connection:', connection.id, 'status:', connection.connection_status);
 
-    // Fetch organizations using the stored access token
+    const accessToken = await getValidAccessToken(supabase, connection);
+
+    // Fetch organizations using the stored access token (server-side only)
     const orgResponse = await fetch('https://api.supabase.com/v1/organizations', {
       headers: {
-        'Authorization': `Bearer ${connection.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 

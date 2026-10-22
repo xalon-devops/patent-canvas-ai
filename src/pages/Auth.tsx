@@ -14,10 +14,19 @@ import { trackSignupStart, trackSignupComplete, trackLogin } from '@/hooks/useFu
 
 const APP_DOMAIN = "https://patentbot-ai.com";
 
+/** Only same-origin relative paths ("/x", not "//x" or "/\\x") are honoured as post-login targets. */
+const getSafeRedirect = (raw: string | null): string => {
+  if (!raw) return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return '/dashboard';
+  if (raw.startsWith('/auth') || raw.startsWith('/reset-password')) return '/dashboard';
+  return raw;
+};
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
   const authType = searchParams.get('type');
+  const redirectTo = getSafeRedirect(searchParams.get('redirect'));
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -29,13 +38,28 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Surface errors Supabase puts in the URL hash for expired/invalid email links
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const errDesc = hash.get('error_description') || searchParams.get('error_description');
+    if (errDesc) {
+      const expired = (hash.get('error_code') || searchParams.get('error_code')) === 'otp_expired';
+      toast({
+        title: expired ? 'Link expired' : 'Sign-in link problem',
+        description: expired ? 'That email link has expired or was already used. Please request a new one.' : errDesc.replace(/\+/g, ' '),
+        variant: 'destructive',
+      });
+    }
+  }, [searchParams, toast]);
+
   useEffect(() => {
     if (authType === 'confirmed') {
-      toast({ title: "Email Verified!", description: "Your email has been verified. You can now sign in." });
-      // Send welcome email on first confirmation (fire and forget)
+      toast({ title: "Email Verified!", description: "Your email has been verified." });
+      // Send welcome email on first confirmation (fire and forget; server dedupes and
+      // always sends to the signed-in user's own address)
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          supabase.functions.invoke('send-email', { body: { type: 'welcome', userId: session.user.id, userEmail: session.user.email, userName: session.user.email?.split('@')[0] } }).catch(() => {});
+          supabase.functions.invoke('send-email', { body: { type: 'welcome' } }).catch(() => {});
         }
       });
     } else if (authType === 'recovery') {
@@ -49,32 +73,34 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) navigate('/dashboard');
+      // PASSWORD_RECOVERY must land on the reset page, not the dashboard
+      if (event === 'PASSWORD_RECOVERY') { navigate('/reset-password', { replace: true }); return; }
+      if (session?.user) navigate(redirectTo, { replace: true });
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) navigate('/dashboard');
+      if (session?.user && authType !== 'recovery') navigate(redirectTo, { replace: true });
     });
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, redirectTo, authType]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     trackSignupStart();
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${APP_DOMAIN}/auth?type=confirmed` } });
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${APP_DOMAIN}/auth?type=confirmed${redirectTo !== '/dashboard' ? `&redirect=${encodeURIComponent(redirectTo)}` : ''}` } });
       if (error) {
         toast({ title: error.message.includes('already registered') ? "Account exists" : "Sign up failed", description: error.message.includes('already registered') ? "This email is already registered. Please sign in instead." : error.message, variant: error.message.includes('already registered') ? "default" : "destructive" });
       } else if (data.user && !data.session) {
         trackSignupComplete(data.user.id, email);
-        try { await supabase.functions.invoke('send-email-confirmation', { body: { email, type: 'signup' } }); } catch {}
-        toast({ title: "Check your email", description: "We've sent you a confirmation link." });
+        try { await supabase.functions.invoke('send-email-confirmation', { body: { email, type: 'signup' } }); } catch { /* Supabase's own confirmation email is the fallback */ }
+        toast({ title: "Check your email", description: "We've sent you a confirmation link. Open it on this device to finish signing up." });
       } else if (data.user && data.session) {
         trackSignupComplete(data.user.id, email);
         // Send welcome email (fire and forget)
-        supabase.functions.invoke('send-email', { body: { type: 'welcome', userId: data.user.id, userEmail: email, userName: email.split('@')[0] } }).catch(() => {});
+        supabase.functions.invoke('send-email', { body: { type: 'welcome' } }).catch(() => {});
       }
     } catch {
       toast({ title: "Sign up failed", description: "An unexpected error occurred.", variant: "destructive" });
@@ -113,11 +139,11 @@ const Auth = () => {
     if (!email) { toast({ title: "Email required", description: "Please enter your email address first.", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('send-magic-link', { body: { email } });
+      const { error } = await supabase.functions.invoke('send-magic-link', { body: { email, redirectPath: redirectTo } });
       if (error) throw error;
       toast({ title: "Magic link sent!", description: "Check your inbox for a sign-in link." });
     } catch {
-      const { error: supabaseError } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${APP_DOMAIN}/dashboard` } });
+      const { error: supabaseError } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${APP_DOMAIN}${redirectTo}` } });
       if (supabaseError) { toast({ title: "Failed to send magic link", description: supabaseError.message, variant: "destructive" }); }
       else { toast({ title: "Magic link sent!", description: "Check your inbox for a sign-in link." }); }
     } finally { setLoading(false); }

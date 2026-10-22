@@ -384,3 +384,81 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.application_payments;
   END IF;
 END $$;
+
+-- Admin console: "Mark as Filed" / saving download links update other users' sessions
+DROP POLICY IF EXISTS "Admins can update all patent sessions" ON public.patent_sessions;
+CREATE POLICY "Admins can update all patent sessions"
+ON public.patent_sessions FOR UPDATE TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::app_role))
+WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
+
+-- Email dedupe / rate-limit lookups
+CREATE INDEX IF NOT EXISTS idx_email_notifications_user_type ON public.email_notifications (user_id, email_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_notifications_recipient_created ON public.email_notifications (recipient_email, created_at DESC);
+
+-- ---------------------------------------------------------------------
+-- 7. Scheduled jobs (pg_cron + pg_net)
+-- ---------------------------------------------------------------------
+-- The jobs authenticate to edge functions with the service-role key read from Vault.
+-- One-time setup (SQL editor, not committed to git):
+--   select vault.create_secret('<SERVICE_ROLE_KEY>', 'service_role_key');
+-- Until that secret exists the jobs run but the functions answer 401 (no side effects).
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+CREATE OR REPLACE FUNCTION public.invoke_edge_function(_name text, _body jsonb DEFAULT '{}'::jsonb)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _key text;
+BEGIN
+  SELECT decrypted_secret INTO _key FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1;
+  IF _key IS NULL THEN
+    RAISE WARNING 'invoke_edge_function(%): vault secret service_role_key is not set', _name;
+    RETURN NULL;
+  END IF;
+  RETURN net.http_post(
+    url := 'https://jdkogqskjsmwlhigaecb.supabase.co/functions/v1/' || _name,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || _key),
+    body := _body,
+    timeout_milliseconds := 150000
+  );
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.invoke_edge_function(text, jsonb) FROM anon, authenticated, public;
+
+DO $$
+DECLARE j text;
+BEGIN
+  FOREACH j IN ARRAY ARRAY['prior-art-monitoring', 'trademark-monitoring', 'winback-emails', 'expire-manual-grants'] LOOP
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = j) THEN
+      PERFORM cron.unschedule(j);
+    END IF;
+  END LOOP;
+END $$;
+
+-- Due prior-art watches (each run claims a small batch; rows advance next_search_at)
+SELECT cron.schedule('prior-art-monitoring', '*/15 * * * *',
+  $$SELECT public.invoke_edge_function('run-prior-art-monitoring', '{"limit": 5}'::jsonb)$$);
+
+-- Due trademark watches
+SELECT cron.schedule('trademark-monitoring', '*/10 * * * *',
+  $$SELECT public.invoke_edge_function('run-trademark-monitoring', '{"limit": 3}'::jsonb)$$);
+
+-- Re-engagement emails (cooldowns + per-run cap enforced in the function)
+SELECT cron.schedule('winback-emails', '17 15 * * *',
+  $$SELECT public.invoke_edge_function('send-winback-emails', '{"targetType": "scheduled", "limit": 50}'::jsonb)$$);
+
+-- Admin-issued grants (no Stripe subscription) stop at their period end
+SELECT cron.schedule('expire-manual-grants', '7 * * * *',
+  $$UPDATE public.subscriptions
+      SET status = 'expired', updated_at = now()
+    WHERE status IN ('active', 'trialing')
+      AND stripe_subscription_id IS NULL
+      AND current_period_end IS NOT NULL
+      AND current_period_end < now()
+      AND NOT public.has_role(user_id, 'admin'::app_role)$$);
