@@ -342,3 +342,18 @@ CREATE INDEX IF NOT EXISTS idx_trademark_monitoring_due ON public.trademark_moni
 CREATE INDEX IF NOT EXISTS idx_application_payments_user ON public.application_payments (user_id);
 CREATE INDEX IF NOT EXISTS idx_supabase_connections_user ON public.supabase_connections (user_id);
 CREATE INDEX IF NOT EXISTS idx_funnel_events_user ON public.funnel_events (user_id);
+
+-- Deleting a search/application must not silently delete the user's trademark watch
+ALTER TABLE public.trademark_monitoring DROP CONSTRAINT IF EXISTS trademark_monitoring_trademark_search_id_fkey;
+ALTER TABLE public.trademark_monitoring ADD CONSTRAINT trademark_monitoring_trademark_search_id_fkey
+  FOREIGN KEY (trademark_search_id) REFERENCES public.trademark_searches(id) ON DELETE SET NULL;
+ALTER TABLE public.trademark_monitoring DROP CONSTRAINT IF EXISTS trademark_monitoring_trademark_application_id_fkey;
+ALTER TABLE public.trademark_monitoring ADD CONSTRAINT trademark_monitoring_trademark_application_id_fkey
+  FOREIGN KEY (trademark_application_id) REFERENCES public.trademark_applications(id) ON DELETE SET NULL;
+
+-- Opt-out key for the new trademark conflict emails
+UPDATE public.users
+SET email_preferences = COALESCE(email_preferences, '{}'::jsonb) || '{"trademark_alert": true}'::jsonb
+WHERE NOT (COALESCE(email_preferences, '{}'::jsonb) ? 'trademark_alert');
+ALTER TABLE public.users ALTER COLUMN email_preferences
+  SET DEFAULT '{"draft_complete": true, "payment_received": true, "prior_art_alert": true, "weekly_digest": true, "trademark_alert": true}'::jsonb;
