@@ -1,3 +1,4 @@
+import defaultTheme from "tailwindcss/defaultTheme";
 import type { Config } from "tailwindcss";
 
 export default {
@@ -10,6 +11,11 @@ export default {
 	],
 	prefix: "",
 	theme: {
+		// 'xs' must come before the defaults so it sorts first in the generated CSS
+		screens: {
+			xs: '475px',
+			...defaultTheme.screens,
+		},
 		container: {
 			center: true,
 			padding: '2rem',

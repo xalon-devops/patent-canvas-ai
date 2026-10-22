@@ -8,13 +8,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
 import { Plus, FileText, Clock, CheckCircle, Scale, LogOut, Sparkles, Search, Shield, Settings, Key, MoreVertical, ArrowRight, AlertTriangle, Lightbulb, DollarSign, UserIcon, Tag, PenTool, Radar } from 'lucide-react';
 
-import { usePatentData } from '@/hooks/usePatentData';
+import { usePortfolioCounts } from '@/hooks/usePatentData';
 import PriorArtMonitoringDashboard from '@/components/PriorArtMonitoringDashboard';
 import TrademarkMonitoringDashboard from '@/components/TrademarkMonitoringDashboard';
-import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { WelcomeWizard } from '@/components/WelcomeWizard';
 import { PageSEO } from '@/components/SEO';
 import { getCurrentISOString } from '@/lib/dateUtils';
@@ -28,46 +26,12 @@ import {
   TRADEMARK_FILING_PRICE_DISPLAY,
 } from '@/lib/pricingConstants';
 
-function AdminButton({ userId }: { userId: string | undefined }) {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!userId) return;
-    const checkAdmin = async () => {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
-      setIsAdmin(!!data);
-    };
-    checkAdmin();
-  }, [userId]);
-
-  if (!isAdmin) return null;
-
-  return (
-    <Button 
-      variant="ghost" 
-      size="sm"
-      onClick={() => navigate('/admin')}
-      className="text-muted-foreground hover:text-foreground hidden sm:flex"
-    >
-      <Shield className="h-4 w-4" />
-      Admin
-    </Button>
-  );
-}
-
 const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // Auth is enforced by ProtectedRoute; the signed-in user comes from the shared context
+  const { user } = useUserProfile();
   const accessStatus = useAdminStatus(user?.id);
   const fullAccess = accessStatus.canBypassPaywall;
   const [quickUrl, setQuickUrl] = useState('');
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -79,61 +43,54 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (!session?.user) navigate('/auth');
-      }
-    );
+  const userId = user?.id;
+  const userEmail = user?.email ?? null;
 
-    const loadOnboardingState = async (userId: string, email?: string | null) => {
+  // Onboarding state persists in users.onboarding_completed_at (localStorage only as a fallback)
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const localDismissed = () => {
+      try { return !!localStorage.getItem(`patentbot_welcome_dismissed:${userId}`); } catch { return false; }
+    };
+
+    (async () => {
       try {
         const { data, error } = await supabase
           .from('users')
           .select('onboarding_completed_at')
           .eq('id', userId)
           .maybeSingle();
+        if (cancelled) return;
 
-        if (error) {
-          const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
-          setShowWelcome(!dismissed);
-          return;
-        }
+        if (error) { setShowWelcome(!localDismissed()); return; }
 
         if (!data) {
-          await supabase.from('users').upsert({ id: userId, email: email ?? null }, { onConflict: 'id' });
-          setShowWelcome(true);
+          // Row is normally created by the auth trigger; create it if it is missing
+          await supabase.from('users').upsert({ id: userId, email: userEmail }, { onConflict: 'id' });
+          if (!cancelled) setShowWelcome(!localDismissed());
           return;
         }
 
-        setShowWelcome(!data.onboarding_completed_at);
+        setShowWelcome(!data.onboarding_completed_at && !localDismissed());
       } catch {
-        const dismissed = localStorage.getItem('patentbot_welcome_dismissed');
-        setShowWelcome(!dismissed);
+        if (!cancelled) setShowWelcome(!localDismissed());
       }
-    };
+    })();
 
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      toast({ title: "Loading timeout", description: "Taking longer than expected. Please refresh if needed." });
-    }, 10000);
+    return () => { cancelled = true; };
+  }, [userId, userEmail]);
 
-    supabase.auth.getSession()
-      .then(async ({ data: { session }, error }) => {
-        clearTimeout(timeout);
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (error) { setLoading(false); return; }
-        if (!session?.user) { navigate('/auth'); return; }
-        await loadOnboardingState(session.user.id, session.user.email);
-        setLoading(false);
-      })
-      .catch(() => { clearTimeout(timeout); setLoading(false); navigate('/auth'); });
-
-    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
-  }, [navigate, toast]);
+  const completeOnboarding = async () => {
+    setShowWelcome(false);
+    if (!userId) return;
+    try { localStorage.setItem(`patentbot_welcome_dismissed:${userId}`, 'true'); } catch { /* storage unavailable */ }
+    const { error } = await supabase
+      .from('users')
+      .update({ onboarding_completed_at: getCurrentISOString() })
+      .eq('id', userId);
+    if (error) console.error('Could not save onboarding state:', error);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -164,17 +121,6 @@ const Dashboard = () => {
     } finally { setPasswordLoading(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground text-sm">Loading your patents...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <PageSEO.Dashboard />
@@ -195,7 +141,17 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <AdminButton userId={user?.id} />
+              {accessStatus.isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/admin')}
+                  className="text-muted-foreground hover:text-foreground hidden sm:flex"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground p-1.5">
@@ -262,15 +218,7 @@ const Dashboard = () => {
         <WelcomeWizard
           open={showWelcome}
           userName={user?.email}
-          onComplete={async () => {
-            setShowWelcome(false);
-            if (user?.id) {
-              const { error } = await supabase.from('users').upsert({ id: user.id, email: user.email ?? null, onboarding_completed_at: getCurrentISOString() }, { onConflict: 'id' });
-              if (error) localStorage.setItem('patentbot_welcome_dismissed', 'true');
-            } else {
-              localStorage.setItem('patentbot_welcome_dismissed', 'true');
-            }
-          }}
+          onComplete={completeOnboarding}
         />
 
         {/* Quick company website patent search */}
@@ -481,7 +429,7 @@ const Dashboard = () => {
 };
 
 function PortfolioStatsSection({ userId }: { userId: string | undefined }) {
-  const { stats, loading } = usePatentData(userId);
+  const { counts: stats, loading, error, refetch } = usePortfolioCounts(userId);
 
   if (loading) {
     return (
@@ -491,6 +439,15 @@ function PortfolioStatsSection({ userId }: { userId: string | undefined }) {
             <div className="h-12 bg-muted rounded-lg" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">We couldn't load your portfolio numbers right now.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
       </div>
     );
   }

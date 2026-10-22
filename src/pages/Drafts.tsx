@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuthenticatedPatentData, PatentSession } from '@/hooks/usePatentData';
+import { useAuthenticatedPatentData, PatentSession, renamePatentSession, deletePatentSession } from '@/hooks/usePatentData';
 import { 
   ArrowLeft, 
   Clock, 
@@ -35,7 +34,8 @@ const Drafts = () => {
   const { 
     draftSessions: drafts, 
     loading, 
-    isAuthenticated,
+    error,
+    refetch,
     refetchSessions 
   } = useAuthenticatedPatentData();
 
@@ -46,34 +46,18 @@ const Drafts = () => {
   };
 
   const renameDraft = async (sessionId: string, title: string) => {
-    const { error } = await supabase.from('patent_sessions').update({ title } as any).eq('id', sessionId);
-    if (error) throw error;
-    refetchSessions();
+    await renamePatentSession(sessionId, title);
+    refetchSessions().catch(() => {});
   };
 
+  // Throws so ItemActionsMenu can show the error inside the confirm dialog
   const deleteDraft = async (sessionId: string) => {
-    try {
-      const { error } = await supabase
-        .from('patent_sessions')
-        .delete()
-        .eq('id', sessionId);
-
-      if (error) throw error;
-
-      // Refetch to update centralized state
-      refetchSessions();
-      toast({
-        title: "Draft deleted",
-        description: "The draft application has been removed.",
-      });
-    } catch (error: any) {
-      console.error('Error deleting draft:', error);
-      toast({
-        title: "Error deleting draft",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    await deletePatentSession(sessionId);
+    refetchSessions().catch(() => {});
+    toast({
+      title: "Draft deleted",
+      description: "The draft application has been removed.",
+    });
   };
 
   const getStepFromSession = (draft: PatentSession) => {
@@ -141,7 +125,13 @@ const Drafts = () => {
 
       <main className="safe-area px-4 sm:px-6 py-6 sm:py-8">
         <div className="content-width">
-          {drafts.length === 0 ? (
+          {error && drafts.length === 0 ? (
+            <div className="text-center py-8 sm:py-12 px-4">
+              <h3 className="text-lg font-semibold mb-2">Couldn't load your drafts</h3>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button variant="outline" onClick={() => refetch()}>Try again</Button>
+            </div>
+          ) : drafts.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -185,7 +175,7 @@ const Drafts = () => {
                                 </Badge>
                                 <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                                   {stepIcon}
-                                  <span className="hidden xs:inline">Step {currentStep}: </span>
+                                  <span className="hidden sm:inline">Step {currentStep}: </span>
                                   <span className="truncate max-w-[120px] sm:max-w-none">{stepName}</span>
                                 </Badge>
                               </div>
@@ -207,7 +197,7 @@ const Drafts = () => {
                                   <Clock className="h-3 w-3 flex-shrink-0" />
                                   <span>{formatDateTime(draft.created_at).split(' ').slice(-2).join(' ')}</span>
                                 </div>
-                                {draft.patentability_score && (
+                                {draft.patentability_score != null && draft.patentability_score > 0 && (
                                   <div className="flex items-center gap-1">
                                     <BarChart3 className="h-3 w-3 flex-shrink-0" />
                                     <span>{Math.round(draft.patentability_score * 100)}%</span>
@@ -215,7 +205,7 @@ const Drafts = () => {
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -223,7 +213,7 @@ const Drafts = () => {
                                 className="flex items-center gap-2 text-xs sm:text-sm"
                               >
                                 <Play className="h-3 w-3" />
-                                <span className="hidden xs:inline">Resume</span>
+                                <span>Resume</span>
                               </Button>
                               <ItemActionsMenu
                                 name={(draft as any).title || draft.idea_prompt?.slice(0, 60) || 'Untitled Patent Application'}
@@ -235,11 +225,11 @@ const Drafts = () => {
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0 p-4 sm:p-6">
-                          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                               <span>Progress: Step {currentStep} of 7</span>
                             </div>
-                            <div className="w-full xs:w-24 bg-muted rounded-full h-2">
+                            <div className="w-full sm:w-24 bg-muted rounded-full h-2">
                               <div 
                                 className="bg-primary rounded-full h-2 transition-all duration-300"
                                 style={{ width: `${(currentStep / 7) * 100}%` }}

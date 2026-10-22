@@ -63,7 +63,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", duration: 0.6 }}
-            className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-primary to-primary/60 rounded-2xl flex items-center justify-center shadow-glow"
+            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 bg-gradient-to-br from-primary to-primary/60 rounded-2xl flex items-center justify-center shadow-glow"
           >
             <Sparkles className="h-12 w-12 text-primary-foreground" />
           </motion.div>
@@ -72,7 +72,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-3xl font-bold mb-3"
+            className="text-2xl sm:text-3xl font-bold mb-3 break-words"
           >
             Welcome, {displayName}! 🎉
           </motion.h2>
@@ -81,7 +81,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="text-muted-foreground text-lg mb-8 max-w-md mx-auto"
+            className="text-muted-foreground text-base sm:text-lg mb-6 sm:mb-8 max-w-md mx-auto"
           >
             You're about to protect your innovation with AI-powered patent drafting. Let's get you started in 30 seconds.
           </motion.p>
@@ -120,9 +120,9 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+            className="text-center mb-6 sm:mb-8"
           >
-            <h2 className="text-2xl font-bold mb-2">What brings you to PatentBot?</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">What brings you to PatentBot?</h2>
             <p className="text-muted-foreground">Choose your path to get personalized guidance</p>
           </motion.div>
           
@@ -133,21 +133,22 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
               onClick={() => handleAction('/new-application')}
-              className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all text-left group"
+              disabled={isCompleting}
+              className="p-4 sm:p-5 rounded-xl border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all text-left group"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <div className="p-3 bg-primary/20 rounded-xl group-hover:bg-primary/30 transition-colors">
                   <Rocket className="h-6 w-6 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg">I'm ready to file a patent</h3>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-base sm:text-lg">I'm ready to file a patent</h3>
                     <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Recommended</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
                     Start your AI-guided patent application now. Get a complete USPTO-ready draft.
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <CheckCircle className="h-3 w-3 text-primary" />
                       15-min process
@@ -158,7 +159,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
                     </span>
                   </div>
                 </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
             </motion.button>
 
@@ -168,18 +169,19 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
               onClick={() => handleAction('/check')}
-              className="p-5 rounded-xl border-2 border-secondary/30 bg-secondary/5 hover:border-secondary hover:bg-secondary/10 transition-all text-left group"
+              disabled={isCompleting}
+              className="p-4 sm:p-5 rounded-xl border-2 border-secondary/30 bg-secondary/5 hover:border-secondary hover:bg-secondary/10 transition-all text-left group"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <div className="p-3 bg-secondary/20 rounded-xl group-hover:bg-secondary/30 transition-colors">
                   <Search className="h-6 w-6 text-secondary" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">I want to check if my idea is new</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base sm:text-lg mb-1">I want to check if my idea is new</h3>
                   <p className="text-sm text-muted-foreground mb-2">
                     Search existing patents first. See if similar inventions already exist.
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <CheckCircle className="h-3 w-3 text-secondary" />
                       {FREE_SEARCHES_LIMIT} free searches
@@ -190,7 +192,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
                     </span>
                   </div>
                 </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-secondary transition-colors" />
+                <ArrowRight className="h-5 w-5 flex-shrink-0 text-muted-foreground group-hover:text-secondary transition-colors" />
               </div>
             </motion.button>
 
@@ -201,14 +203,14 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
               transition={{ delay: 0.3 }}
               onClick={handleSkip}
               disabled={isCompleting}
-              className="p-5 rounded-xl border-2 border-muted/30 hover:border-muted-foreground/30 hover:bg-muted/10 transition-all text-left group disabled:opacity-50"
+              className="p-4 sm:p-5 rounded-xl border-2 border-muted/30 hover:border-muted-foreground/30 hover:bg-muted/10 transition-all text-left group disabled:opacity-50"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <div className="p-3 bg-muted/30 rounded-xl group-hover:bg-muted/50 transition-colors">
                   <Lightbulb className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base sm:text-lg mb-1">
                     {isCompleting ? 'Saving...' : "I'm just exploring for now"}
                   </h3>
                   <p className="text-sm text-muted-foreground">
@@ -239,7 +241,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-xl p-0 overflow-hidden bg-gradient-to-b from-card to-card/95 border-primary/20"
+        className="sm:max-w-xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0 bg-gradient-to-b from-card to-card/95 border-primary/20"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby={undefined}
@@ -257,7 +259,7 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
           />
         </div>
 
-        <div className="p-6 pt-8">
+        <div className="p-4 sm:p-6 pt-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -272,8 +274,8 @@ export const WelcomeWizard = ({ open, onComplete, userName }: WelcomeWizardProps
         </div>
 
         {/* Trust badges */}
-        <div className="border-t bg-muted/30 px-6 py-4">
-          <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+        <div className="border-t bg-muted/30 px-4 sm:px-6 py-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5" />
               <span>Secure & Confidential</span>

@@ -15,6 +15,10 @@ export const RotatingText: React.FC<RotatingTextProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
+    // Nothing to rotate, or the user prefers reduced motion
+    if (words.length < 2) return;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % words.length);
     }, interval);
@@ -35,7 +39,7 @@ export const RotatingText: React.FC<RotatingTextProps> = ({
           }}
           className="inline-block text-gradient"
         >
-          {words[currentIndex]}
+          {words[currentIndex % Math.max(words.length, 1)] ?? ''}
         </motion.span>
       </AnimatePresence>
     </span>

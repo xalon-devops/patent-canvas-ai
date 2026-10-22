@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
 import { 
   Lightbulb, 
   Calendar, 
@@ -20,7 +18,8 @@ import {
   Plus
 } from 'lucide-react';
 import { formatDate, formatDateShort } from '@/lib/dateUtils';
-import { usePatentData, PatentIdea, InfringementAlert } from '@/hooks/usePatentData';
+import { usePatentData, renamePatentIdea, deletePatentIdea } from '@/hooks/usePatentData';
+import ItemActionsMenu from '@/components/ItemActionsMenu';
 import QuickIdeaCapture from '@/components/QuickIdeaCapture';
 import { PageSEO } from '@/components/SEO';
 
@@ -38,8 +37,22 @@ const Ideas = () => {
     alertsByIdea,
     stats,
     loading,
-    refetch
+    error,
+    refetch,
+    refetchIdeas
   } = usePatentData(user?.id);
+
+  const renameIdea = async (ideaId: string, title: string) => {
+    await renamePatentIdea(ideaId, title);
+    refetchIdeas().catch(() => {});
+  };
+
+  // Throws so ItemActionsMenu shows the error inside the confirm dialog
+  const deleteIdea = async (ideaId: string) => {
+    await deletePatentIdea(ideaId);
+    refetch();
+    toast({ title: 'Idea deleted', description: 'The idea and its monitoring were removed.' });
+  };
 
   // Flatten alerts for display
   const alerts = Object.values(alertsByIdea).flat();
@@ -52,7 +65,7 @@ const Ideas = () => {
     navigate(`/new-application?ideaId=${ideaId}`);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'monitoring': return 'bg-primary';
       case 'drafted': return 'bg-secondary';
@@ -61,7 +74,7 @@ const Ideas = () => {
     }
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity: string | null) => {
     switch (severity) {
       case 'critical': return 'bg-destructive';
       case 'high': return 'bg-orange-500';
@@ -96,7 +109,7 @@ const Ideas = () => {
               className="gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden xs:inline">Dashboard</span>
+              <span>Dashboard</span>
             </Button>
             
             <div>
@@ -108,12 +121,12 @@ const Ideas = () => {
               </p>
             </div>
             
-            <div className="flex flex-col xs:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button 
                 onClick={() => setQuickCaptureOpen(true)} 
                 variant="outline"
                 size="sm"
-                className="gap-2 flex-1 xs:flex-none"
+                className="gap-2 flex-1 sm:flex-none"
               >
                 <Plus className="w-4 h-4" />
                 Quick Capture
@@ -121,7 +134,7 @@ const Ideas = () => {
               <Button 
                 onClick={() => navigate('/new-application')} 
                 size="sm"
-                className="gap-2 flex-1 xs:flex-none"
+                className="gap-2 flex-1 sm:flex-none"
               >
                 <Lightbulb className="w-4 h-4" />
                 Draft Patent
@@ -206,9 +219,9 @@ const Ideas = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {alerts.slice(0, 3).map((alert) => (
-                <div key={alert.id} className="flex flex-col xs:flex-row xs:items-center gap-2 p-3 border rounded-lg">
+                <div key={alert.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 border rounded-lg">
                   <Badge className={`${getSeverityColor(alert.severity)} text-xs flex-shrink-0 w-fit`}>
-                    {alert.severity.toUpperCase()}
+                    {(alert.severity || 'info').toUpperCase()}
                   </Badge>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-sm truncate">{alert.title}</h4>
@@ -224,45 +237,64 @@ const Ideas = () => {
         )}
 
         {/* Ideas Grid */}
-        {ideas.length === 0 ? (
+        {error && ideas.length === 0 ? (
           <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
-            <CardContent className="p-12 text-center">
-              <Lightbulb className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <CardContent className="p-8 sm:p-12 text-center">
+              <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Couldn't load your ideas</h3>
+              <p className="text-sm text-muted-foreground mb-6">{error}</p>
+              <Button variant="outline" onClick={() => refetch()}>Try again</Button>
+            </CardContent>
+          </Card>
+        ) : ideas.length === 0 ? (
+          <Card className="bg-card/80 border-border/20 backdrop-blur-sm">
+            <CardContent className="p-8 sm:p-12 text-center">
+              <Lightbulb className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Ideas Yet</h3>
               <p className="text-muted-foreground mb-6">
                 Start tracking your innovative ideas and monitor the patent landscape.
               </p>
-              <Button onClick={() => navigate('/new-application')} className="gap-2">
+              <Button onClick={() => setQuickCaptureOpen(true)} className="gap-2">
                 <Lightbulb className="w-4 h-4" />
                 Create Your First Idea
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {ideas.map((idea) => (
               <Card key={idea.id} className="bg-card/80 border-border/20 backdrop-blur-sm hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg line-clamp-2">{idea.title}</CardTitle>
-                      <CardDescription className="line-clamp-2 mt-1">
-                        {idea.description}
-                      </CardDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg line-clamp-2 break-words">{idea.title}</CardTitle>
+                      {idea.description && (
+                        <CardDescription className="line-clamp-2 mt-1">
+                          {idea.description}
+                        </CardDescription>
+                      )}
                     </div>
-                    <Badge className={getStatusColor(idea.status)}>
-                      {idea.status}
-                    </Badge>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Badge className={getStatusColor(idea.status)}>
+                        {idea.status || 'monitoring'}
+                      </Badge>
+                      <ItemActionsMenu
+                        name={idea.title}
+                        itemLabel="idea"
+                        onRename={(t) => renameIdea(idea.id, t)}
+                        onDelete={() => deleteIdea(idea.id)}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
                       {formatDate(idea.created_at)}
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {idea.patent_type}
+                      {idea.patent_type === 'software' ? 'Software' : 'Physical'}
                     </Badge>
                   </div>
 

@@ -25,6 +25,8 @@ export const ItemActionsMenu: React.FC<Props> = ({ name, itemLabel = 'item', onR
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
@@ -38,11 +40,21 @@ export const ItemActionsMenu: React.FC<Props> = ({ name, itemLabel = 'item', onR
     finally { setBusy(false); }
   };
 
+  const remove = async (e: React.MouseEvent) => {
+    // Keep the dialog open until the delete finishes so failures are visible
+    e.preventDefault();
+    if (!onDelete || deleting) return;
+    setDeleting(true); setDeleteError(null);
+    try { await onDelete(); setConfirmDelete(false); }
+    catch (err: any) { setDeleteError(err?.message || 'Could not delete. Please try again.'); }
+    finally { setDeleting(false); }
+  };
+
   return (
     <div onClick={stop} onKeyDown={stop}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" aria-label={`Options for ${name}`}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground" aria-label={`Options for ${name}`}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -53,7 +65,7 @@ export const ItemActionsMenu: React.FC<Props> = ({ name, itemLabel = 'item', onR
           {onDelete && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setConfirmDelete(true)}>
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setDeleteError(null); setConfirmDelete(true); }}>
                 <Trash2 className="h-4 w-4 mr-2" />Delete
               </DropdownMenuItem>
             </>
@@ -62,7 +74,7 @@ export const ItemActionsMenu: React.FC<Props> = ({ name, itemLabel = 'item', onR
       </DropdownMenu>
 
       <Dialog open={renaming} onOpenChange={setRenaming}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)]">
           <DialogHeader><DialogTitle>Rename {itemLabel}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); save(); }} className="space-y-2">
             <Input autoFocus value={value} maxLength={120} onChange={(e) => setValue(e.target.value)} aria-label="Name" />
@@ -76,16 +88,17 @@ export const ItemActionsMenu: React.FC<Props> = ({ name, itemLabel = 'item', onR
       </Dialog>
 
       {onDelete && (
-        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialog open={confirmDelete} onOpenChange={(o) => { if (!deleting) setConfirmDelete(o); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
               <AlertDialogDescription>This permanently removes the {itemLabel} and its saved results.</AlertDialogDescription>
             </AlertDialogHeader>
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => onDelete()}>
-                Delete
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleting} onClick={remove}>
+                {deleting ? 'Deleting…' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useUserProfile } from '@/contexts/UserProfileContext';
+import { HIGH_SIMILARITY_THRESHOLD } from '@/lib/pricingConstants';
 import { 
   FileText, 
   Calendar, 
@@ -25,7 +26,8 @@ import { usePatentData } from '@/hooks/usePatentData';
 import { PageSEO } from '@/components/SEO';
 
 const Pending = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // Auth is enforced by ProtectedRoute
+  const { user } = useUserProfile();
   const [searchingPriorArt, setSearchingPriorArt] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -35,20 +37,9 @@ const Pending = () => {
     priorArtBySession: priorArtResults, 
     stats, 
     loading,
+    error,
     refetch 
   } = usePatentData(user?.id);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-    };
-    checkAuth();
-  }, [navigate]);
 
   const performPriorArtSearch = async (sessionId: string) => {
     setSearchingPriorArt(sessionId);
@@ -56,7 +47,19 @@ const Pending = () => {
       const { data: searchData, error: searchError } = await supabase.functions.invoke('search-prior-art-enhanced', {
         body: { session_id: sessionId }
       });
-      if (searchError) throw new Error((await getEdgeErrorMessage(searchError, 'Failed to search prior art')).message);
+      if (searchError) {
+        const parsed = await getEdgeErrorMessage(searchError, 'Failed to search prior art');
+        if (parsed.requiresSubscription) {
+          toast({
+            title: "Out of free searches",
+            description: "Subscribe to Check & See for unlimited prior art searches.",
+            variant: "destructive",
+          });
+          navigate('/check');
+          return;
+        }
+        throw new Error(parsed.message);
+      }
       if (!searchData?.success) throw new Error(searchData?.error || 'Prior art search failed');
 
       toast({
@@ -79,7 +82,7 @@ const Pending = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | null) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-green-500" />;
       case 'in_progress': return <Loader className="w-3.5 h-3.5 text-blue-500 animate-spin" />;
@@ -88,7 +91,7 @@ const Pending = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'completed': return 'bg-green-500';
       case 'in_progress': return 'bg-blue-500';
@@ -207,7 +210,16 @@ const Pending = () => {
           </div>
 
           {/* Applications List */}
-          {sessions.length === 0 ? (
+          {error && sessions.length === 0 ? (
+            <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
+              <CardContent className="p-8 sm:p-10 text-center">
+                <AlertTriangle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-base font-semibold mb-1">Couldn't load your applications</h3>
+                <p className="text-xs text-muted-foreground mb-4">{error}</p>
+                <Button onClick={() => refetch()} size="sm" variant="outline" className="text-xs">Try again</Button>
+              </CardContent>
+            </Card>
+          ) : sessions.length === 0 ? (
             <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
               <CardContent className="p-8 sm:p-10 text-center">
                 <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
@@ -225,31 +237,33 @@ const Pending = () => {
             <div className="space-y-3 sm:space-y-4">
               {sessions.map((session) => {
                 const sessionPriorArt = priorArtResults[session.id] || [];
-                const highSimilarityCount = sessionPriorArt.filter(r => r.similarity_score > 0.7).length;
+                const highSimilarityCount = sessionPriorArt.filter(r => (r.similarity_score || 0) > HIGH_SIMILARITY_THRESHOLD).length;
+                const status = session.status || 'draft';
+                const title = session.title || session.idea_prompt || 'Untitled application';
                 
                 return (
                   <Card key={session.id} className="bg-card/90 border-white/20 backdrop-blur-sm">
                     <CardHeader className="p-3 sm:p-4 pb-2">
                       <div className="flex items-start gap-2">
-                        {getStatusIcon(session.status)}
+                        {getStatusIcon(status)}
                         <div className="flex-1 min-w-0">
                           <CardTitle className="text-sm sm:text-base line-clamp-2 leading-snug">
-                            {session.idea_prompt}
+                            {title}
                           </CardTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {formatDate(session.created_at)}
                             </div>
-                            <Badge className={`${getStatusColor(session.status)} text-[10px] px-1.5 py-0`}>
-                              {session.status.replace('_', ' ')}
+                            <Badge className={`${getStatusColor(status)} text-[10px] px-1.5 py-0`}>
+                              {status.replace('_', ' ')}
                             </Badge>
                             {session.patent_type && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                                 {session.patent_type}
                               </Badge>
                             )}
-                            {session.patentability_score && (
+                            {session.patentability_score != null && session.patentability_score > 0 && (
                               <Badge className={`${getPatentabilityColor(session.patentability_score)} text-[10px] px-1.5 py-0`}>
                                 {getPatentabilityLabel(session.patentability_score)}
                               </Badge>
@@ -278,13 +292,13 @@ const Pending = () => {
                             <div>
                               <p className="text-muted-foreground text-[10px]">Highest</p>
                               <p className="font-medium">
-                                {(Math.max(...sessionPriorArt.map(r => r.similarity_score)) * 100).toFixed(1)}%
+                                {(Math.max(...sessionPriorArt.map(r => r.similarity_score || 0)) * 100).toFixed(1)}%
                               </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground text-[10px]">Updated</p>
                               <p className="font-medium">
-                                {formatDateShort(new Date(Math.max(...sessionPriorArt.map(r => new Date(r.created_at).getTime()))))}
+                                {formatDateShort(new Date(Math.max(...sessionPriorArt.map(r => (r.created_at ? new Date(r.created_at).getTime() : 0)))))}
                               </p>
                             </div>
                           </div>
@@ -310,7 +324,7 @@ const Pending = () => {
                         </Button>
                         {session.download_url && (
                           <Button variant="outline" size="sm" className="gap-1 text-xs h-7"
-                            onClick={() => window.open(session.download_url!, '_blank')}>
+                            onClick={() => window.open(session.download_url!, '_blank', 'noopener,noreferrer')}>
                             <Download className="w-3 h-3" />
                             Download
                           </Button>

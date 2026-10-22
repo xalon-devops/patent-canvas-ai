@@ -1,10 +1,8 @@
 import { ProtectedHeader } from '@/components/ProtectedHeader';
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 import {
   ArrowLeft, BarChart3, TrendingUp, FileText, Lightbulb,
   AlertTriangle, DollarSign, PieChart, ArrowUpRight, Activity
@@ -21,19 +19,10 @@ import {
 const COLORS = ['hsl(var(--primary))', '#10b981', 'hsl(var(--accent))', '#f59e0b'];
 
 const Analytics = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const navigate = useNavigate();
+  // Auth is enforced by ProtectedRoute
+  const { user } = useUserProfile();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/auth'); return; }
-      setUser(session.user);
-    };
-    checkAuth();
-  }, [navigate]);
-
-  const { stats, pendingSessions, completedSessions, ideas, loading } = usePatentData(user?.id);
+  const { stats, sessions, ideas, completedSessions, loading, error, refetch } = usePatentData(user?.id);
 
   const statusData = [
     { name: 'Completed', value: stats.completedApplications, color: COLORS[0] },
@@ -41,9 +30,11 @@ const Analytics = () => {
     { name: 'Ideas', value: stats.totalIdeas, color: COLORS[2] },
   ].filter(d => d.value > 0);
 
-  const allSessions = [...pendingSessions, ...completedSessions];
+  // `sessions` already contains every application (completed ones included)
+  const allSessions = sessions;
   const monthlyMap = new Map<string, number>();
   allSessions.forEach(s => {
+    if (!s.created_at) return;
     const d = new Date(s.created_at);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     monthlyMap.set(key, (monthlyMap.get(key) || 0) + 1);
@@ -55,7 +46,7 @@ const Analytics = () => {
 
   const typeMap = new Map<string, number>();
   allSessions.forEach(s => {
-    const type = s.patent_type || 'Unspecified';
+    const type = s.patent_type === 'software' ? 'Software' : s.patent_type === 'non-software' ? 'Physical' : 'Unspecified';
     typeMap.set(type, (typeMap.get(type) || 0) + 1);
   });
   const typeData = Array.from(typeMap.entries()).map(([name, value]) => ({ name, value }));
@@ -93,6 +84,12 @@ const Analytics = () => {
       </ProtectedHeader>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {error && (
+          <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-sm text-foreground">Some portfolio data could not be loaded: {error}</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
+          </div>
+        )}
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
@@ -161,8 +158,8 @@ const Analytics = () => {
             </div>
             <div className="chart-body">
               {statusData.length > 0 ? (
-                <div className="flex items-center gap-6">
-                  <ResponsiveContainer width="55%" height={200}>
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                  <ResponsiveContainer width="100%" height={200} className="sm:!w-[55%]">
                     <RechartPie>
                       <Pie data={statusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={4} dataKey="value" strokeWidth={0}>
                         {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -225,7 +222,7 @@ const Analytics = () => {
           </div>
 
           {/* Prior Art Monitoring */}
-          {user && <PriorArtMonitoringDashboard userId={user.id} />}
+          {user && <PriorArtMonitoringDashboard userId={user.id} sessions={sessions} ideas={ideas} />}
         </div>
 
         {/* Portfolio Value Breakdown */}
@@ -246,8 +243,8 @@ const Analytics = () => {
                       <FileText className="w-4 h-4 text-primary" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{s.idea_prompt}</p>
-                      <p className="text-xs text-muted-foreground">{s.patent_type || 'Patent'}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{s.title || s.idea_prompt || 'Untitled application'}</p>
+                      <p className="text-xs text-muted-foreground">{s.patent_type === 'software' ? 'Software' : s.patent_type === 'non-software' ? 'Physical' : 'Patent'}</p>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-emerald-600">{formatDollars(PATENT_VALUE_ESTIMATE)}</span>

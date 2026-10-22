@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+// 'pure' import: Stripe.js is only fetched when a checkout actually renders,
+// not as a side effect of importing this module on Check/Trademark pages.
+import { loadStripe } from '@stripe/stripe-js/pure';
+import type { Stripe } from '@stripe/stripe-js';
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +10,8 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripeConfig';
 
-const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+let stripePromise: Promise<Stripe | null> | null = null;
+const getStripe = () => (stripePromise ??= loadStripe(STRIPE_PUBLISHABLE_KEY));
 
 interface EmbeddedStripeCheckoutProps {
   /** @deprecated Prices are resolved server-side; ignored. */
@@ -133,7 +137,7 @@ export const EmbeddedStripeCheckout: React.FC<EmbeddedStripeCheckoutProps> = ({
     <div className="w-full">
       <EmbeddedCheckoutProvider
         key={clientSecret}
-        stripe={stripePromise}
+        stripe={getStripe()}
         options={{ clientSecret }}
       >
         <EmbeddedCheckout />

@@ -25,13 +25,13 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
   return (
     <Card className="mb-8 bg-gradient-to-br from-primary/10 via-background to-secondary/10 border-primary/20 overflow-hidden">
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-primary rounded-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="p-3 bg-gradient-primary rounded-xl flex-shrink-0">
               <Sparkles className="h-6 w-6 text-primary-foreground" />
             </div>
-            <div>
-              <CardTitle className="text-2xl">
+            <div className="min-w-0">
+              <CardTitle className="text-xl sm:text-2xl break-words">
                 Welcome to PatentBot AI™{userName ? `, ${userName.split('@')[0]}` : ''}! 🎉
               </CardTitle>
               <p className="text-muted-foreground mt-1">
@@ -39,13 +39,13 @@ export const WelcomeOnboarding = ({ onDismiss, userName }: WelcomeOnboardingProp
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onDismiss} className="text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => onDismiss()} className="text-muted-foreground flex-shrink-0">
             Dismiss
           </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
           {/* Option 1: Full Patent */}
           <div className="p-4 rounded-xl bg-card/50 border border-primary/20 hover:border-primary/40 transition-colors">
             <div className="flex items-center gap-3 mb-3">

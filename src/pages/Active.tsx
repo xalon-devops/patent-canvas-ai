@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 import { 
   Shield, 
   Calendar, 
@@ -24,30 +22,22 @@ import { PATENT_VALUE_ESTIMATE, MAINTENANCE_DUE_SOON_MONTHS, formatDollars, calc
 import { PageSEO } from '@/components/SEO';
 
 const Active = () => {
-  const [user, setUser] = useState<User | null>(null);
+  // Auth is enforced by ProtectedRoute
+  const { user } = useUserProfile();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const { 
     completedSessions, 
     alertsBySession: infringementAlerts, 
     stats,
     loading,
+    error,
+    refetch,
   } = usePatentData(user?.id);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-    };
-    checkAuth();
-  }, [navigate]);
+  const filedCount = completedSessions.filter(s => s.status === 'filed').length;
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity: string | null) => {
     switch (severity) {
       case 'critical': return 'bg-red-500';
       case 'high': return 'bg-orange-500';
@@ -153,8 +143,8 @@ const Active = () => {
                     <Clock className="w-4 h-4 text-accent" />
                   </div>
                   <div>
-                    <p className="text-lg sm:text-xl font-bold">{stats.completedApplications}</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Completed</p>
+                    <p className="text-lg sm:text-xl font-bold">{filedCount}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Filed</p>
                   </div>
                 </div>
               </CardContent>
@@ -162,13 +152,22 @@ const Active = () => {
           </div>
 
           {/* Active Patents List */}
-          {completedSessions.length === 0 ? (
+          {error && completedSessions.length === 0 ? (
+            <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
+              <CardContent className="p-8 sm:p-10 text-center">
+                <AlertTriangle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-base font-semibold mb-1">Couldn't load your portfolio</h3>
+                <p className="text-xs text-muted-foreground mb-4">{error}</p>
+                <Button onClick={() => refetch()} size="sm" variant="outline" className="text-xs">Try again</Button>
+              </CardContent>
+            </Card>
+          ) : completedSessions.length === 0 ? (
             <Card className="bg-card/90 border-white/20 backdrop-blur-sm">
               <CardContent className="p-8 sm:p-10 text-center">
                 <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <h3 className="text-base font-semibold mb-1">No Active Patents</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Granted patents will appear here for monitoring.
+                  Completed and filed applications will appear here for monitoring.
                 </p>
                 <Button onClick={() => navigate('/pending')} size="sm" className="bg-primary hover:bg-primary/90 text-xs">
                   <FileText className="w-3.5 h-3.5 mr-1.5" />
@@ -189,7 +188,7 @@ const Active = () => {
                         <Shield className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <CardTitle className="text-sm sm:text-base line-clamp-2 leading-snug">
-                            {patent.idea_prompt}
+                            {patent.title || patent.idea_prompt || 'Untitled application'}
                           </CardTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] sm:text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
@@ -222,7 +221,7 @@ const Active = () => {
                             {patentAlerts.slice(0, 2).map((alert) => (
                               <div key={alert.id} className="flex items-center gap-2 p-2 bg-background/50 rounded text-xs">
                                 <Badge className={`${getSeverityColor(alert.severity)} text-[10px] px-1.5 py-0`}>
-                                  {alert.severity}
+                                  {alert.severity || 'info'}
                                 </Badge>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{alert.title}</p>
@@ -231,8 +230,8 @@ const Active = () => {
                                   {formatDateShort(alert.created_at)}
                                 </span>
                                 {alert.source_url && (
-                                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0"
-                                    onClick={() => window.open(alert.source_url!, '_blank')}>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0" aria-label="Open source"
+                                    onClick={() => window.open(alert.source_url!, '_blank', 'noopener,noreferrer')}>
                                     <ExternalLink className="w-3 h-3" />
                                   </Button>
                                 )}
@@ -255,7 +254,7 @@ const Active = () => {
                         </div>
                         <div>
                           <p className="text-muted-foreground text-[10px]">Status</p>
-                          <p className="font-medium">Completed</p>
+                          <p className="font-medium">{patent.status === 'filed' ? 'Filed' : 'Completed'}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground text-[10px]">Alert Level</p>

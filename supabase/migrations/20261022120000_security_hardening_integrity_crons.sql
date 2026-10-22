@@ -357,3 +357,24 @@ SET email_preferences = COALESCE(email_preferences, '{}'::jsonb) || '{"trademark
 WHERE NOT (COALESCE(email_preferences, '{}'::jsonb) ? 'trademark_alert');
 ALTER TABLE public.users ALTER COLUMN email_preferences
   SET DEFAULT '{"draft_complete": true, "payment_received": true, "prior_art_alert": true, "weekly_digest": true, "trademark_alert": true}'::jsonb;
+
+-- Deleting a patent session must never destroy its payment record
+ALTER TABLE public.application_payments DROP CONSTRAINT IF EXISTS application_payments_application_id_fkey;
+ALTER TABLE public.application_payments ADD CONSTRAINT application_payments_application_id_fkey
+  FOREIGN KEY (application_id) REFERENCES public.patent_sessions(id) ON DELETE SET NULL;
+
+-- One prior-art watch per idea / per session (dedupe first, keep the newest)
+DELETE FROM public.prior_art_monitoring m
+USING (
+  SELECT id, row_number() OVER (PARTITION BY patent_idea_id ORDER BY created_at DESC, id DESC) rn
+  FROM public.prior_art_monitoring WHERE patent_idea_id IS NOT NULL AND patent_session_id IS NULL
+) d WHERE m.id = d.id AND d.rn > 1;
+DELETE FROM public.prior_art_monitoring m
+USING (
+  SELECT id, row_number() OVER (PARTITION BY patent_session_id ORDER BY created_at DESC, id DESC) rn
+  FROM public.prior_art_monitoring WHERE patent_session_id IS NOT NULL
+) d WHERE m.id = d.id AND d.rn > 1;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_prior_art_monitoring_idea
+  ON public.prior_art_monitoring (patent_idea_id) WHERE patent_idea_id IS NOT NULL AND patent_session_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_prior_art_monitoring_session
+  ON public.prior_art_monitoring (patent_session_id) WHERE patent_session_id IS NOT NULL;
