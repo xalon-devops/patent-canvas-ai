@@ -1,5 +1,6 @@
 import { ProtectedHeader } from '@/components/ProtectedHeader';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PageSEO } from '@/components/SEO';
 import {
   ArrowLeft, ArrowRight, Tag, Building2, FileText, Shield, Sparkles,
-  Loader2, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Info
+  Loader2, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Info, Upload, Trash2, Bell
 } from 'lucide-react';
 import { TRADEMARK_FILING_PRICE_DISPLAY } from '@/lib/pricingConstants';
 import { formatDateShort } from '@/lib/dateUtils';
@@ -24,6 +25,17 @@ interface TrademarkDraftRow {
   step_completed: number | null;
   updated_at: string;
 }
+
+// Statuses that are still being worked on (draft-trademark-application moves a
+// reviewed draft to 'ai_review' / 'ready')
+const OPEN_STATUSES = ['draft', 'ai_review', 'ready'];
+
+// USPTO accepts JPG/PNG/PDF specimens; keep uploads small and predictable
+const SPECIMEN_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+const SPECIMEN_MAX_BYTES = 5 * 1024 * 1024;
+const SPECIMEN_BUCKET = 'patent-docs';
+
+const normalizeClass = (c: unknown) => String(c ?? '').replace(/\D/g, '').padStart(3, '0');
 
 const STEPS = [
   { id: 1, label: 'Mark Info', icon: Tag },
@@ -115,6 +127,14 @@ export default function TrademarkApplication() {
   const [aiLoading, setAiLoading] = useState(false);
   const [loadingApp, setLoadingApp] = useState(!!routeAppId);
   const [drafts, setDrafts] = useState<TrademarkDraftRow[]>([]);
+  // Highest step the user has finished (persisted as step_completed)
+  const [stepCompleted, setStepCompleted] = useState(0);
+  // Id we just created and pushed into the URL — no need to reload it from the DB
+  const justCreatedIdRef = useRef<string | null>(null);
+  const [specimenPath, setSpecimenPath] = useState<string | null>(null);
+  const [uploadingSpecimen, setUploadingSpecimen] = useState(false);
+  const specimenInputRef = useRef<HTMLInputElement>(null);
+  const [watching, setWatching] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -172,8 +192,11 @@ export default function TrademarkApplication() {
   // Resume a saved application when opened with an id
   useEffect(() => {
     if (!routeAppId) return;
+    if (justCreatedIdRef.current === routeAppId) return;
     let cancelled = false;
+    setLoadingApp(true);
     (async () => {
+      // RLS only returns the caller's own applications
       const { data, error } = await supabase
         .from('trademark_applications')
         .select('*')
@@ -183,10 +206,13 @@ export default function TrademarkApplication() {
       if (error || !data) {
         toast({
           title: "Couldn't open that application",
-          description: error?.message || 'It may have been deleted.',
+          description: error?.message || 'It may have been deleted, or it belongs to another account.',
           variant: 'destructive',
         });
+        // Don't keep a dead id around — later saves would silently update nothing
+        setAppId(null);
         setLoadingApp(false);
+        navigate('/trademark-application', { replace: true });
         return;
       }
       const app = data as any;
@@ -207,11 +233,17 @@ export default function TrademarkApplication() {
       setOwnerZip(addr.zip || '');
       setOwnerCountry(addr.country || 'US');
       setSpecimenDescription(app.specimen_description || '');
-      setStep(Math.min(Math.max(app.step_completed || 1, 1), STEPS.length));
+      setSpecimenPath(app.specimen_file_path || null);
+      if (app.ai_analysis && Array.isArray(app.ai_analysis.sections)) setAiReview(app.ai_analysis);
+      const done = Math.min(Math.max(app.step_completed || 0, 0), STEPS.length);
+      setStepCompleted(done);
+      setAppId(app.id);
+      // Resume on the first step not yet finished
+      setStep(Math.min(Math.max(done + 1, 1), STEPS.length));
       setLoadingApp(false);
     })();
     return () => { cancelled = true; };
-  }, [routeAppId, toast]);
+  }, [routeAppId, toast, navigate]);
 
   // List saved drafts so an in-progress application is never stranded
   useEffect(() => {
@@ -219,57 +251,71 @@ export default function TrademarkApplication() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('trademark_applications')
         .select('id, mark_name, status, step_completed, updated_at')
         .eq('user_id', user.id)
-        .eq('status', 'draft')
+        .in('status', OPEN_STATUSES)
         .order('updated_at', { ascending: false })
         .limit(10);
+      if (error) console.error('Error loading trademark drafts:', error);
       setDrafts((data as unknown as TrademarkDraftRow[]) ?? []);
     })();
   }, [routeAppId]);
 
 
-  const saveApplication = async () => {
+  const saveApplication = async (completedStep: number = stepCompleted): Promise<string | null> => {
     setSaving(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/auth'); return null; }
 
+      const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+      const usesCommerce = filingBasis === 'use_in_commerce';
+      const done = Math.min(Math.max(stepCompleted, completedStep), STEPS.length);
+
       const payload: any = {
         user_id: session.user.id,
-        mark_name: markName,
+        mark_name: markName.trim(),
         mark_type: markType,
         mark_description: markDescription,
         filing_basis: filingBasis,
-        first_use_date: firstUseDate || null,
-        first_use_commerce_date: firstUseCommerceDate || null,
+        // 'date' columns: only real dates, and only for a use-based filing
+        first_use_date: usesCommerce && isValidDate(firstUseDate) ? firstUseDate : null,
+        first_use_commerce_date: usesCommerce && isValidDate(firstUseCommerceDate) ? firstUseCommerceDate : null,
         nice_classes: selectedClasses,
         goods_services: goodsServices,
         owner_name: ownerName,
         owner_type: ownerType,
         owner_address: { street: ownerStreet, city: ownerCity, state: ownerState, zip: ownerZip, country: ownerCountry },
         specimen_description: specimenDescription,
-        step_completed: step,
-        status: 'draft',
+        specimen_file_path: specimenPath,
+        step_completed: done,
       };
 
       if (appId) {
-        const { error } = await supabase
+        // Status is owned by the AI review / filing flow — don't reset it to draft on every save
+        const { data, error } = await supabase
           .from('trademark_applications')
           .update(payload)
-          .eq('id', appId);
+          .eq('id', appId)
+          .select('id');
         if (error) throw error;
+        if (!data?.length) throw new Error('This application no longer exists. Start a new one to keep your work.');
+        setStepCompleted(done);
         return appId;
       } else {
         const { data, error } = await supabase
           .from('trademark_applications')
-          .insert(payload)
+          .insert({ ...payload, status: 'draft' })
           .select('id')
           .single();
         if (error) throw error;
         setAppId(data.id);
+        setStepCompleted(done);
+        // Put the id in the URL so a refresh resumes this application
+        justCreatedIdRef.current = data.id;
+        navigate(`/trademark-application/${data.id}`, { replace: true });
         return data.id;
       }
     } catch (err: any) {
@@ -280,11 +326,11 @@ export default function TrademarkApplication() {
     }
   };
 
-  const callTrademarkAI = async (action: string, extraData?: any) => {
+  const callTrademarkAI = async (action: string, extraData?: any, applicationId: string | null = appId) => {
     setAiLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return null;
+      if (!session) { navigate('/auth'); return null; }
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/draft-trademark-application`,
@@ -296,13 +342,13 @@ export default function TrademarkApplication() {
           },
           body: JSON.stringify({
             action,
-            application_id: appId,
+            application_id: applicationId,
             data: extraData,
           }),
         }
       );
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'AI request failed');
       return result;
     } catch (err: any) {
@@ -321,10 +367,16 @@ export default function TrademarkApplication() {
     });
     if (result?.analysis) {
       setAiClassification(result.analysis);
-      if (result.analysis.suggested_classes?.length > 0) {
-        const newClasses = result.analysis.suggested_classes.map((c: GoodsService) => c.class_number);
+      const suggested: GoodsService[] = Array.isArray(result.analysis.suggested_classes)
+        ? result.analysis.suggested_classes
+            .filter((c: any) => c && c.class_number)
+            .map((c: any) => ({ ...c, class_number: normalizeClass(c.class_number) }))
+        : [];
+      setAiClassification({ ...result.analysis, suggested_classes: suggested });
+      if (suggested.length > 0) {
+        const newClasses = suggested.map((c) => c.class_number);
         setSelectedClasses(prev => [...new Set([...prev, ...newClasses])]);
-        setGoodsServices(result.analysis.suggested_classes);
+        setGoodsServices(suggested);
       }
       toast({ title: 'AI Classification Complete', description: 'Review the suggested classes below.' });
     }
@@ -342,13 +394,17 @@ export default function TrademarkApplication() {
     }
   };
 
-  const handleReviewApplication = async () => {
-    const savedId = await saveApplication();
-    if (!savedId) return;
-    const result = await callTrademarkAI('review_application');
+  const runReview = async (applicationId: string) => {
+    const result = await callTrademarkAI('review_application', undefined, applicationId);
     if (result?.review) {
       setAiReview(result.review);
     }
+  };
+
+  const handleReviewApplication = async () => {
+    const savedId = await saveApplication();
+    if (!savedId) return;
+    await runReview(savedId);
   };
 
   const nextStep = async () => {
@@ -356,12 +412,113 @@ export default function TrademarkApplication() {
       toast({ title: 'Mark name required', variant: 'destructive' });
       return;
     }
-    await saveApplication();
+    if (step === 3 && !ownerName.trim()) {
+      toast({ title: 'Owner name required', description: 'Enter the full legal name of the owner.', variant: 'destructive' });
+      return;
+    }
+    const savedId = await saveApplication(step);
+    if (!savedId) return; // stay on this step; the toast explains why
     if (step === 4) {
       setStep(5);
-      setTimeout(() => handleReviewApplication(), 300);
+      await runReview(savedId);
+    } else if (step === STEPS.length) {
+      toast({ title: 'Application saved', description: 'You can come back to it any time from your dashboard.' });
     } else {
       setStep(s => Math.min(s + 1, STEPS.length));
+    }
+  };
+
+  const handleSpecimenFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!SPECIMEN_TYPES.includes(file.type)) {
+      toast({ title: 'Unsupported file', description: 'Upload a JPG, PNG or PDF specimen.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > SPECIMEN_MAX_BYTES) {
+      toast({ title: 'File too large', description: 'Specimens must be 5 MB or smaller.', variant: 'destructive' });
+      return;
+    }
+    setUploadingSpecimen(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { navigate('/auth'); return; }
+      const id = appId || await saveApplication();
+      if (!id) return;
+      const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+      // Storage policy on patent-docs requires the first folder to be the user's id
+      const path = `${user.id}/trademark-specimens/${id}/${Date.now()}.${ext}`;
+      const { error: upError } = await supabase.storage
+        .from(SPECIMEN_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upError) throw upError;
+      const { error: dbError } = await supabase
+        .from('trademark_applications')
+        .update({ specimen_file_path: path })
+        .eq('id', id);
+      if (dbError) {
+        await supabase.storage.from(SPECIMEN_BUCKET).remove([path]);
+        throw dbError;
+      }
+      const previous = specimenPath;
+      setSpecimenPath(path);
+      if (previous && previous !== path) {
+        await supabase.storage.from(SPECIMEN_BUCKET).remove([previous]);
+      }
+      toast({ title: 'Specimen uploaded' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploadingSpecimen(false);
+      if (specimenInputRef.current) specimenInputRef.current.value = '';
+    }
+  };
+
+  const viewSpecimen = async () => {
+    if (!specimenPath) return;
+    const { data, error } = await supabase.storage.from(SPECIMEN_BUCKET).createSignedUrl(specimenPath, 300);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Couldn't open the specimen", description: error?.message, variant: 'destructive' });
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const removeSpecimen = async () => {
+    if (!specimenPath || !appId) return;
+    const path = specimenPath;
+    const { error } = await supabase.from('trademark_applications').update({ specimen_file_path: null }).eq('id', appId);
+    if (error) {
+      toast({ title: "Couldn't remove the specimen", description: error.message, variant: 'destructive' });
+      return;
+    }
+    setSpecimenPath(null);
+    await supabase.storage.from(SPECIMEN_BUCKET).remove([path]);
+  };
+
+  // Weekly watch for conflicting filings on this mark (Trademark Suite feature)
+  const watchThisMark = async () => {
+    const id = appId || await saveApplication();
+    if (!id) return;
+    setWatching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('run-trademark-monitoring', {
+        body: { trademarkApplicationId: id },
+      });
+      if (error) {
+        let message = error.message;
+        if (error instanceof FunctionsHttpError) {
+          try { message = (await error.context.json())?.error || message; } catch { /* keep default */ }
+        }
+        throw new Error(message);
+      }
+      toast({
+        title: data?.created === false ? 'Already watching this mark' : 'Watch started',
+        description: `We'll re-check "${markName.trim()}" weekly and email you about new conflicting filings.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Couldn't start the watch", description: err.message, variant: 'destructive' });
+    } finally {
+      setWatching(false);
     }
   };
 
@@ -383,10 +540,11 @@ export default function TrademarkApplication() {
           {STEPS.map(s => (
             <button
               key={s.id}
-              onClick={() => s.id <= step && setStep(s.id)}
-              className={`flex flex-col items-center gap-1 text-[10px] transition-colors ${
+              onClick={() => s.id <= Math.max(step, stepCompleted + 1) && setStep(s.id)}
+              disabled={s.id > Math.max(step, stepCompleted + 1)}
+              className={`flex flex-col items-center gap-1 text-[10px] transition-colors min-w-0 px-1 py-1 ${
                 s.id === step ? 'text-primary font-medium' :
-                s.id < step ? 'text-muted-foreground cursor-pointer' : 'text-muted-foreground/40'
+                s.id <= Math.max(step, stepCompleted + 1) ? 'text-muted-foreground cursor-pointer' : 'text-muted-foreground/40'
               }`}
             >
               <s.icon className="h-4 w-4" />
@@ -430,8 +588,17 @@ export default function TrademarkApplication() {
           </Card>
         )}
 
+        {loadingApp && (
+          <Card className="mb-5">
+            <CardContent className="py-10 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Loading your application…</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Step 1: Mark Information */}
-        {step === 1 && (
+        {!loadingApp && step === 1 && (
           <div className="space-y-5">
             <Card>
               <CardHeader className="pb-3">
@@ -484,7 +651,7 @@ export default function TrademarkApplication() {
                 </div>
 
                 {filingBasis === 'use_in_commerce' && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm font-medium mb-1.5 block">First Use Anywhere</label>
                       <Input type="date" value={firstUseDate} onChange={e => setFirstUseDate(e.target.value)} />
@@ -501,7 +668,7 @@ export default function TrademarkApplication() {
         )}
 
         {/* Step 2: Classification */}
-        {step === 2 && (
+        {!loadingApp && step === 2 && (
           <div className="space-y-5">
             <Card>
               <CardHeader className="pb-3">
@@ -574,7 +741,7 @@ export default function TrademarkApplication() {
         )}
 
         {/* Step 3: Owner */}
-        {step === 3 && (
+        {!loadingApp && step === 3 && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Trademark Owner</CardTitle>
@@ -629,7 +796,7 @@ export default function TrademarkApplication() {
         )}
 
         {/* Step 4: Specimen */}
-        {step === 4 && (
+        {!loadingApp && step === 4 && (
           <div className="space-y-5">
             <Card>
               <CardHeader className="pb-3">
@@ -673,6 +840,41 @@ export default function TrademarkApplication() {
                 )}
 
                 <div>
+                  <label className="text-sm font-medium mb-1.5 block">Specimen file (optional)</label>
+                  <input
+                    ref={specimenInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                    className="hidden"
+                    onChange={e => handleSpecimenFile(e.target.files?.[0])}
+                  />
+                  {specimenPath ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                      <span className="text-sm text-foreground flex-1 min-w-0 truncate">Specimen uploaded</span>
+                      <Button type="button" size="sm" variant="outline" onClick={viewSpecimen}>View</Button>
+                      <Button type="button" size="sm" variant="outline" disabled={uploadingSpecimen} onClick={() => specimenInputRef.current?.click()}>
+                        Replace
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" aria-label="Remove specimen" onClick={removeSpecimen}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      disabled={uploadingSpecimen || saving}
+                      onClick={() => specimenInputRef.current?.click()}
+                    >
+                      {uploadingSpecimen ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {uploadingSpecimen ? 'Uploading…' : 'Upload JPG, PNG or PDF (max 5 MB)'}
+                    </Button>
+                  )}
+                </div>
+
+                <div>
                   <label className="text-sm font-medium mb-1.5 block">Describe Your Specimen</label>
                   <Textarea
                     value={specimenDescription}
@@ -687,7 +889,7 @@ export default function TrademarkApplication() {
         )}
 
         {/* Step 5: AI Review */}
-        {step === 5 && (
+        {!loadingApp && step === 5 && (
           <div className="space-y-5">
             {aiLoading && (
               <Card>
@@ -792,18 +994,33 @@ export default function TrademarkApplication() {
                 </CardContent>
               </Card>
             )}
+
+            {!aiLoading && (
+              <Card>
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-foreground">Watch for conflicting filings</h4>
+                    <p className="text-xs text-muted-foreground">We re-check the USPTO weekly and email you if a similar mark appears.</p>
+                  </div>
+                  <Button variant="outline" onClick={watchThisMark} disabled={watching || saving} className="gap-2 flex-shrink-0">
+                    {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                    Watch this mark
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
         {/* Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border p-4">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-            <Button variant="outline" onClick={prevStep} disabled={step === 1} className="h-10">
+            <Button variant="outline" onClick={prevStep} disabled={step === 1 || loadingApp} className="h-10">
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
             <Button
               onClick={nextStep}
-              disabled={saving || aiLoading}
+              disabled={saving || aiLoading || loadingApp || uploadingSpecimen}
               className="btn-dark h-10 flex-1 max-w-xs"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> :

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +30,20 @@ interface TrademarkMonitoringDashboardProps {
   userId: string;
 }
 
+/** Pull the server's own error message (and status) out of a functions.invoke error. */
+async function readInvokeError(error: unknown): Promise<{ message: string; status?: number }> {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.context?.status;
+    try {
+      const body = await error.context.json();
+      return { message: body?.error || error.message, status };
+    } catch {
+      return { message: error.message, status };
+    }
+  }
+  return { message: (error as Error)?.message || 'Request failed' };
+}
+
 export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonitoringDashboardProps) {
   const [monitors, setMonitors] = useState<TrademarkMonitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,101 +51,106 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
   const [showAdd, setShowAdd] = useState(false);
   const [newMark, setNewMark] = useState('');
   const [adding, setAdding] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const fetchMonitors = async () => {
-    setLoading(true);
+  const fetchMonitors = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('trademark_monitoring')
-        .select('*')
+        .select('id, mark_name, search_query, nice_classes, is_active, results_found, new_results_count, highest_similarity_score, last_search_at, next_search_at')
         .eq('user_id', userId)
-        .order('last_search_at', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      setMonitors((data as TrademarkMonitor[]) || []);
+      setMonitors((data as unknown as TrademarkMonitor[]) || []);
+      setLoadError(null);
     } catch (e: any) {
       console.error('Error fetching trademark monitors:', e);
+      setLoadError(e?.message || 'Could not load your trademark watches.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     if (userId) fetchMonitors();
-  }, [userId]);
+  }, [userId, fetchMonitors]);
+
+  const handleInvokeError = async (title: string, error: unknown) => {
+    const { message, status } = await readInvokeError(error);
+    toast({
+      title: status === 402 ? 'Trademark Suite required' : title,
+      description: message,
+      variant: 'destructive',
+    });
+    if (status === 402) navigate('/trademark-check');
+  };
 
   const runMonitor = async (monitor: TrademarkMonitor) => {
     setRunningId(monitor.id);
     try {
+      // The server loads the watch by id and checks it belongs to the caller
       const { data, error } = await supabase.functions.invoke('run-trademark-monitoring', {
-        body: {
-          monitorId: monitor.id,
-          markName: monitor.mark_name,
-          searchQuery: monitor.search_query,
-          niceClasses: monitor.nice_classes,
-          userId,
-        }
+        body: { monitorId: monitor.id },
       });
-      if (error) throw error;
+      if (error) { await handleInvokeError('Monitoring Failed', error); return; }
+      const newConflicts = data?.newConflicts || 0;
       toast({
-        title: 'Monitoring Complete',
-        description: `Found ${data.resultsFound || 0} results. ${data.highestSimilarity ? `Highest similarity: ${(data.highestSimilarity * 100).toFixed(0)}%` : ''}`,
+        title: newConflicts > 0 ? `${newConflicts} new possible conflict${newConflicts === 1 ? '' : 's'}` : 'Monitoring Complete',
+        description: `Found ${data?.resultsFound || 0} results. ${data?.highestSimilarity ? `Highest similarity: ${(data.highestSimilarity * 100).toFixed(0)}%` : ''}`,
       });
-      await fetchMonitors();
-    } catch (e: any) {
-      toast({ title: 'Monitoring Failed', description: e.message, variant: 'destructive' });
+      await fetchMonitors(false);
     } finally {
       setRunningId(null);
     }
   };
 
   const toggleActive = async (monitor: TrademarkMonitor) => {
-    try {
-      await (supabase as any)
-        .from('trademark_monitoring')
-        .update({ is_active: !monitor.is_active })
-        .eq('id', monitor.id);
-      setMonitors(prev => prev.map(m => m.id === monitor.id ? { ...m, is_active: !m.is_active } : m));
-    } catch (e: any) {
-      toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+    const nextActive = !monitor.is_active;
+    const { error } = await supabase
+      .from('trademark_monitoring')
+      .update({ is_active: nextActive })
+      .eq('id', monitor.id);
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+      return;
     }
+    setMonitors(prev => prev.map(m => m.id === monitor.id ? { ...m, is_active: nextActive } : m));
   };
 
   const addMonitor = async () => {
-    if (!newMark.trim()) return;
+    const mark = newMark.trim();
+    if (!mark) return;
     setAdding(true);
     try {
       const { data, error } = await supabase.functions.invoke('run-trademark-monitoring', {
-        body: {
-          markName: newMark.trim(),
-          searchQuery: newMark.trim(),
-          niceClasses: [],
-          userId,
-        }
+        body: { markName: mark, searchQuery: mark, niceClasses: [] },
       });
-      if (error) throw error;
+      if (error) { await handleInvokeError('Failed to create monitor', error); return; }
       toast({
-        title: 'Monitor Created',
-        description: `Now watching "${newMark.trim()}" — found ${data.resultsFound || 0} existing results.`,
+        title: data?.created === false ? 'Already watching' : 'Monitor Created',
+        description: data?.created === false
+          ? `"${mark}" is already on your watch list.`
+          : `Now watching "${mark}" — found ${data?.resultsFound || 0} existing results.`,
       });
       setNewMark('');
       setShowAdd(false);
-      await fetchMonitors();
-    } catch (e: any) {
-      toast({ title: 'Failed to create monitor', description: e.message, variant: 'destructive' });
+      await fetchMonitors(false);
     } finally {
       setAdding(false);
     }
   };
 
   const deleteMonitor = async (id: string) => {
-    try {
-      await (supabase as any).from('trademark_monitoring').delete().eq('id', id);
-      setMonitors(prev => prev.filter(m => m.id !== id));
-      toast({ title: 'Monitor removed' });
-    } catch (e: any) {
-      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    const { error } = await supabase.from('trademark_monitoring').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+      return;
     }
+    setMonitors(prev => prev.filter(m => m.id !== id));
+    toast({ title: 'Monitor removed' });
   };
 
   if (loading) {
@@ -157,7 +178,8 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0"
+              className="h-8 w-8 p-0"
+              aria-label="Add a trademark watch"
               onClick={() => setShowAdd(!showAdd)}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -172,12 +194,13 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
               placeholder="Mark name to watch..."
               value={newMark}
               onChange={(e) => setNewMark(e.target.value)}
-              className="text-xs h-7"
-              onKeyDown={(e) => e.key === 'Enter' && addMonitor()}
+              className="text-base sm:text-xs h-9 sm:h-7"
+              maxLength={120}
+              onKeyDown={(e) => e.key === 'Enter' && !adding && addMonitor()}
             />
             <Button
               size="sm"
-              className="h-7 text-[10px] px-3"
+              className="h-9 sm:h-7 text-xs sm:text-[10px] px-3"
               disabled={adding || !newMark.trim()}
               onClick={addMonitor}
             >
@@ -186,23 +209,31 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
           </div>
         )}
 
-        {monitors.length === 0 ? (
+        {loadError ? (
+          <div className="text-center py-4 space-y-2">
+            <p className="text-xs text-destructive">{loadError}</p>
+            <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => fetchMonitors()}>Retry</Button>
+          </div>
+        ) : monitors.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
             No trademark watches yet. Click + to monitor a mark name for conflicts.
           </p>
         ) : (
           monitors.map(monitor => (
             <div key={monitor.id} className="bg-muted/30 rounded-md p-2.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium line-clamp-1 flex-1">{monitor.mark_name}</p>
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium line-clamp-1 flex-1 min-w-0">{monitor.mark_name}</p>
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteMonitor(monitor.id)}
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Stop watching ${monitor.mark_name}`}
+                    onClick={() => {
+                      if (window.confirm(`Stop watching "${monitor.mark_name}"?`)) deleteMonitor(monitor.id);
+                    }}
                   >
-                    <Trash2 className="w-2.5 h-2.5" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                   <Switch
                     checked={monitor.is_active}
@@ -211,13 +242,16 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5" />
                   {formatDateShort(monitor.last_search_at)}
                 </span>
-                <span>{monitor.results_found} found</span>
-                {monitor.highest_similarity_score && (
+                <span>{monitor.results_found ?? 0} found</span>
+                {monitor.is_active && monitor.next_search_at && (
+                  <span>next {formatDateShort(monitor.next_search_at)}</span>
+                )}
+                {monitor.highest_similarity_score != null && monitor.highest_similarity_score > 0 && (
                   <Badge className={`text-[9px] px-1 py-0 ${
                     monitor.highest_similarity_score > 0.7 ? 'bg-red-500' :
                     monitor.highest_similarity_score > 0.4 ? 'bg-amber-500' : 'bg-green-500'
@@ -234,7 +268,7 @@ export default function TrademarkMonitoringDashboard({ userId }: TrademarkMonito
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-[10px] h-6 gap-1"
+                className="w-full text-[10px] h-8 sm:h-6 gap-1"
                 disabled={runningId === monitor.id}
                 onClick={() => runMonitor(monitor)}
               >

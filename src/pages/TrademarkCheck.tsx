@@ -15,9 +15,10 @@ import { ProtectedHeader } from '@/components/ProtectedHeader';
 import ItemActionsMenu from '@/components/ItemActionsMenu';
 import {
   Search, ArrowLeft, Shield, AlertTriangle, CheckCircle, ExternalLink,
-  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles, History
+  Loader2, Tag, Building2, Calendar, ChevronDown, ChevronUp, Globe, Download, FileText, Sparkles, History, Bell
 } from 'lucide-react';
 import { formatDateShort } from '@/lib/dateUtils';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 
 interface TrademarkSearchHistoryRow {
   id: string;
@@ -89,6 +90,11 @@ export default function TrademarkCheck() {
   const tmAdmin = useAdminStatus(tmUserId);
   const [searchHistory, setSearchHistory] = useState<TrademarkSearchHistoryRow[]>([]);
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
+  // The saved trademark_searches row behind the results on screen (for watches)
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
+  const [watching, setWatching] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Searches are stored server-side; list them so results are never lost
   const loadSearchHistory = useCallback(async () => {
@@ -117,8 +123,17 @@ export default function TrademarkCheck() {
     setSearchHistory(h => h.map(x => x.id === id ? { ...x, title } : x));
   };
   const deleteTmSearch = async (id: string) => {
+    // A watch started from this search must survive deleting the search history entry
+    // (the FK cascades), so detach it first.
+    const { error: detachError } = await supabase
+      .from('trademark_monitoring')
+      .update({ trademark_search_id: null })
+      .eq('trademark_search_id', id);
+    if (detachError) throw detachError;
     const { error } = await supabase.from('trademark_searches').delete().eq('id', id);
-    if (!error) setSearchHistory(h => h.filter(x => x.id !== id));
+    if (error) throw error;
+    setSearchHistory(h => h.filter(x => x.id !== id));
+    if (currentSearchId === id) setCurrentSearchId(null);
   };
 
   const openHistoryEntry = async (entry: TrademarkSearchHistoryRow) => {
@@ -134,6 +149,10 @@ export default function TrademarkCheck() {
       setMarkDescription(entry.mark_description || '');
       setSelectedClasses(entry.nice_classes || []);
       setResults((data as unknown as TrademarkResult[]) ?? []);
+      setPriority(null);
+      setExpandedResult(null);
+      setExpandedCommonLaw(null);
+      setCurrentSearchId(entry.id);
       setHasSearched(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
@@ -143,8 +162,57 @@ export default function TrademarkCheck() {
       setLoadingHistoryId(null);
     }
   };
-  const navigate = useNavigate();
-  const { toast } = useToast();
+
+  // Start a weekly watch on this mark (paid: Trademark Suite). The server verifies the
+  // search belongs to the caller and reuses an existing watch for the same mark.
+  const watchThisMark = async () => {
+    const mark = markName.trim();
+    if (!mark) return;
+    setWatching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('run-trademark-monitoring', {
+        body: {
+          markName: mark,
+          searchQuery: markDescription.trim() || mark,
+          niceClasses: selectedClasses,
+          trademarkSearchId: currentSearchId || undefined,
+        },
+      });
+      if (error) {
+        let message = error.message;
+        let status: number | undefined;
+        if (error instanceof FunctionsHttpError) {
+          status = error.context?.status;
+          try { message = (await error.context.json())?.error || message; } catch { /* keep default */ }
+        }
+        if (status === 402) {
+          setShowSubscribe(true);
+          toast({ title: 'Trademark Suite required', description: message, variant: 'destructive' });
+          return;
+        }
+        throw new Error(message);
+      }
+      toast({
+        title: data?.created === false ? 'Already watching this mark' : 'Watch started',
+        description: data?.created === false
+          ? `"${mark}" is already on your watch list. See it on your dashboard.`
+          : `We'll re-check "${mark}" weekly and email you about new conflicting filings.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Couldn't start the watch", description: err.message, variant: 'destructive' });
+    } finally {
+      setWatching(false);
+    }
+  };
+
+  const startApplication = (firstUseDate?: string | null) => navigate('/trademark-application', {
+    state: {
+      mark_name: markName.trim(),
+      mark_description: markDescription.trim() || undefined,
+      nice_classes: selectedClasses,
+      first_use_date: firstUseDate || firstUse || undefined,
+    },
+  });
 
 
   const handleScrapeUrl = async () => {
@@ -200,6 +268,7 @@ export default function TrademarkCheck() {
   };
 
   const handleSearch = async () => {
+    if (loading) return;
     if (!markName.trim()) {
       toast({ title: 'Enter a trademark', description: 'Please enter the trademark name to search.', variant: 'destructive' });
       return;
@@ -208,6 +277,9 @@ export default function TrademarkCheck() {
     setLoading(true);
     setResults([]);
     setPriority(null);
+    setExpandedResult(null);
+    setExpandedCommonLaw(null);
+    setCurrentSearchId(null);
     setHasSearched(true);
 
     try {
@@ -232,7 +304,7 @@ export default function TrademarkCheck() {
         }
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         if (response.status === 402) {
@@ -247,6 +319,9 @@ export default function TrademarkCheck() {
       setResults(data.results || []);
       setPriority(data.priority_analysis || null);
       setCreditsRemaining(data.search_credits_remaining);
+      setCurrentSearchId(data.search_id || null);
+      // The new search is saved server-side; show it in history right away
+      loadSearchHistory();
 
       toast({
         title: `Found ${data.results_found || 0} potential conflicts`,
@@ -477,7 +552,8 @@ export default function TrademarkCheck() {
                 onChange={e => setMarkName(e.target.value)}
                 placeholder='e.g. "TechNova", "BrightPath Solutions"'
                 className="text-base"
-                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                maxLength={120}
+                onKeyDown={e => e.key === 'Enter' && !loading && handleSearch()}
               />
             </div>
             <div>
@@ -632,14 +708,7 @@ export default function TrademarkCheck() {
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
-                      onClick={() => navigate('/trademark-application', {
-                        state: {
-                          mark_name: markName.trim(),
-                          mark_description: markDescription.trim() || undefined,
-                          nice_classes: selectedClasses,
-                          first_use_date: priority.your_first_use_date || firstUse || undefined,
-                        },
-                      })}
+                      onClick={() => startApplication(priority.your_first_use_date)}
                       className="btn-dark rounded-xl"
                     >
                       File this trademark
@@ -678,7 +747,16 @@ export default function TrademarkCheck() {
             </div>
 
             {/* Download Report Button */}
-            <div className="flex justify-end mb-4">
+            <div className="flex flex-wrap justify-end gap-2 mb-4">
+              {!priority && (
+                <Button onClick={() => startApplication()} className="btn-dark gap-2">
+                  File this trademark
+                </Button>
+              )}
+              <Button onClick={watchThisMark} disabled={watching || !markName.trim()} variant="outline" className="gap-2">
+                {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                {watching ? 'Starting watch…' : 'Watch this mark'}
+              </Button>
               <Button
                 onClick={generateOpinionReport}
                 disabled={generatingReport}
@@ -1016,14 +1094,7 @@ export default function TrademarkCheck() {
                                   size="sm"
                                   onClick={e => {
                                     e.stopPropagation();
-                                    navigate('/trademark-application', {
-                                      state: {
-                                        mark_name: markName,
-                                        mark_description: markDescription,
-                                        nice_classes: selectedClasses,
-                                        first_use_date: result.first_use_date || firstUse || undefined,
-                                      },
-                                    });
+                                    startApplication(result.first_use_date);
                                   }}
                                 >
                                   File this trademark
@@ -1053,6 +1124,15 @@ export default function TrademarkCheck() {
                 No conflicting trademarks were found for "{markName}". This is a positive sign for registration,
                 but we still recommend consulting a trademark attorney.
               </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <Button onClick={() => startApplication()} className="btn-dark rounded-xl">
+                  File this trademark
+                </Button>
+                <Button onClick={watchThisMark} disabled={watching || !markName.trim()} variant="outline" className="gap-2 rounded-xl">
+                  {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                  Watch for new filings
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1108,7 +1188,7 @@ export default function TrademarkCheck() {
 
       {/* Trademark Suite Subscribe Modal */}
       <Dialog open={showSubscribe} onOpenChange={setShowSubscribe}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Subscribe to Trademark Suite — {TRADEMARK_SEARCH_PRICE_DISPLAY_MO}</DialogTitle>
           </DialogHeader>

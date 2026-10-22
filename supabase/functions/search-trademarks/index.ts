@@ -14,10 +14,24 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { mark_name, mark_description, nice_classes, skip_credit_check, own_url, applicant_first_use } = await req.json();
+  // Hoisted so the catch block can mark the search failed / refund the credit
+  let supabaseClient: any = null;
+  let searchRecord: any = null;
+  let creditConsumedFor: string | null = null;
 
-    if (!mark_name?.trim()) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const skip_credit_check = body?.skip_credit_check === true;
+    const mark_name: string = typeof body?.mark_name === 'string' ? body.mark_name.trim().slice(0, 120) : '';
+    const mark_description: string = typeof body?.mark_description === 'string' ? body.mark_description.trim().slice(0, 2000) : '';
+    const own_url: string | undefined = typeof body?.own_url === 'string' ? body.own_url.trim().slice(0, 500) || undefined : undefined;
+    const applicant_first_use: string | undefined = typeof body?.applicant_first_use === 'string' ? body.applicant_first_use : undefined;
+    const nice_classes: string[] = toTextArray(body?.nice_classes)
+      .map((c) => c.replace(/\D/g, '').padStart(3, '0'))
+      .filter((c) => /^0(0[1-9]|[1-3]\d|4[0-5])$/.test(c))
+      .slice(0, 45);
+
+    if (!mark_name) {
       return new Response(JSON.stringify({ success: false, error: 'Trademark name is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -30,13 +44,15 @@ serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(
+    supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
     );
 
-    const token = authHeader.replace('Bearer ', '');
-    const isServiceCall = skip_credit_check && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const token = authHeader.replace('Bearer ', '').trim();
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const isServiceCall = skip_credit_check && !!serviceKey && token === serviceKey;
 
     let userId: string | null = null;
     let hasActiveSubscription = false;
@@ -57,8 +73,10 @@ serve(async (req) => {
         .from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle();
       const isAdmin = !!adminRole;
 
+      // Any paid plan (incl. free_grant) in good standing; 7-day trials are 'trialing'
       const { data: subscription } = await supabaseClient
-        .from('subscriptions').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle();
+        .from('subscriptions').select('plan, status').eq('user_id', userId)
+        .in('status', ['active', 'trialing']).neq('plan', 'free').maybeSingle();
       hasActiveSubscription = !!subscription || isAdmin;
 
       let { data: credits } = await supabaseClient
@@ -84,7 +102,15 @@ serve(async (req) => {
       }
 
       if (!hasActiveSubscription && hasCredits) {
-        await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
+        // The RPC locks the row and returns false if another request used the last credit
+        const { data: decremented, error: decError } = await supabaseClient.rpc('decrement_search_credit', { _user_id: userId });
+        if (decError || decremented === false) {
+          return new Response(JSON.stringify({
+            success: false, error: 'No search credits remaining. Please subscribe to continue.',
+            requires_subscription: true
+          }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        creditConsumedFor = userId;
         creditsRemaining = Math.max(0, (creditsRemaining ?? 1) - 1);
       }
     } else {
@@ -92,14 +118,13 @@ serve(async (req) => {
     }
 
     // Create search record
-    let searchRecord: any = null;
     if (!isServiceCall && userId) {
       const { data, error: searchError } = await supabaseClient
         .from('trademark_searches')
         .insert({
-          user_id: userId, mark_name: mark_name.trim(),
-          mark_description: mark_description?.trim() || null,
-          nice_classes: nice_classes || [], search_type: 'wordmark',
+          user_id: userId, mark_name,
+          mark_description: mark_description || null,
+          nice_classes, search_type: 'wordmark', status: 'in_progress',
         }).select().single();
       if (searchError) throw new Error('Failed to create search record');
       searchRecord = data;
@@ -134,11 +159,12 @@ serve(async (req) => {
     deduped = await verifyAgainstTSDR(deduped);
 
 
-    // Analyze conflicts with OpenAI
-    const analyzedResults = [];
-    for (const result of deduped.slice(0, 20)) {
-      let conflictAnalysis = result.conflict_analysis || [];
-      let differentiationPoints = result.differentiation_points || [];
+    // Analyze conflicts with OpenAI — a few at a time instead of 20 sequential calls,
+    // which could push the function past its wall-clock limit
+    const analyzedResults: any[] = [];
+    const analyzeOne = async (result: any) => {
+      let conflictAnalysis = toTextArray(result.conflict_analysis);
+      let differentiationPoints = toTextArray(result.differentiation_points);
 
       if (OPENAI_API_KEY) {
         try {
@@ -172,6 +198,7 @@ Be honest and practical. If marks are in completely different industries with di
               ],
               temperature: 0.3,
             }),
+            signal: AbortSignal.timeout(30000),
           });
           if (analysisResponse.ok) {
             const analysisData = await analysisResponse.json();
@@ -180,12 +207,13 @@ Be honest and practical. If marks are in completely different industries with di
               const jsonMatch = text.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
-                conflictAnalysis = parsed.conflicts || conflictAnalysis;
-                differentiationPoints = parsed.differentiators || differentiationPoints;
-                result._verdict = parsed.verdict || null;
-                result._verdict_summary = parsed.verdict_summary || null;
-                result._likelihood = parsed.likelihood_of_confusion || null;
-                result._recommendation = parsed.recommendation || null;
+                if (parsed.conflicts) conflictAnalysis = toTextArray(parsed.conflicts);
+                if (parsed.differentiators) differentiationPoints = toTextArray(parsed.differentiators);
+                const v = typeof parsed.verdict === 'string' ? parsed.verdict.toUpperCase().trim() : '';
+                result._verdict = ['HIGH_RISK', 'MODERATE_RISK', 'LOW_RISK', 'LIKELY_CLEAR'].includes(v) ? v : null;
+                result._verdict_summary = toText(parsed.verdict_summary, 1000);
+                result._likelihood = toText(parsed.likelihood_of_confusion, 2000);
+                result._recommendation = toText(parsed.recommendation, 1000);
               }
             } catch {}
           }
@@ -209,34 +237,43 @@ Be honest and practical. If marks are in completely different industries with di
       // Is this hit the applicant's own use? (their own site / their own brand)
       const isApplicantUse = !isRegistered && isSameHost(result.url, own_url);
 
+      // Every value is coerced to its column type: AI / scraped / TSDR data often
+      // carries '' or free-form dates ("March 2019") that a `date` column rejects,
+      // and one bad row would fail the whole batch insert.
       const resultEntry: any = {
-        mark_name: result.mark_name,
-        registration_number: isRegistered ? result.registration_number : null,
-        serial_number: isRegistered ? result.serial_number : null,
-        status: isRegistered ? result.status : 'UNREGISTERED',
-        owner: result.owner,
-        filing_date: isRegistered ? result.filing_date : null,
-        registration_date: isRegistered ? result.registration_date : null,
-        nice_classes: result.nice_classes || [],
-        goods_services: result.goods_services,
-        similarity_score: similarity,
-        conflict_analysis: conflictAnalysis,
-        differentiation_points: differentiationPoints,
+        mark_name: toText(result.mark_name, 300) || trimmedName,
+        registration_number: isRegistered ? toText(result.registration_number, 50) : null,
+        serial_number: isRegistered ? toText(result.serial_number, 50) : null,
+        status: isRegistered ? (toText(result.status, 200) || 'Unknown') : 'UNREGISTERED',
+        owner: toText(result.owner, 300),
+        filing_date: isRegistered ? toDbDate(result.filing_date) : null,
+        registration_date: isRegistered ? toDbDate(result.registration_date) : null,
+        nice_classes: toTextArray(result.nice_classes).slice(0, 45),
+        goods_services: toText(result.goods_services, 2000),
+        similarity_score: Number.isFinite(similarity) ? similarity : 0,
+        conflict_analysis: conflictAnalysis.slice(0, 20),
+        differentiation_points: differentiationPoints.slice(0, 20),
         verdict: result._verdict || null,
         verdict_summary: result._verdict_summary || null,
         likelihood_of_confusion: result._likelihood || null,
         recommendation: result._recommendation || null,
         first_use_date: normalizeUseDate(result.first_use_date) || null,
-        first_use_evidence: result.first_use_evidence || null,
+        first_use_evidence: toText(result.first_use_evidence, 1000),
         is_applicant_use: isApplicantUse,
         source: isApplicantUse
           ? 'Your own use (no USPTO filing found)'
-          : isRegistered ? (result.source || 'USPTO') : 'Common-law web use (no USPTO filing found)',
-        url: result.url,
+          : isRegistered ? (toText(result.source, 200) || 'USPTO') : 'Common-law web use (no USPTO filing found)',
+        url: toText(result.url, 2000),
       };
 
       if (searchRecord) resultEntry.search_id = searchRecord.id;
-      analyzedResults.push(resultEntry);
+      return resultEntry;
+    };
+
+    const toAnalyze = deduped.slice(0, 20);
+    for (let i = 0; i < toAnalyze.length; i += 5) {
+      const batch = await Promise.all(toAnalyze.slice(i, i + 5).map(analyzeOne));
+      analyzedResults.push(...batch);
     }
 
     analyzedResults.sort((a, b) => {
@@ -298,12 +335,35 @@ Be honest and practical. If marks are in completely different industries with di
     (priorityAnalysis as any).detected_first_use_evidence = detectedOwnEvidence;
 
 
-    if (searchRecord && analyzedResults.length > 0) {
-      const { error: insertError } = await supabaseClient
-        .from('trademark_results')
-        .insert(analyzedResults.slice(0, 15));
-      if (insertError) console.error('[TRADEMARK SEARCH] Failed to save results:', insertError);
-      await supabaseClient.from('trademark_searches').update({ results_count: analyzedResults.length }).eq('id', searchRecord.id);
+    let returnedResults = analyzedResults.slice(0, 15);
+    if (searchRecord) {
+      let savedCount = 0;
+      if (returnedResults.length > 0) {
+        const { data: inserted, error: insertError } = await supabaseClient
+          .from('trademark_results')
+          .insert(returnedResults)
+          .select('id');
+        if (!insertError && inserted) {
+          savedCount = inserted.length;
+          returnedResults = returnedResults.map((r: any, i: number) => ({ ...r, id: inserted[i]?.id }));
+        } else {
+          // Don't lose the whole search to one malformed row: save what we can
+          console.error('[TRADEMARK SEARCH] Batch save failed, retrying per row:', insertError);
+          const perRow = await Promise.all(returnedResults.map(async (r: any) => {
+            const { data, error } = await supabaseClient.from('trademark_results').insert(r).select('id').maybeSingle();
+            if (error) console.error('[TRADEMARK SEARCH] Row save failed:', r.mark_name, error.message);
+            return data?.id ? { ...r, id: data.id } : r;
+          }));
+          savedCount = perRow.filter((r: any) => r.id).length;
+          returnedResults = perRow;
+        }
+      }
+      // results_count reflects what history can actually reload
+      const { error: updError } = await supabaseClient
+        .from('trademark_searches')
+        .update({ results_count: savedCount, status: 'completed' })
+        .eq('id', searchRecord.id);
+      if (updError) console.error('[TRADEMARK SEARCH] Failed to finalize search record:', updError);
     }
 
 
@@ -312,7 +372,7 @@ Be honest and practical. If marks are in completely different industries with di
     return new Response(JSON.stringify({
       success: true,
       search_id: searchRecord?.id || null,
-      results: analyzedResults.slice(0, 15),
+      results: returnedResults,
       results_found: analyzedResults.length,
       priority_analysis: priorityAnalysis,
       search_credits_remaining: isServiceCall ? 'unlimited' : (hasActiveSubscription ? 'unlimited' : creditsRemaining),
@@ -320,7 +380,26 @@ Be honest and practical. If marks are in completely different industries with di
 
   } catch (error) {
     console.error('[TRADEMARK SEARCH] Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    // Leave a truthful trail and give back the free credit the failed search consumed
+    if (supabaseClient && searchRecord?.id) {
+      await supabaseClient.from('trademark_searches').update({ status: 'failed' }).eq('id', searchRecord.id)
+        .then(() => {}, () => {});
+    }
+    if (supabaseClient && creditConsumedFor) {
+      try {
+        const { data: c } = await supabaseClient.from('user_search_credits')
+          .select('free_searches_remaining, searches_used').eq('user_id', creditConsumedFor).maybeSingle();
+        if (c) {
+          await supabaseClient.from('user_search_credits').update({
+            free_searches_remaining: (c.free_searches_remaining ?? 0) + 1,
+            searches_used: Math.max(0, (c.searches_used ?? 1) - 1),
+          }).eq('user_id', creditConsumedFor);
+        }
+      } catch (e) {
+        console.error('[TRADEMARK SEARCH] Credit refund failed:', e);
+      }
+    }
+    return new Response(JSON.stringify({ success: false, error: (error as Error)?.message || 'Search failed' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -949,6 +1028,48 @@ function isSameHost(a: unknown, b: unknown): boolean {
   const ha = hostOf(a);
   const hb = hostOf(b);
   return !!ha && !!hb && ha === hb;
+}
+
+// ==================== DB VALUE COERCION ====================
+function toText(value: unknown, max = 1000): string | null {
+  if (value === null || value === undefined) return null;
+  const s = (typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '').trim();
+  if (!s || /^(null|undefined|unknown|n\/a)$/i.test(s)) return null;
+  return s.slice(0, max);
+}
+
+function toTextArray(value: unknown): string[] {
+  if (value === null || value === undefined) return [];
+  const arr = Array.isArray(value) ? value : [value];
+  return arr
+    .map((v) => (typeof v === 'string' || typeof v === 'number' ? String(v).trim() : ''))
+    .filter((v) => v.length > 0)
+    .map((v) => v.slice(0, 1000));
+}
+
+// Strict: returns a real calendar date (YYYY-MM-DD) for a Postgres `date` column, or null.
+// Never invents a day from a bare year — that would misstate a filing/registration date.
+function toDbDate(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  let y: number, mo: number, d: number;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/);
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) { y = +m[3]; mo = +m[1]; d = +m[2]; }
+  else {
+    // Only full written dates: "March 5, 2019" / "5 March 2019"
+    if (!/^[A-Za-z]{3,9}\.?\s+\d{1,2},?\s+\d{4}$/.test(s) && !/^\d{1,2}\s+[A-Za-z]{3,9}\.?,?\s+\d{4}$/.test(s)) return null;
+    const t = Date.parse(`${s} UTC`);
+    if (Number.isNaN(t)) return null;
+    const dt = new Date(t);
+    y = dt.getUTCFullYear(); mo = dt.getUTCMonth() + 1; d = dt.getUTCDate();
+  }
+  if (y < 1800 || y > 2200 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const check = new Date(Date.UTC(y, mo - 1, d));
+  if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 // Accepts YYYY, YYYY-MM, YYYY-MM-DD, MM/DD/YYYY and ISO timestamps

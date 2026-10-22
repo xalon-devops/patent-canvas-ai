@@ -33,7 +33,12 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { action, application_id, data } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const action = typeof body?.action === 'string' ? body.action : '';
+    const application_id = typeof body?.application_id === 'string' ? body.application_id : null;
+    const data = (body?.data && typeof body.data === 'object') ? body.data : {};
+    // Bound user-supplied text before it goes into a prompt
+    const clip = (v: unknown, max = 2000) => (typeof v === 'string' ? v.slice(0, max) : '');
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -44,7 +49,14 @@ serve(async (req) => {
 
     // Action: classify_goods
     if (action === 'classify_goods') {
-      const { mark_name, mark_description, business_description } = data;
+      const mark_name = clip(data.mark_name, 120);
+      const mark_description = clip(data.mark_description);
+      const business_description = clip(data.business_description, 4000);
+      if (!mark_name.trim() && !business_description.trim()) {
+        return new Response(JSON.stringify({ error: 'Enter your mark and a business description first.' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       const aiResponse = await callAI(LOVABLE_API_KEY, [
         {
@@ -90,7 +102,7 @@ Return ONLY valid JSON:
         .select('*')
         .eq('id', application_id)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (appError || !app) {
         return new Response(JSON.stringify({ error: 'Application not found' }), {
@@ -123,18 +135,21 @@ Return ONLY valid JSON:
         },
         {
           role: 'user',
-          content: `Review this trademark application:\n\nMark: "${app.mark_name}"\nType: ${app.mark_type}\nDescription: ${app.mark_description || 'None'}\nFiling Basis: ${app.filing_basis}\nFirst Use Date: ${app.first_use_date || 'N/A'}\nFirst Use in Commerce: ${app.first_use_commerce_date || 'N/A'}\nNice Classes: ${(app.nice_classes || []).join(', ') || 'None'}\nGoods/Services: ${JSON.stringify(app.goods_services)}\nOwner: ${app.owner_name || 'Not specified'} (${app.owner_type})\nSpecimen: ${app.specimen_description || 'Not provided'}`
+          content: `Review this trademark application:\n\nMark: "${app.mark_name}"\nType: ${app.mark_type}\nDescription: ${app.mark_description || 'None'}\nFiling Basis: ${app.filing_basis}\nFirst Use Date: ${app.first_use_date || 'N/A'}\nFirst Use in Commerce: ${app.first_use_commerce_date || 'N/A'}\nNice Classes: ${(app.nice_classes || []).join(', ') || 'None'}\nGoods/Services: ${JSON.stringify(app.goods_services)}\nOwner: ${app.owner_name || 'Not specified'} (${app.owner_type})\nSpecimen: ${app.specimen_description || 'Not provided'}\nSpecimen file uploaded: ${app.specimen_file_path ? 'Yes' : 'No'}`
         }
       ]);
 
-      // Save AI analysis to the application
-      await supabaseClient
+      // Save AI analysis to the application (never move a filed/paid application backwards)
+      const update: Record<string, unknown> = { ai_analysis: aiResponse };
+      if (!app.status || ['draft', 'ai_review', 'ready'].includes(app.status)) {
+        update.status = aiResponse?.readiness === 'ready' ? 'ready' : 'ai_review';
+      }
+      const { error: saveError } = await supabaseClient
         .from('trademark_applications')
-        .update({
-          ai_analysis: aiResponse,
-          status: aiResponse?.readiness === 'ready' ? 'ready' : 'ai_review',
-        })
-        .eq('id', application_id);
+        .update(update)
+        .eq('id', application_id)
+        .eq('user_id', userId);
+      if (saveError) console.error('[TRADEMARK DRAFT] Failed to save review:', saveError);
 
       return new Response(JSON.stringify({ success: true, review: aiResponse }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -143,7 +158,12 @@ Return ONLY valid JSON:
 
     // Action: specimen_guidance
     if (action === 'specimen_guidance') {
-      const { mark_name, mark_type, nice_classes, filing_basis } = data;
+      const mark_name = clip(data.mark_name, 120);
+      const mark_type = clip(data.mark_type, 40);
+      const filing_basis = clip(data.filing_basis, 40);
+      const nice_classes = Array.isArray(data.nice_classes)
+        ? data.nice_classes.filter((c: unknown) => typeof c === 'string').slice(0, 45).map((c: string) => c.slice(0, 5))
+        : [];
 
       const aiResponse = await callAI(LOVABLE_API_KEY, [
         {
@@ -179,7 +199,7 @@ Return ONLY valid JSON:
 
   } catch (error) {
     console.error('[TRADEMARK DRAFT] Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error)?.message || 'Request failed' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -198,6 +218,7 @@ async function callAI(apiKey: string, messages: any[]): Promise<any> {
       temperature: 0.2,
       max_tokens: 4000,
     }),
+    signal: AbortSignal.timeout(60000),
   });
 
   if (!response.ok) {
@@ -218,5 +239,6 @@ async function callAI(apiKey: string, messages: any[]): Promise<any> {
     console.error('[TRADEMARK DRAFT] JSON parse error:', e);
   }
 
-  return { error: 'Failed to parse AI response' };
+  // Surface as an error instead of handing the UI an empty "analysis"
+  throw new Error('The AI returned an unreadable response. Please try again.');
 }
