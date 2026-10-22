@@ -2,82 +2,73 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, saveSection, isSectionType,
+  sectionContentForExport,
+} from '../_shared/http.ts';
 
 interface RequestBody {
-  session_id: string;
-  section_type: string;
+  session_id?: string;
+  section_type?: string;
   user_input?: string;
 }
 
+// Legacy aliases -> values allowed by patent_sections.section_type CHECK
+const SECTION_ALIASES: Record<string, string> = {
+  detailed_description: 'description',
+  'detailed-description': 'description',
+  brief_description_of_drawings: 'drawings',
+  field_of_invention: 'field',
+};
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const caller = await authenticate(req);
+    const body = await readJson<RequestBody>(req, 200_000);
+    const rawType = String(body.section_type || '').trim().toLowerCase();
+    const section_type = SECTION_ALIASES[rawType] || rawType;
+    if (!isSectionType(section_type)) {
+      throw new HttpError(400, 'A valid section_type is required (abstract, field, background, summary, claims, drawings, description).');
     }
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const user_input = typeof body.user_input === 'string' ? body.user_input.slice(0, 10_000) : '';
 
-    const { session_id, section_type, user_input }: RequestBody = await req.json();
+    // Ownership check before using the service-role client
+    const session = await requireSessionAccess(caller, body.session_id);
+    const session_id: string = session.id;
+    const supabaseClient = caller.admin;
 
     console.log(`Drafting ${section_type} section for session:`, session_id);
 
-    // Get session data and all answered questions
-    const [sessionResult, questionsResult, existingSectionsResult] = await Promise.all([
-      supabaseClient
-        .from('patent_sessions')
-        .select('*')
-        .eq('id', session_id)
-        .single(),
+    const [questionsResult, existingSectionsResult] = await Promise.all([
       supabaseClient
         .from('ai_questions')
-        .select('*')
+        .select('question, answer')
         .eq('session_id', session_id)
         .not('answer', 'is', null),
       supabaseClient
         .from('patent_sections')
-        .select('*')
+        .select('section_type, content')
         .eq('session_id', session_id)
     ]);
 
-    if (sessionResult.error) throw sessionResult.error;
-
-    const session = sessionResult.data;
     const questions = questionsResult.data || [];
-    const existingSections = existingSectionsResult.data || [];
+    const existingSections = (existingSectionsResult.data || []).filter((s: any) => s.section_type !== section_type);
 
     // Build comprehensive context
     const inventionContext = `
-    Invention Title: ${session.idea_prompt}
+    Invention Title: ${String(session.idea_prompt || '').slice(0, 20000)}
     Patent Type: ${session.patent_type}
-    Technical Analysis: ${session.technical_analysis || ''}
+    Technical Analysis: ${String(session.technical_analysis || '').slice(0, 15000)}
     
     Detailed Q&A:
-    ${questions.map(q => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n')}
+    ${questions.map((q: any) => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n')}
     
     Existing Sections:
-    ${existingSections.map(s => `${s.section_type}:\n${s.content}`).join('\n\n')}
+    ${existingSections.map((s: any) => `${s.section_type}:\n${sectionContentForExport(s.section_type, s.content).slice(0, 8000)}`).join('\n\n')}
     
     ${user_input ? `Additional Input: ${user_input}` : ''}
     `;
@@ -98,7 +89,9 @@ serve(async (req) => {
       - How it solves the stated problems
       Keep it concise but comprehensive.`,
       
-      'detailed_description': `Write the Detailed Description section. Include:
+      'field': `Write the Field of the Invention section: 1-3 sentences identifying the technical field the invention pertains to. Use formal patent language.`,
+
+      'description': `Write the Detailed Description section. Include:
       - Comprehensive technical description
       - How the invention works
       - Implementation details
@@ -130,10 +123,10 @@ Return only the section content, formatted appropriately for a patent applicatio
 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      throw new Error('Lovable AI API key not configured');
+      throw new HttpError(500, 'AI service is not configured.');
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
@@ -148,67 +141,24 @@ Return only the section content, formatted appropriately for a patent applicatio
         temperature: 0.2,
         max_tokens: 2000,
       }),
+    }, 90_000);
+
+    if (!response.ok) throw await aiGatewayError(response, 'draft-patent-section');
+
+    const aiResponse = await response.json().catch(() => null);
+    const sectionContent = String(aiResponse?.choices?.[0]?.message?.content ?? '').trim();
+    if (!sectionContent) throw new HttpError(502, 'The AI returned an empty section. Please try again.');
+
+    await saveSection(supabaseClient, session_id, section_type, sectionContent);
+
+    return jsonResponse({
+      success: true,
+      section_type,
+      content: sectionContent,
+      word_count: sectionContent.split(/\s+/).length
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', errorText);
-      
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (response.status === 402) {
-        throw new Error('AI credits depleted. Please add credits to continue.');
-      }
-      
-      throw new Error(`Lovable AI API error: ${response.statusText}`);
-    }
-
-    const aiResponse = await response.json();
-    const sectionContent = aiResponse.choices[0].message.content;
-
-    // Check if section already exists
-    const existingSection = existingSections.find(s => s.section_type === section_type);
-
-    if (existingSection) {
-      // Update existing section
-      await supabaseClient
-        .from('patent_sections')
-        .update({ 
-          content: sectionContent,
-          is_user_edited: false 
-        })
-        .eq('id', existingSection.id);
-    } else {
-      // Create new section
-      await supabaseClient
-        .from('patent_sections')
-        .insert({
-          session_id,
-          section_type,
-          content: sectionContent,
-          is_user_edited: false
-        });
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        section_type,
-        content: sectionContent,
-        word_count: sectionContent.split(/\s+/).length
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
   } catch (error) {
-    console.error('Error in draft-patent-section:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return errorResponse(error, 'Failed to draft section', 'draft-patent-section');
   }
 });

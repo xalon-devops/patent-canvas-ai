@@ -2,56 +2,43 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, saveSection, isSectionType,
+  invokeFunctionAsService,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const caller = await authenticate(req);
+    const { session_id: rawSessionId, section_type } = await readJson<{ session_id?: string; section_type?: string }>(req, 16_000);
+
+    if (!rawSessionId || !section_type) {
+      throw new HttpError(400, 'session_id and section_type are required');
     }
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
-      global: { headers: { Authorization: authHeader } }
-    });
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!isSectionType(section_type)) {
+      throw new HttpError(400, 'Invalid section_type');
     }
 
-    const { session_id, section_type } = await req.json();
-    
-    if (!session_id || !section_type) {
-      return new Response(
-        JSON.stringify({ error: 'session_id and section_type are required' }), 
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Ownership check before using the service-role client
+    const session = await requireSessionAccess(caller, rawSessionId, 'id, user_id, idea_prompt');
+    const session_id: string = session.id;
+    const supabase = caller.admin;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) throw new HttpError(500, 'AI service is not configured.');
+
+    // Drawings are image figures produced by generate-patent-diagrams
+    if (section_type === 'drawings') {
+      const res = await invokeFunctionAsService('generate-patent-diagrams', {
+        session_id,
+        context: String(session.idea_prompt || '').slice(0, 1000),
+      }, 140_000);
+      if (!res || !res.ok) throw new HttpError(502, 'Failed to regenerate drawings. Please try again.');
+      return jsonResponse({ success: true, section_type, model_used: 'google/gemini-2.5-flash-image-preview', content_length: 0 });
     }
-
-    // Initialize clients
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Fetch session data, prior art, and existing sections
-    const { data: session } = await supabase
-      .from('patent_sessions')
-      .select('idea_prompt')
-      .eq('id', session_id)
-      .single();
 
     const { data: questions } = await supabase
       .from('ai_questions')
@@ -96,6 +83,11 @@ serve(async (req) => {
 - Covers multiple embodiments and variations
 - Uses precise engineering terminology and specifications`,
       
+      field: `Write the Field of the Invention section that:
+- States in 1-3 sentences the technical field the invention pertains to
+- Is specific but not overly narrow
+- Uses formal patent application language`,
+
       summary: `Write an invention summary that:
 - Clearly states the objects and advantages of the invention
 - Describes the technical solution and key innovations
@@ -108,13 +100,13 @@ serve(async (req) => {
                          `Create a detailed ${section_type} section for this patent application.`;
 
     // Build context from Q&A
-    const qaContext = questions?.map(q => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n') || '';
+    const qaContext = questions?.map((q: any) => `Q: ${q.question}\nA: ${q.answer}`).join('\n\n') || '';
 
     // Build prior art differentiation context
     let priorArtContext = '';
     if (priorArtResults && priorArtResults.length > 0) {
       priorArtContext = '\n\nPRIOR ART TO DIFFERENTIATE FROM:\n';
-      priorArtResults.forEach((result, i) => {
+      priorArtResults.forEach((result: any, i: number) => {
         priorArtContext += `${i + 1}. "${result.title}" (${Math.round((result.similarity_score || 0) * 100)}% similar)\n`;
         if (result.overlap_claims?.length) {
           priorArtContext += `   Overlapping aspects: ${result.overlap_claims.slice(0, 3).join(', ')}\n`;
@@ -128,7 +120,7 @@ serve(async (req) => {
 
     const fullPrompt = `${sectionPrompt}
 
-Invention Idea: ${session.idea_prompt}
+Invention Idea: ${String(session.idea_prompt || '').slice(0, 20000)}
 
 Additional Context from Q&A:
 ${qaContext}
@@ -145,7 +137,7 @@ Requirements:
     // Call Lovable AI
     const model = section_type === 'claims' ? 'google/gemini-2.5-pro' : 'google/gemini-2.5-flash';
     
-    const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const lovableResponse = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
@@ -166,61 +158,28 @@ Requirements:
         max_tokens: section_type === 'description' ? 2000 : 1000,
         temperature: 0.2,
       }),
-    });
+    }, 120_000);
 
-    if (!lovableResponse.ok) {
-      const errorText = await lovableResponse.text();
-      console.error('Lovable AI error:', errorText);
-      
-      if (lovableResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (lovableResponse.status === 402) {
-        throw new Error('AI credits depleted. Please add credits to continue.');
-      }
-      
-      throw new Error(`Lovable AI API error: ${lovableResponse.statusText}`);
-    }
+    if (!lovableResponse.ok) throw await aiGatewayError(lovableResponse, 'enhance-patent-section');
 
-    const lovableData = await lovableResponse.json();
-    const enhancedContent = lovableData.choices[0]?.message?.content;
+    const lovableData = await lovableResponse.json().catch(() => null);
+    const enhancedContent = String(lovableData?.choices?.[0]?.message?.content ?? '').trim();
 
     if (!enhancedContent) {
-      throw new Error('Failed to generate enhanced content');
+      throw new HttpError(502, 'Failed to generate enhanced content. Please try again.');
     }
 
-    // Update or create the section
-    const { error: upsertError } = await supabase
-      .from('patent_sections')
-      .upsert({
-        session_id,
-        section_type,
-        content: enhancedContent,
-        is_user_edited: false
-      }, {
-        onConflict: 'session_id,section_type'
-      });
+    // patent_sections has no UNIQUE(session_id, section_type), so upsert(onConflict) always failed.
+    await saveSection(supabase, session_id, section_type, enhancedContent);
 
-    if (upsertError) {
-      throw upsertError;
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        section_type,
-        model_used: model,
-        content_length: enhancedContent.length
-      }), 
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      section_type,
+      model_used: model,
+      content_length: enhancedContent.length
+    });
 
   } catch (error) {
-    console.error('Error enhancing patent section:', error);
-    const errMessage = error instanceof Error ? error.message : 'Failed to enhance patent section';
-    return new Response(
-      JSON.stringify({ success: false, error: errMessage }), 
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error, 'Failed to enhance patent section', 'enhance-patent-section');
   }
 });

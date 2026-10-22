@@ -2,70 +2,33 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, requireSearchAccess, consumeSearchCredit, toPgDate,
+  fetchWithTimeout, aiGatewayError, parseModelJson,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     console.log('Prior art search function started');
-    console.log('Request method:', req.method);
-    
-    const requestBody = await req.json();
-    console.log('Request body:', JSON.stringify(requestBody));
-    
+
+    const caller = await authenticate(req);
+    const requestBody = await readJson<{ session_id?: string; search_query?: string; patent_type?: string }>(req, 200_000);
     const { session_id } = requestBody;
-    
+
     if (!session_id) {
-      console.error('Missing session_id in request');
-      return new Response(
-        JSON.stringify({ error: 'session_id is required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      throw new HttpError(400, 'session_id is required');
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Ownership before any service-role access, then the search credit/subscription gate
+    const sessionData = await requireSessionAccess(caller, session_id);
+    const access = await requireSearchAccess(caller);
+    const supabase = caller.admin;
 
-    console.log('Environment check:');
-    console.log('SUPABASE_URL:', supabaseUrl ? 'Present' : 'Missing');
-    console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'Present' : 'Missing');
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    // Get patent session details with all related data
-    console.log('Fetching patent session details for:', session_id);
-    
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('patent_sessions')
-      .select('*')
-      .eq('id', session_id)
-      .single();
-
-    if (sessionError) {
-      console.error('Error fetching session:', sessionError);
-      return new Response(
-        JSON.stringify({ error: 'Session not found' }), 
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Session data retrieved:', sessionData.idea_prompt);
 
     // Get AI questions and answers for context
     const { data: questionsData, error: questionsError } = await supabase
@@ -91,19 +54,10 @@ serve(async (req) => {
       functions: backendStats.functions_found || 0
     });
 
-    // Clear existing prior art results for this session
-    const { error: deleteError } = await supabase
-      .from('prior_art_results')
-      .delete()
-      .eq('session_id', session_id);
-
-    if (deleteError) {
-      console.error('Error clearing existing prior art:', deleteError);
-    }
 
     // Build context from request or session + Q&A + backend analysis
-    const clientQuery: string | undefined = requestBody?.search_query;
-    const patentType: string | undefined = requestBody?.patent_type;
+    const clientQuery: string | undefined = typeof requestBody?.search_query === 'string' ? requestBody.search_query : undefined;
+    const patentType: string | undefined = typeof requestBody?.patent_type === 'string' ? requestBody.patent_type : undefined;
 
     const questionsText = questionsData?.map((q) => `${q.question}: ${q.answer || ''}`).join('\n') || '';
     
@@ -153,13 +107,7 @@ serve(async (req) => {
     
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ 
-          error: 'Patent search AI not configured. Please contact support.',
-          details: 'Missing LOVABLE_API_KEY'
-        }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new HttpError(500, 'Patent search AI not configured. Please contact support.');
     }
     
     try {
@@ -184,7 +132,7 @@ For EACH patent, provide:
 Return ONLY a valid JSON array with NO additional text:
 [{"patent_number":"US...","title":"...","abstract":"...","date":"YYYY-MM-DD","assignee":"..."}]`;
       
-      const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const lovableResponse = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -204,59 +152,31 @@ Return ONLY a valid JSON array with NO additional text:
           ],
           temperature: 0.3,
         }),
-      });
+      }, 60_000);
 
       if (!lovableResponse.ok) {
-        const errorText = await lovableResponse.text();
-        console.error(`Lovable AI HTTP ${lovableResponse.status}:`, errorText);
-        
-        // Handle rate limiting
-        if (lovableResponse.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Rate limited. Please try again in a moment.' }), 
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        if (lovableResponse.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), 
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+        throw await aiGatewayError(lovableResponse, 'search-prior-art');
       } else {
         const lovableData = await lovableResponse.json();
         const responseText = lovableData.choices?.[0]?.message?.content || '';
         console.log('Lovable AI response length:', responseText.length);
         
-        // Parse JSON from response (handle markdown code blocks)
-        let jsonText = responseText;
-        const jsonMatch = responseText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
-        if (jsonMatch) {
-          jsonText = jsonMatch[1];
-        } else if (responseText.includes('[') && responseText.includes(']')) {
-          const start = responseText.indexOf('[');
-          const end = responseText.lastIndexOf(']') + 1;
-          jsonText = responseText.substring(start, end);
-        }
-        
-        try {
-          const parsedResults = JSON.parse(jsonText);
-          if (Array.isArray(parsedResults)) {
-            apiResults = parsedResults.map((p: any) => ({
-              patent_number: p.patent_number || p.patentNumber || '',
-              patent_title: p.title || '',
-              patent_abstract: p.abstract || p.summary || '',
-              patent_date: p.date || p.filing_date || p.publication_date || null,
-              assignee_organization: [p.assignee || p.inventor || 'Unknown']
-            }));
-            console.log('✓ Lovable AI found patents:', apiResults.length);
-          }
-        } catch (parseErr) {
-          console.error('Failed to parse Lovable AI JSON:', parseErr);
-          console.log('Raw response:', responseText.substring(0, 500));
+        const parsedResults = parseModelJson(responseText);
+        if (Array.isArray(parsedResults)) {
+          apiResults = parsedResults.filter((p: any) => p && typeof p === 'object').slice(0, 15).map((p: any) => ({
+            patent_number: String(p.patent_number || p.patentNumber || ''),
+            patent_title: String(p.title || ''),
+            patent_abstract: String(p.abstract || p.summary || ''),
+            patent_date: p.date || p.filing_date || p.publication_date || null,
+            assignee_organization: [String(p.assignee || p.inventor || 'Unknown')]
+          }));
+          console.log('Lovable AI found patents:', apiResults.length);
+        } else {
+          console.error('Failed to parse Lovable AI JSON:', responseText.substring(0, 500));
         }
       }
     } catch (apiErr) {
+      if (apiErr instanceof HttpError && (apiErr.status === 429 || apiErr.status === 503)) throw apiErr;
       console.error('Lovable AI error:', apiErr instanceof Error ? apiErr.message : String(apiErr));
       apiResults = [];
     }
@@ -268,7 +188,7 @@ Return ONLY a valid JSON array with NO additional text:
     if (OPENAI_API_KEY) {
       try {
         console.log('Generating semantic embedding with OpenAI...');
-        const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        const embeddingResponse = await fetchWithTimeout('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -278,7 +198,7 @@ Return ONLY a valid JSON array with NO additional text:
             model: 'text-embedding-3-small',
             input: contextText.substring(0, 8000),
           }),
-        });
+        }, 15_000);
 
         if (embeddingResponse.ok) {
           const embeddingData = await embeddingResponse.json();
@@ -329,7 +249,7 @@ Return ONLY a valid JSON array with NO additional text:
       let semanticScore = 0;
       if (queryEmbedding && OPENAI_API_KEY) {
         try {
-          const patentEmbResponse = await fetch('https://api.openai.com/v1/embeddings', {
+          const patentEmbResponse = await fetchWithTimeout('https://api.openai.com/v1/embeddings', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -339,7 +259,7 @@ Return ONLY a valid JSON array with NO additional text:
               model: 'text-embedding-3-small',
               input: combinedText.substring(0, 8000),
             }),
-          });
+          }, 15_000);
 
           if (patentEmbResponse.ok) {
             const patentEmbData = await patentEmbResponse.json();
@@ -394,7 +314,8 @@ Return ONLY a valid JSON array with NO additional text:
         differenceClaims.push(`${backendStats.functions_found} proprietary serverless functions`);
       }
       
-      const pubNum = p.patent_number ? `US${p.patent_number}` : '';
+      const rawNum = String(p.patent_number || '').replace(/\s+/g, '').toUpperCase();
+      const pubNum = rawNum ? (rawNum.startsWith('US') ? rawNum : `US${rawNum}`) : '';
       priorArtResults.push({
         title: title || 'Untitled Patent',
         publication_number: pubNum,
@@ -406,7 +327,7 @@ Return ONLY a valid JSON array with NO additional text:
         url: pubNum ? `https://patents.google.com/patent/${pubNum}` : 'https://patents.google.com',
         overlap_claims: overlapClaims.length > 0 ? overlapClaims.slice(0, 5) : ['General technological approach'],
         difference_claims: differenceClaims.length > 0 ? differenceClaims.slice(0, 5) : ['Specific implementation details'],
-        patent_date: p.patent_date || null
+        patent_date: toPgDate(p.patent_date)
       });
     }
     
@@ -418,17 +339,13 @@ Return ONLY a valid JSON array with NO additional text:
     // If no results found, that's actually good news for patentability!
     if (priorArtResults.length === 0) {
       console.log('No prior art found - strong novelty indicator');
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          results_found: 0,
-          message: 'No similar patents found - this indicates strong novelty for your invention!'
-        }), 
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      const remaining = await consumeSearchCredit(caller, access);
+      return jsonResponse({
+        success: true,
+        results_found: 0,
+        search_credits_remaining: remaining,
+        message: 'No similar patents found - this indicates strong novelty for your invention!'
+      });
     }
 
     // Sort by similarity desc
@@ -453,6 +370,15 @@ Return ONLY a valid JSON array with NO additional text:
       source: 'patentsview'
     }));
 
+    // Replace previous results only now that the new search succeeded
+    const { error: deleteError } = await supabase
+      .from('prior_art_results')
+      .delete()
+      .eq('session_id', session_id);
+    if (deleteError) {
+      console.error('Error clearing existing prior art:', deleteError);
+    }
+
     const { data: insertedResults, error: insertError } = await supabase
       .from('prior_art_results')
       .insert(priorArtInserts)
@@ -460,40 +386,21 @@ Return ONLY a valid JSON array with NO additional text:
 
     if (insertError) {
       console.error('Error inserting prior art results:', insertError);
-      throw insertError;
+      throw new HttpError(500, 'Failed to save prior art results');
     }
+
+    const remaining = await consumeSearchCredit(caller, access);
 
     console.log('Successfully inserted prior art results:', insertedResults?.length);
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        results_found: priorArtResults.length,
-        message: 'Prior art search completed successfully'
-      }), 
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      results_found: priorArtResults.length,
+      search_credits_remaining: remaining,
+      message: 'Prior art search completed successfully'
+    });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorDetails = error instanceof Error ? error.stack : 'No stack trace';
-    
-    console.error('Error in prior art search:', errorMessage);
-    console.error('Error details:', errorDetails);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: 'Internal server error', 
-        details: errorMessage,
-        message: 'Failed to complete prior art search'
-      }), 
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(error, 'Failed to complete prior art search', 'search-prior-art');
   }
-})
+});

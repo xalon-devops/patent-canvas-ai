@@ -1,41 +1,36 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  assertPublicHttpUrl, fetchWithTimeout,
+} from '../_shared/http.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { url, options } = await req.json();
-
-    if (!url) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Signed-in users only (prevents anonymous use of the paid Firecrawl key)
+    await authenticate(req);
+    const { url, options } = await readJson<{ url?: string; options?: Record<string, unknown> }>(req, 16_000);
 
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) {
       console.error('FIRECRAWL_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl connector not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new HttpError(500, 'Website reading is not configured');
     }
 
-    // Format URL
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-      formattedUrl = `https://${formattedUrl}`;
-    }
+    // Format URL + SSRF guard
+    const formattedUrl = assertPublicHttpUrl(url);
+
+    // Only pass through known-safe options
+    const allowedFormats = ['markdown', 'html', 'rawHtml', 'links', 'screenshot'];
+    const formats = Array.isArray(options?.formats)
+      ? (options!.formats as unknown[]).filter((f): f is string => typeof f === 'string' && allowedFormats.includes(f))
+      : [];
+    const waitFor = typeof options?.waitFor === 'number' ? Math.max(0, Math.min(10_000, options.waitFor as number)) : undefined;
 
     console.log('Scraping URL with Firecrawl:', formattedUrl);
 
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    const response = await fetchWithTimeout('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -43,34 +38,24 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         url: formattedUrl,
-        formats: options?.formats || ['markdown'],
-        onlyMainContent: options?.onlyMainContent ?? true,
-        waitFor: options?.waitFor,
-        location: options?.location,
+        formats: formats.length ? formats : ['markdown'],
+        onlyMainContent: typeof options?.onlyMainContent === 'boolean' ? options.onlyMainContent : true,
+        waitFor,
+        location: options?.location && typeof options.location === 'object' ? options.location : undefined,
       }),
-    });
+    }, 60_000);
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
 
-    if (!response.ok) {
-      console.error('Firecrawl API error:', data);
-      return new Response(
-        JSON.stringify({ success: false, error: data.error || `Request failed with status ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!response.ok || !data) {
+      console.error('Firecrawl API error:', response.status, data);
+      const status = response.status === 429 ? 429 : 502;
+      throw new HttpError(status, (data && typeof data.error === 'string' ? data.error : null) || `Could not read that website (status ${response.status})`);
     }
 
     console.log('Firecrawl scrape successful');
-    return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(data);
   } catch (error) {
-    console.error('Error scraping:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to scrape';
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error, 'Failed to scrape', 'firecrawl-scrape');
   }
 });

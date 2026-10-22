@@ -2,97 +2,52 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson,
+  requireSessionAccess, requireApplicationEntitlement, HttpError, sectionContentForExport,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     console.log('File patent function started');
-    
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization required' }), 
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const caller = await authenticate(req);
+    const supabase = caller.admin;
+    const { session_id: rawSessionId } = await readJson<{ session_id?: string }>(req, 64_000);
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }), 
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    const { session_id } = await req.json();
-    
-    if (!session_id) {
-      console.error('Missing session_id in request');
-      return new Response(
-        JSON.stringify({ error: 'session_id is required' }), 
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check payment status before allowing filing
-    const { data: payment } = await supabase
-      .from('application_payments')
-      .select('status')
-      .eq('application_id', session_id)
-      .eq('user_id', userData.user.id)
-      .single();
-
-    if (!payment || payment.status !== 'completed') {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Payment required',
-          message: 'Please complete the $1,000 payment to file your patent application'
-        }), 
-        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Ownership (owner or admin), then paid entitlement for this application
+    const session = await requireSessionAccess(caller, rawSessionId, 'id, user_id, status, title, idea_prompt');
+    const session_id: string = session.id;
+    await requireApplicationEntitlement(caller, session_id);
 
     // Fetch patent sections
     console.log('Fetching patent sections for session:', session_id);
-    const { data: sections, error: sectionsError } = await supabase
+    const { data: rawSections, error: sectionsError } = await supabase
       .from('patent_sections')
-      .select('section_type, content')
+      .select('section_type, content, created_at')
       .eq('session_id', session_id)
       .order('created_at', { ascending: true });
 
     if (sectionsError) {
       console.error('Error fetching sections:', sectionsError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch patent sections' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      throw new HttpError(500, 'Failed to fetch patent sections');
     }
 
-    if (!sections || sections.length === 0) {
-      console.error('No patent sections found for session:', session_id);
-      return new Response(
-        JSON.stringify({ error: 'No patent sections found' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // Keep only the newest non-empty row per section type (no UNIQUE constraint on section_type)
+    const latestByType = new Map<string, any>();
+    for (const sec of rawSections ?? []) {
+      if (sec.content && String(sec.content).trim()) latestByType.set(sec.section_type, sec);
+    }
+    const sections = Array.from(latestByType.values());
+
+    if (sections.length === 0) {
+      throw new HttpError(409, 'No patent sections found. Generate your draft before filing.');
+    }
+    if (!latestByType.has('claims')) {
+      throw new HttpError(409, 'Your application needs a Claims section before it can be filed.');
     }
 
     // Combine sections into full patent text with markdown headers
@@ -104,7 +59,7 @@ serve(async (req) => {
       if (section) {
         const headerLevel = sectionType === 'abstract' ? '## ' : '### ';
         const title = sectionType.charAt(0).toUpperCase() + sectionType.slice(1).replace('_', ' ');
-        fullPatentText += `${headerLevel}${title}\n\n${section.content}\n\n`;
+        fullPatentText += `${headerLevel}${title}\n\n${toPlainText(sectionContentForExport(section.section_type, section.content))}\n\n`;
       }
     });
 
@@ -112,7 +67,7 @@ serve(async (req) => {
     sections.forEach(section => {
       if (!sectionOrder.includes(section.section_type)) {
         const title = section.section_type.charAt(0).toUpperCase() + section.section_type.slice(1).replace('_', ' ');
-        fullPatentText += `### ${title}\n\n${section.content}\n\n`;
+        fullPatentText += `### ${title}\n\n${toPlainText(sectionContentForExport(section.section_type, section.content))}\n\n`;
       }
     });
 
@@ -158,10 +113,11 @@ serve(async (req) => {
         <body>
           <div class="header">
             <h1>UTILITY PATENT APPLICATION</h1>
+            <p><strong>Title:</strong> ${escapeHtml(String(session.title || session.idea_prompt || 'Untitled Invention').slice(0, 300))}</p>
             <p><strong>Session ID:</strong> ${session_id}</p>
             <p><strong>Filed:</strong> ${new Date().toISOString().split('T')[0]}</p>
           </div>
-          ${fullPatentText.replace(/\n/g, '<br>').replace(/### (.*?)<br>/g, '<h3>$1</h3>').replace(/## (.*?)<br>/g, '<h2>$1</h2>')}
+          ${escapeHtml(fullPatentText).replace(/\n/g, '<br>').replace(/### (.*?)<br>/g, '<h3>$1</h3>').replace(/## (.*?)<br>/g, '<h2>$1</h2>')}
         </body>
       </html>
     `;
@@ -173,7 +129,8 @@ serve(async (req) => {
 
     // Upload to new patent-docs bucket with filing bundle
     console.log('Creating patent filing bundle');
-    const baseDir = `${session_id}/filing-bundle`;
+    // patent-docs paths must start with the owner's uid so the owner can read them via RLS
+    const baseDir = `${session.user_id}/${session_id}/filing-bundle`;
     
     // Generate USPTO forms
     const sb16Form = generateSB16Form(session_id);
@@ -209,14 +166,8 @@ serve(async (req) => {
     // Check for upload errors
     const uploadErrors = uploads.filter(u => u.error);
     if (uploadErrors.length > 0) {
-      console.error('Upload errors:', uploadErrors);
-      return new Response(
-        JSON.stringify({ error: 'Failed to upload patent filing bundle' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      console.error('Upload errors:', uploadErrors.map(u => u.error?.message));
+      throw new HttpError(500, 'Failed to upload patent filing bundle');
     }
 
     // patent-docs is a private bucket, so a public URL would 400. Issue a signed URL instead.
@@ -226,10 +177,7 @@ serve(async (req) => {
 
     if (signError || !urlData?.signedUrl) {
       console.error('Failed to sign download URL:', signError);
-      return new Response(
-        JSON.stringify({ error: `Failed to create download link: ${signError?.message ?? 'unknown error'}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new HttpError(500, 'Failed to create download link');
     }
 
     const downloadUrl = urlData.signedUrl;
@@ -245,33 +193,42 @@ serve(async (req) => {
       .eq('id', session_id);
 
     if (updateError) {
-      console.warn('Error updating session status:', updateError);
+      console.error('Error updating session status:', updateError);
+      throw new HttpError(500, 'Your filing bundle was created but the application status could not be updated. Please try again.');
     }
 
     console.log('Patent filing completed successfully');
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        download_url: downloadUrl,
-        file_name: fileName
-      }), 
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      status: 'filed',
+      download_url: downloadUrl,
+      file_name: fileName
+    });
 
   } catch (error) {
-    console.error('Unexpected error in file-patent function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }), 
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error, 'Failed to file patent', 'file-patent');
   }
 });
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function toPlainText(html: string | null | undefined): string {
+  return String(html || '')
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/\s*(p|div|h[1-6]|li|tr)\s*>/gi, '\n\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function generateSB16Form(sessionId: string): string {
   return `USPTO FORM SB/16 - APPLICATION DATA SHEET
@@ -354,7 +311,7 @@ CLAIM STRUCTURE ANALYSIS:
 `;
 
   if (claimsSection) {
-    const lines = claimsSection.content.split('\n').filter((line: string) => line.trim());
+    const lines = toPlainText(claimsSection.content).split('\n').filter((line: string) => line.trim());
     let independentClaims = 0;
     let dependentClaims = 0;
     const claimAnalysis: string[] = [];

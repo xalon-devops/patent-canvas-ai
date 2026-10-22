@@ -1,79 +1,63 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, isUuid,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const caller = await authenticate(req);
+    const { session_id: rawSessionId, prior_art_id } = await readJson<{ session_id?: string; prior_art_id?: string }>(req, 16_000);
+    if (!isUuid(prior_art_id)) throw new HttpError(400, 'A valid prior_art_id is required.');
 
-    const { session_id, prior_art_id } = await req.json();
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Ownership check before using the service-role client
+    const session = await requireSessionAccess(caller, rawSessionId, 'id, user_id');
+    const session_id: string = session.id;
+    const supabaseClient = caller.admin;
 
     console.log('[CLAIM CHART] Generating element-by-element comparison...');
 
-    // Fetch claims section
-    const { data: claimsSection } = await supabaseClient
+    // Fetch latest claims section (duplicates possible: no UNIQUE(session_id, section_type))
+    const { data: claimsRows } = await supabaseClient
       .from('patent_sections')
       .select('content')
       .eq('session_id', session_id)
       .eq('section_type', 'claims')
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const claimsSection = claimsRows?.[0];
 
-    if (!claimsSection) {
-      throw new Error('Claims not found. Generate patent draft first.');
+    if (!claimsSection?.content) {
+      throw new HttpError(409, 'Claims not found. Generate patent draft first.');
     }
 
-    // Fetch prior art
+    // Prior art must belong to the same (owned) session
     const { data: priorArt } = await supabaseClient
       .from('prior_art_results')
       .select('*')
       .eq('id', prior_art_id)
-      .single();
+      .eq('session_id', session_id)
+      .maybeSingle();
 
     if (!priorArt) {
-      throw new Error('Prior art not found');
+      throw new HttpError(404, 'Prior art not found');
     }
 
     // Use Lovable AI to generate claim chart
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      throw new HttpError(500, 'AI service is not configured.');
     }
 
     const prompt = `Create a detailed claim chart comparing patent claims to prior art.
 
 YOUR CLAIMS:
-${claimsSection.content}
+${String(claimsSection.content).slice(0, 30000)}
 
 PRIOR ART:
 Title: ${priorArt.title}
@@ -93,7 +77,7 @@ Also provide:
 - Differentiation Strategy: How to strengthen claims to avoid this prior art
 - Recommendation: File as-is, amend claims, or abandon?`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -111,44 +95,35 @@ Also provide:
         temperature: 0.2,
         max_tokens: 3000
       }),
-    });
+    }, 90_000);
 
-    if (!response.ok) {
-      throw new Error('Failed to generate claim chart');
+    if (!response.ok) throw await aiGatewayError(response, 'generate-claim-chart');
+
+    const data = await response.json().catch(() => null);
+    const claimChart = String(data?.choices?.[0]?.message?.content ?? '');
+    if (!claimChart.trim()) throw new HttpError(502, 'Failed to generate claim chart');
+
+    // Store parsed overlaps/differences, but never wipe existing ones with an empty parse
+    const overlaps = extractOverlapClaims(claimChart);
+    const differences = extractDifferenceClaims(claimChart);
+    const update: Record<string, string[]> = {};
+    if (overlaps.length) update.overlap_claims = overlaps;
+    if (differences.length) update.difference_claims = differences;
+    if (Object.keys(update).length) {
+      const { error: updErr } = await supabaseClient.from('prior_art_results').update(update).eq('id', prior_art_id);
+      if (updErr) console.warn('[CLAIM CHART] Failed to store overlaps:', updErr.message);
     }
-
-    const data = await response.json();
-    const claimChart = data.choices[0].message.content;
-
-    // Store claim chart
-    await supabaseClient
-      .from('prior_art_results')
-      .update({
-        overlap_claims: extractOverlapClaims(claimChart),
-        difference_claims: extractDifferenceClaims(claimChart)
-      })
-      .eq('id', prior_art_id);
 
     console.log('[CLAIM CHART] Generated successfully');
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       claim_chart: claimChart,
       prior_art_id: prior_art_id
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('[CLAIM CHART] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(error, 'Failed to generate claim chart', 'generate-claim-chart');
   }
 });
 

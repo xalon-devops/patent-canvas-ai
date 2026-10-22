@@ -1,13 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError, parseModelJson } from "../_shared/http.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const json = (body: unknown, status = 200) => jsonResponse(body, status);
 
 interface InputResult {
   id?: string;
@@ -36,7 +30,18 @@ interface PatentRecord {
   first_claim: string | null;
 }
 
-const normalizePub = (raw: string) => raw.toUpperCase().replace(/[\s\/,.-]/g, "");
+// Only alphanumerics survive: the value is interpolated into a URL path.
+const normalizePub = (raw: string) => String(raw).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32);
+
+function isGooglePatentsUrl(u: string | undefined): boolean {
+  if (!u) return false;
+  try {
+    const parsed = new URL(u);
+    return parsed.protocol === "https:" && parsed.hostname === "patents.google.com" && parsed.pathname.startsWith("/patent/");
+  } catch {
+    return false;
+  }
+}
 
 const strip = (s: string) =>
   s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'")
@@ -64,7 +69,7 @@ async function fetchPatent(r: InputResult): Promise<PatentRecord> {
     jurisdiction: pub.slice(0, 2) || null, is_granted: false, first_claim: null,
   };
   const candidates: string[] = [];
-  if (r.url && r.url.includes("patents.google.com/patent/")) candidates.push(r.url.split("?")[0]);
+  if (isGooglePatentsUrl(r.url)) candidates.push(r.url!.split("?")[0]);
   if (pub) {
     candidates.push(`https://patents.google.com/patent/${pub}/en`);
     const noKind = pub.replace(/[A-Z]\d?$/, "");
@@ -144,9 +149,14 @@ ${JSON.stringify(items)}`;
     if (!res.ok) { console.error("AI error", res.status, await res.text()); return {}; }
     const data = await res.json();
     const txt = data.choices?.[0]?.message?.content || "{}";
-    const parsed = JSON.parse(txt.replace(/^```json\s*|```$/g, ""));
+    const parsed: any = parseModelJson(txt) || {};
     const out: Record<string, any> = {};
-    for (const a of parsed.assessments || []) if (live[a.i]) out[live[a.i].key] = a;
+    for (const a of Array.isArray(parsed.assessments) ? parsed.assessments : []) {
+      if (a && typeof a.i === "number" && live[a.i]) {
+        if (!["Low", "Medium", "High"].includes(a.risk)) a.risk = "Unknown";
+        out[live[a.i].key] = a;
+      }
+    }
     return out;
   } catch (e) {
     console.error("AI assess failed", e);
@@ -155,16 +165,14 @@ ${JSON.stringify(items)}`;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
   try {
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const { data: { user } } = token ? await sb.auth.getUser(token) : { data: { user: null } };
-    if (!user) return json({ error: "Your session has expired. Please sign in again." }, 401);
+    await authenticate(req);
 
-    const { results, product_description } = await req.json();
-    if (!Array.isArray(results) || results.length === 0) return json({ error: "results are required" }, 400);
-    const list: InputResult[] = results.slice(0, 15);
+    const { results, product_description } = await readJson<{ results?: unknown; product_description?: unknown }>(req, 500_000);
+    if (!Array.isArray(results) || results.length === 0) throw new HttpError(400, "results are required");
+    const list: InputResult[] = results.slice(0, 15).filter((r) => r && typeof r === "object") as InputResult[];
 
     const records = await Promise.all(list.map(async (r) => ({ ...(await fetchPatent(r)), title: r.title, summary: r.summary })));
     const risks = await assessRisk(String(product_description || ""), records);
@@ -200,7 +208,6 @@ serve(async (req) => {
       disclaimer: "Preliminary automated screen based on public patent records. It is not a legal opinion; consult a registered patent attorney before relying on it.",
     });
   } catch (e) {
-    console.error(e);
-    return json({ error: e instanceof Error ? e.message : "Unexpected error" }, 500);
+    return errorResponse(e, "Risk assessment failed. Please try again.", "assess-patent-risk");
   }
 });

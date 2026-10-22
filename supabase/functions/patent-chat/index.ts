@@ -1,81 +1,62 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import {
+  handleCors, corsHeaders, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, sectionContentForExport,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const caller = await authenticate(req);
+    const body = await readJson<{ messages?: unknown; sessionId?: string; mode?: string }>(req, 300_000);
+    const { sessionId, mode } = body;
 
-    const { messages, sessionId, mode } = await req.json();
-    
+    // Only user/assistant turns with string content; never let the client inject system prompts
+    const messages = (Array.isArray(body.messages) ? body.messages : [])
+      .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      .slice(-20)
+      .map((m: any) => ({ role: m.role, content: m.content.slice(0, 12_000) }));
+    if (messages.length === 0) throw new HttpError(400, 'messages are required');
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
+    if (!LOVABLE_API_KEY) throw new HttpError(500, 'AI service is not configured.');
 
-    // Fetch patent context if sessionId provided
+    // Fetch patent context if sessionId provided (ownership verified first)
     let patentContext = '';
     if (sessionId) {
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const session = await requireSessionAccess(caller, sessionId, 'id, user_id, idea_prompt, patent_type, technical_analysis, patentability_score');
+      const supabaseClient = caller.admin;
 
-      const { data: session } = await supabaseClient
-        .from('patent_sessions')
-        .select('idea_prompt, patent_type, technical_analysis, patentability_score')
-        .eq('id', sessionId)
-        .single();
-
-      const { data: sections } = await supabaseClient
-        .from('patent_sections')
-        .select('section_type, content')
-        .eq('session_id', sessionId);
-
-      const { data: priorArt } = await supabaseClient
-        .from('prior_art_results')
-        .select('title, publication_number, similarity_score, overlap_claims, difference_claims')
-        .eq('session_id', sessionId)
-        .order('similarity_score', { ascending: false })
-        .limit(5);
+      const [{ data: sections }, { data: priorArt }] = await Promise.all([
+        supabaseClient
+          .from('patent_sections')
+          .select('section_type, content')
+          .eq('session_id', session.id),
+        supabaseClient
+          .from('prior_art_results')
+          .select('title, publication_number, similarity_score, overlap_claims, difference_claims')
+          .eq('session_id', session.id)
+          .order('similarity_score', { ascending: false })
+          .limit(5),
+      ]);
 
       if (session) {
         patentContext = `
 PATENT APPLICATION CONTEXT:
-- Invention: ${session.idea_prompt || 'Not specified'}
+- Invention: ${String(session.idea_prompt || 'Not specified').slice(0, 8000)}
 - Type: ${session.patent_type || 'Not specified'}
 - Patentability Score: ${session.patentability_score ? (session.patentability_score * 100).toFixed(0) + '%' : 'Not assessed'}
-- Technical Analysis: ${session.technical_analysis || 'None'}
+- Technical Analysis: ${String(session.technical_analysis || 'None').slice(0, 6000)}
 
 CURRENT DRAFT SECTIONS:
-${(sections || []).map(s => `[${s.section_type}]: ${(s.content || '').substring(0, 500)}...`).join('\n\n')}
+${(sections || []).map((s: any) => `[${s.section_type}]: ${sectionContentForExport(s.section_type, s.content).substring(0, 500)}...`).join('\n\n')}
 
 TOP PRIOR ART (potential conflicts):
-${(priorArt || []).map(p => `- ${p.title} (${p.publication_number}) - ${((p.similarity_score || 0) * 100).toFixed(0)}% similar
+${(priorArt || []).map((p: any) => `- ${p.title} (${p.publication_number}) - ${((p.similarity_score || 0) * 100).toFixed(0)}% similar
   Overlaps: ${(p.overlap_claims || []).join('; ')}
   Differences: ${(p.difference_claims || []).join('; ')}`).join('\n')}
 `;
@@ -145,7 +126,7 @@ ${patentContext}
 Be specific, cite relevant patent law, and provide actionable advice. When suggesting changes, provide exact language. Keep responses focused and professional.`;
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -161,38 +142,15 @@ Be specific, cite relevant patent law, and provide actionable advice. When sugge
         max_tokens: 4000,
         temperature: 0.4,
       }),
-    });
+    }, 60_000);
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again shortly.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits depleted. Please add credits.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const t = await response.text();
-      console.error('AI gateway error:', response.status, t);
-      return new Response(JSON.stringify({ error: 'AI service unavailable' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!response.ok) throw await aiGatewayError(response, 'patent-chat');
 
     return new Response(response.body, {
       headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
     });
 
   } catch (e) {
-    console.error('patent-chat error:', e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(e, 'AI service unavailable', 'patent-chat');
   }
 });

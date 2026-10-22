@@ -2,58 +2,39 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, sectionContentForExport,
+} from '../_shared/http.ts';
 
 interface RequestBody {
   session_id?: string;
-  question: string;
-  answer: string;
+  question?: string;
+  answer?: string;
   github_url?: string;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const supabaseAuthClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuthClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const caller = await authenticate(req);
 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'Lovable AI API key not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!lovableApiKey) throw new HttpError(500, 'AI service is not configured.');
 
-    const { session_id, question, answer, github_url }: RequestBody = await req.json();
+    const body = await readJson<RequestBody>(req, 100_000);
+    const session_id = body.session_id;
+    const question = String(body.question || '').slice(0, 2000);
+    const answer = String(body.answer || '').slice(0, 10000);
+    const github_url = typeof body.github_url === 'string' ? body.github_url.slice(0, 500) : '';
+    if (!answer.trim()) throw new HttpError(400, 'answer is required');
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
+    // Previously this used an anon client without the user's JWT, so RLS returned no context at all.
+    // Verify ownership, then read with the service-role client.
+    if (session_id) await requireSessionAccess(caller, session_id, 'id, user_id');
+    const supabase = caller.admin;
 
     // Collect contextual knowledge for the session if available
     let session: any = null;
@@ -88,7 +69,7 @@ serve(async (req) => {
       parts.push(`Invention: ${session.idea_prompt || ''}`);
       parts.push(`Patent Type: ${session.patent_type || ''}`);
       if (session.technical_analysis) {
-        parts.push(`Technical Analysis: ${session.technical_analysis.slice(0, 1500)}`);
+        parts.push(`Technical Analysis: ${String(session.technical_analysis).slice(0, 1500)}`);
       }
     }
     if (github_url) parts.push(`GitHub: ${github_url}`);
@@ -97,21 +78,21 @@ serve(async (req) => {
     if (backendData) {
       const backendParts: string[] = [];
       if (backendData.ai_summary) {
-        backendParts.push(`Backend Summary: ${backendData.ai_summary.slice(0, 2000)}`);
+        backendParts.push(`Backend Summary: ${String(backendData.ai_summary).slice(0, 2000)}`);
       }
-      if (backendData.database?.tables) {
+      if (Array.isArray(backendData.database?.tables)) {
         const tables = backendData.database.tables.slice(0, 10).map((t: any) => 
           `Table ${t.name}: ${t.columns?.slice(0, 8).map((c: any) => c.name).join(', ') || 'N/A'}`
         ).join('\n');
         backendParts.push(`Database Tables:\n${tables}`);
       }
-      if (backendData.functions?.edge_functions) {
+      if (Array.isArray(backendData.functions?.edge_functions)) {
         const funcs = backendData.functions.edge_functions.slice(0, 8).map((f: any) => 
           `Function: ${f.name} - ${f.description || 'N/A'}`
         ).join('\n');
         backendParts.push(`Edge Functions:\n${funcs}`);
       }
-      if (backendData.storage?.buckets) {
+      if (Array.isArray(backendData.storage?.buckets)) {
         const buckets = backendData.storage.buckets.map((b: any) => 
           `Bucket: ${b.name} (${b.public ? 'public' : 'private'})`
         ).join(', ');
@@ -123,7 +104,7 @@ serve(async (req) => {
     }
     
     if (sections?.length) {
-      const joined = sections.slice(0, 6).map((s) => `# ${s.section_type}\n${(s.content || '').slice(0, 1000)}`).join('\n\n');
+      const joined = sections.slice(0, 6).map((s) => `# ${s.section_type}\n${sectionContentForExport(s.section_type, s.content).slice(0, 1000)}`).join('\n\n');
       parts.push(`Sections:\n${joined}`);
     }
     if (qaPairs?.length) {
@@ -131,7 +112,7 @@ serve(async (req) => {
       parts.push(`Q&A so far:\n${joined}`);
     }
     if (priorArt?.length) {
-      const joined = priorArt.slice(0, 5).map((p) => `- ${p.title} :: ${(p.similarity_score*100 || 0).toFixed(1)}%\n${p.summary || ''}` ).join('\n');
+      const joined = priorArt.slice(0, 5).map((p) => `- ${p.title} :: ${((Number(p.similarity_score) || 0) * 100).toFixed(1)}%\n${p.summary || ''}` ).join('\n');
       parts.push(`Relevant prior art:\n${joined}`);
     }
     if (docs?.length) {
@@ -151,7 +132,7 @@ Return ONLY the enhanced answer text without any surrounding commentary.`;
 
     const userPrompt = `QUESTION:\n${question}\n\nUSER'S SHORT ANSWER:\n${answer}\n\nCONTEXT (for reference):\n${context}`;
 
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const resp = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
@@ -166,43 +147,16 @@ Return ONLY the enhanced answer text without any surrounding commentary.`;
         max_tokens: 600,
         temperature: 0.3,
       }),
-    });
+    }, 45_000);
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      console.error('enhance-answer Lovable AI error:', txt);
-      
-      if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (resp.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      return new Response(JSON.stringify({ error: 'AI request failed' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!resp.ok) throw await aiGatewayError(resp, 'enhance-answer');
 
-    const data = await resp.json();
-    const enhanced = data?.choices?.[0]?.message?.content?.trim() || '';
+    const data = await resp.json().catch(() => null);
+    const enhanced = String(data?.choices?.[0]?.message?.content ?? '').trim();
+    if (!enhanced) throw new HttpError(502, 'Could not enhance this answer. Please try again.');
 
-    return new Response(
-      JSON.stringify({ success: true, enhancedAnswer: enhanced }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error: any) {
-    console.error('Error in enhance-answer:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ success: true, enhancedAnswer: enhanced });
+  } catch (error) {
+    return errorResponse(error, 'Failed to enhance answer', 'enhance-answer');
   }
 });

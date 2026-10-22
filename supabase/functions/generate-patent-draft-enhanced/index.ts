@@ -1,200 +1,129 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, saveSection, markDraftComplete,
+  invokeFunctionAsService, type PatentSectionType,
+} from '../_shared/http.ts';
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const caller = await authenticate(req);
+    const { session_id: rawSessionId } = await readJson<{ session_id?: string }>(req, 64_000);
+    if (!LOVABLE_API_KEY) throw new HttpError(500, 'AI service is not configured.');
 
-    const { session_id } = await req.json();
-    
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Ownership check before using the service-role client
+    const sessionData = await requireSessionAccess(caller, rawSessionId);
+    const session_id: string = sessionData.id;
+    const supabaseClient = caller.admin;
 
     console.log('[ENHANCED DRAFT - LOVABLE AI] Starting iterative patent generation');
 
-    // Fetch session data
-    const { data: sessionData, error: sessionError } = await supabaseClient
-      .from('patent_sessions')
-      .select('*')
-      .eq('id', session_id)
-      .single();
-
-    if (sessionError || !sessionData) {
-      console.error('[ENHANCED DRAFT] Session fetch error:', sessionError);
-      throw new Error(`Session not found: ${sessionError?.message || 'Unknown error'}`);
-    }
-
-    console.log('[ENHANCED DRAFT] Session found, fetching AI questions');
-
-    // Fetch AI questions separately
     const { data: aiQuestions, error: questionsError } = await supabaseClient
       .from('ai_questions')
-      .select('*')
+      .select('question, answer')
       .eq('session_id', session_id);
 
     if (questionsError) {
       console.error('[ENHANCED DRAFT] Questions fetch error:', questionsError);
     }
 
-    // Build context
-    let context = `INVENTION IDEA: ${sessionData.idea_prompt || 'Not provided'}\n\n`;
+    // Build context (bounded so prompts stay within model limits)
+    let context = `INVENTION IDEA: ${String(sessionData.idea_prompt || 'Not provided').slice(0, 20000)}\n\n`;
     context += 'Q&A DETAILS:\n';
     aiQuestions?.forEach((q: any) => {
       if (q.answer) {
-        context += `Q: ${q.question}\nA: ${q.answer}\n\n`;
+        context += `Q: ${q.question}\nA: ${String(q.answer).slice(0, 4000)}\n\n`;
       }
     });
 
     // Add Supabase backend analysis if available
     if (sessionData.data_source?.supabase_backend) {
       context += '\n\nSUPABASE BACKEND ARCHITECTURE:\n';
-      context += JSON.stringify(sessionData.data_source.supabase_backend, null, 2);
+      context += JSON.stringify(sessionData.data_source.supabase_backend, null, 2).slice(0, 15000);
     }
 
-    const textSectionTypes = ['abstract', 'field', 'background', 'summary', 'claims', 'description'];
-    let sectionsGenerated = 0;
+    const textSectionTypes: PatentSectionType[] = ['abstract', 'field', 'background', 'summary', 'claims', 'description'];
 
-    // Generate text sections in parallel
-    const sectionPromises = textSectionTypes.map(async (sectionType) => {
+    // Diagrams run concurrently with the text sections (service-role call; it writes the 'drawings' section)
+    const diagramsPromise = invokeFunctionAsService('generate-patent-diagrams', {
+      session_id,
+      context: context.substring(0, 1000),
+    }, 140_000);
+
+    // Generate text sections in parallel; one failing section must not discard the others
+    const results = await Promise.allSettled(textSectionTypes.map(async (sectionType) => {
       console.log(`[ENHANCED DRAFT] Generating ${sectionType}...`);
-
-      // Single high-quality generation with detailed prompt
       const prompt = getSectionPrompt(sectionType, context);
       const content = await callLovableAI(prompt, sectionType);
-      
-      // Calculate quality score
       const qualityScore = calculateQualityScore(content, sectionType);
 
-      // Store iteration for transparency
-      await supabaseClient.from('draft_iterations').insert({
+      // Store iteration for transparency (non-fatal)
+      const { error: iterErr } = await supabaseClient.from('draft_iterations').insert({
         session_id,
         iteration_number: 1,
         section_type: sectionType,
         content: content,
         quality_score: qualityScore
       });
+      if (iterErr) console.warn(`[ENHANCED DRAFT] draft_iterations insert failed for ${sectionType}:`, iterErr.message);
 
-      // Upsert final section
-      const { data: existingSection } = await supabaseClient
-        .from('patent_sections')
-        .select('id')
-        .eq('session_id', session_id)
-        .eq('section_type', sectionType)
-        .maybeSingle();
-
-      if (existingSection) {
-        await supabaseClient
-          .from('patent_sections')
-          .update({
-            content: content,
-            is_user_edited: false
-          })
-          .eq('id', existingSection.id);
-      } else {
-        await supabaseClient
-          .from('patent_sections')
-          .insert({
-            session_id,
-            section_type: sectionType,
-            content: content,
-            is_user_edited: false
-          });
-      }
-
+      await saveSection(supabaseClient, session_id, sectionType, content);
       return sectionType;
-    });
+    }));
 
-    // Wait for text sections to complete
-    const completed = await Promise.all(sectionPromises);
-    sectionsGenerated = completed.length;
+    const completed = results.filter((r) => r.status === 'fulfilled').length;
+    const failures = results
+      .map((r, i) => (r.status === 'rejected' ? { section: textSectionTypes[i], reason: r.reason } : null))
+      .filter(Boolean) as Array<{ section: string; reason: unknown }>;
+    failures.forEach((f) => console.error(`[ENHANCED DRAFT] ${f.section} failed:`, f.reason));
 
-    // Generate diagrams separately using AI image generation
-    console.log('[ENHANCED DRAFT] Generating patent diagrams...');
-    await supabaseClient.functions.invoke('generate-patent-diagrams', {
-      body: {
-        session_id,
-        context: context.substring(0, 1000) // Limit context size for diagram generation
-      }
-    });
-    sectionsGenerated++;
+    if (completed === 0) {
+      const first = failures[0]?.reason;
+      if (first instanceof HttpError) throw first;
+      throw new HttpError(502, 'Patent draft generation failed. Please try again.');
+    }
 
-    // Update session status
-    await supabaseClient
-      .from('patent_sessions')
-      .update({ 
-        status: 'completed',
-        ai_analysis_complete: true
-      })
-      .eq('id', session_id);
+    const diagramsRes = await diagramsPromise;
+    const diagramsOk = !!diagramsRes?.ok;
+    if (!diagramsOk) console.warn('[ENHANCED DRAFT] Diagram generation failed or timed out');
 
-    // Send completion email
-    await supabaseClient.functions.invoke('send-email', {
-      body: {
-        type: 'patent_completion',
-        userId: sessionData.user_id,
-        sessionId: session_id
-      }
-    });
+    // Mark analysis done; only treat the draft as "complete" once the interview has enough answers
+    // (Session.tsx calls this function progressively after every answer).
+    await supabaseClient.from('patent_sessions').update({ ai_analysis_complete: true }).eq('id', session_id);
+    const total = aiQuestions?.length ?? 0;
+    const answered = (aiQuestions ?? []).filter((q: any) => q.answer).length;
+    const isFinalDraft = failures.length === 0 && (total === 0 || answered >= Math.min(3, total));
+    if (isFinalDraft) {
+      await markDraftComplete(supabaseClient, session_id, sessionData.user_id);
+    }
 
+    const sectionsGenerated = completed + (diagramsOk ? 1 : 0);
     console.log(`[ENHANCED DRAFT] Complete: ${sectionsGenerated} sections generated with parallel AI processing`);
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       sections_generated: sectionsGenerated,
+      failed_sections: failures.map((f) => f.section),
       processing_mode: 'parallel',
       quality_checked: true,
       ai_model: 'google/gemini-2.5-pro'
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('[ENHANCED DRAFT] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(error, 'Patent draft generation failed. Please try again.', 'generate-patent-draft-enhanced');
   }
 });
 
 async function callLovableAI(prompt: string, sectionType: string): Promise<string> {
   if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
+    throw new HttpError(500, 'AI service is not configured.');
   }
 
   console.log(`[Lovable AI] Generating ${sectionType}...`);
@@ -206,7 +135,7 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
                     sectionType === 'background' ? 8000 :
                     sectionType === 'summary' ? 10000 : 6000;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -227,21 +156,10 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
         }
       ]
     }),
-  });
+  }, 140_000);
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error(`[Lovable AI] HTTP ${response.status} error for ${sectionType}:`, error);
-    
-    // Handle rate limits
-    if (response.status === 429) {
-      throw new Error('Lovable AI rate limit exceeded. Please try again in a few moments.');
-    }
-    if (response.status === 402) {
-      throw new Error('Lovable AI credits depleted. Please add credits to continue.');
-    }
-    
-    throw new Error(`Lovable AI error (${response.status}): ${error}`);
+    throw await aiGatewayError(response, `enhanced-draft:${sectionType}`);
   }
 
   // Parse response with error handling
@@ -257,16 +175,20 @@ async function callLovableAI(prompt: string, sectionType: string): Promise<strin
     data = JSON.parse(responseText);
   } catch (parseError) {
     console.error(`[Lovable AI] JSON parse error for ${sectionType}:`, parseError);
-    throw new Error(`Failed to parse Lovable AI response: ${parseError.message}`);
+    throw new HttpError(502, 'The AI service returned an unreadable response. Please try again.');
   }
 
   // Validate response structure
   if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
     console.error(`[Lovable AI] Invalid response structure for ${sectionType}:`, JSON.stringify(data));
-    throw new Error('Invalid response structure from Lovable AI');
+    throw new HttpError(502, 'The AI service returned an empty response. Please try again.');
   }
 
-  return data.choices[0].message.content;
+  // Models sometimes wrap HTML in ```html fences despite instructions
+  return String(data.choices[0].message.content)
+    .replace(/^\s*```(?:html)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .trim();
 }
 
 function getSectionPrompt(sectionType: string, context: string): string {

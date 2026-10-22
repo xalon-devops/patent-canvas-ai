@@ -1,11 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  fetchWithTimeout, aiGatewayError, parseModelJson, sectionContentForExport,
+} from '../_shared/http.ts';
 
 const USPTO_GUIDELINES = {
   abstract: {
@@ -72,43 +70,27 @@ const USPTO_GUIDELINES = {
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Validate auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const supabaseAuth = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: cd, error: ce } = await supabaseAuth.auth.getClaims(token);
-    if (ce || !cd?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Signed-in user (or service role) required — the anon key alone is not accepted
+    await authenticate(req);
 
-    const { section_type, content } = await req.json();
+    const body = await readJson<{ section_type?: unknown; content?: unknown }>(req, 600_000);
+    const section_type = typeof body.section_type === 'string' ? body.section_type.slice(0, 50) : '';
+    // Drawings are stored as JSON with base64 images; analyze only the figure descriptions
+    const content = typeof body.content === 'string'
+      ? sectionContentForExport(section_type, body.content).slice(0, 60_000)
+      : '';
 
-    if (!section_type || !content) {
-      return new Response(
-        JSON.stringify({ error: 'section_type and content are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!section_type || !content.trim()) {
+      throw new HttpError(400, 'section_type and content are required');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      throw new HttpError(500, 'AI service is not configured.');
     }
 
     const guidelines = USPTO_GUIDELINES[section_type as keyof typeof USPTO_GUIDELINES];
@@ -141,7 +123,7 @@ Provide your analysis as a JSON object with this exact structure:
 
 Be specific and actionable. Score 80+ means publication-ready, 60-79 needs minor edits, below 60 needs significant work.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -156,42 +138,20 @@ Be specific and actionable. Score 80+ means publication-ready, 60-79 needs minor
         temperature: 0.3,
         max_tokens: 1000,
       }),
-    });
+    }, 60_000);
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error('AI analysis failed');
-    }
+    if (!response.ok) throw await aiGatewayError(response, 'analyze-section-quality');
 
-    const aiData = await response.json();
-    const aiContent = aiData.choices?.[0]?.message?.content;
+    const aiData = await response.json().catch(() => null);
+    const aiContent = aiData?.choices?.[0]?.message?.content;
 
     if (!aiContent) {
-      throw new Error('No analysis generated');
+      throw new HttpError(502, 'No analysis generated. Please try again.');
     }
 
     // Extract JSON from the response
-    let analysis;
-    try {
-      // Try to extract JSON from markdown code blocks or raw JSON
-      const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/) || 
-                        aiContent.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiContent;
-      analysis = JSON.parse(jsonStr.trim());
-    } catch (parseError) {
+    let analysis: any = parseModelJson(aiContent);
+    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
       console.error('Failed to parse AI response:', aiContent);
       // Return a fallback analysis
       analysis = {
@@ -207,16 +167,15 @@ Be specific and actionable. Score 80+ means publication-ready, 60-79 needs minor
       };
     }
 
-    return new Response(
-      JSON.stringify({ success: true, analysis }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (!Array.isArray(analysis.strengths)) analysis.strengths = [];
+    if (!Array.isArray(analysis.issues)) analysis.issues = [];
+    if (!analysis.usptoCompliance || typeof analysis.usptoCompliance !== 'object') {
+      analysis.usptoCompliance = { compliant: false, missingElements: [], recommendations: [] };
+    }
+
+    return jsonResponse({ success: true, analysis });
 
   } catch (error) {
-    console.error('Error analyzing section quality:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Analysis failed' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error, 'Analysis failed', 'analyze-section-quality');
   }
 });

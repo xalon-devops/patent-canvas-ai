@@ -1,41 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson,
+  requireSessionAccess, fetchWithTimeout, saveSection, HttpError,
+} from '../_shared/http.ts';
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  {
-    const _auth = req.headers.get("Authorization") || "";
-    const _tok = _auth.replace("Bearer ", "");
-    const _svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    if (!_tok) {
-      return new Response(JSON.stringify({ success: false, error: "Please sign in to continue." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    if (_tok !== _svc) {
-      const _c = createClient(Deno.env.get("SUPABASE_URL") ?? "", _svc);
-      const { data: _u } = await _c.auth.getUser(_tok);
-      if (!_u?.user) {
-        return new Response(JSON.stringify({ success: false, error: "Your session has expired. Please sign in again." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-    }
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { session_id, context } = await req.json();
-    
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const caller = await authenticate(req);
+    const body = await readJson<{ session_id?: string; context?: string }>(req, 200_000);
+    const session = await requireSessionAccess(caller, body.session_id, 'id, user_id, idea_prompt');
+    const session_id: string = session.id;
+    const context = String(body.context || session.idea_prompt || 'A technical invention');
+    if (!LOVABLE_API_KEY) throw new HttpError(500, 'AI service is not configured.');
+
+    const supabaseClient = caller.admin;
 
     console.log('[PATENT DIAGRAMS] Generating patent diagrams with AI');
 
@@ -64,7 +49,7 @@ serve(async (req) => {
         try {
           console.log(`[PATENT DIAGRAMS] Generating ${spec.title}... (attempt ${attempt + 1})`);
           
-          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -90,11 +75,13 @@ CRITICAL REQUIREMENTS:
               ],
               modalities: ['image', 'text']
             }),
-          });
+          }, 60_000);
 
           if (!response.ok) {
             const error = await response.text();
-            throw new Error(`AI image generation error (${response.status}): ${error}`);
+            // Don't burn retries on rate-limit / credit errors
+            if (response.status === 429 || response.status === 402) attempt = maxRetries;
+            throw new Error(`AI image generation error (${response.status}): ${error.slice(0, 200)}`);
           }
 
           const data = await response.json();
@@ -135,50 +122,17 @@ CRITICAL REQUIREMENTS:
     // Store diagrams in patent_sections as structured data
     const diagramsContent = JSON.stringify(diagrams);
 
-    const { data: existingSection } = await supabaseClient
-      .from('patent_sections')
-      .select('id')
-      .eq('session_id', session_id)
-      .eq('section_type', 'drawings')
-      .maybeSingle();
-
-    if (existingSection) {
-      await supabaseClient
-        .from('patent_sections')
-        .update({
-          content: diagramsContent,
-          is_user_edited: false
-        })
-        .eq('id', existingSection.id);
-    } else {
-      await supabaseClient
-        .from('patent_sections')
-        .insert({
-          session_id,
-          section_type: 'drawings',
-          content: diagramsContent,
-          is_user_edited: false
-        });
-    }
+    await saveSection(supabaseClient, session_id, 'drawings', diagramsContent);
 
     console.log(`[PATENT DIAGRAMS] Generated ${diagrams.length} diagrams`);
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
-      diagrams_count: diagrams.length
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      diagrams_count: diagrams.length,
+      diagrams_generated: diagrams.filter((d) => d?.image_data).length
     });
 
   } catch (error) {
-    console.error('[PATENT DIAGRAMS] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(error, 'Failed to generate diagrams', 'generate-patent-diagrams');
   }
 });

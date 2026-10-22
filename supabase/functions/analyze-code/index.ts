@@ -2,38 +2,57 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, parseModelJson,
+} from '../_shared/http.ts';
+
+// Calls OpenAI if configured, otherwise the Lovable AI gateway (used by every other function).
+async function chat(system: string, user: string, maxTokens: number, temperature: number): Promise<string> {
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!openAIApiKey && !lovableKey) throw new HttpError(500, 'AI service is not configured.');
+  const url = openAIApiKey ? 'https://api.openai.com/v1/chat/completions' : 'https://ai.gateway.lovable.dev/v1/chat/completions';
+  const model = openAIApiKey ? 'gpt-4o-mini' : 'google/gemini-2.5-flash';
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${openAIApiKey || lovableKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      max_tokens: maxTokens,
+      temperature,
+    }),
+  }, 60_000);
+  if (!res.ok) throw await aiGatewayError(res, 'analyze-code');
+  const data = await res.json().catch(() => null);
+  return String(data?.choices?.[0]?.message?.content ?? '');
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { source, repo_url, session_id } = await req.json();
-    
+    const caller = await authenticate(req);
+    const { source, repo_url, session_id } = await readJson<{ source?: string; repo_url?: string; session_id?: string }>(req, 16_000);
+
     console.log('Analyzing code repository:', { source, repo_url, session_id });
 
-    if (!repo_url || !session_id) {
-      throw new Error('Missing required parameters: repo_url and session_id');
+    if (typeof repo_url !== 'string' || !repo_url.trim() || !session_id) {
+      throw new HttpError(400, 'Missing required parameters: repo_url and session_id');
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Ownership check before any service-role writes
+    await requireSessionAccess(caller, session_id, 'id, user_id');
+    const supabase = caller.admin;
 
     // Extract owner and repo from GitHub URL - handle various URL formats
     // Remove trailing slash and any parameters
     const cleanUrl = repo_url.replace(/\/$/, '').split('?')[0];
     const githubUrlMatch = cleanUrl.match(/github\.com\/([^\/]+)\/([^\/\?]+)/);
     if (!githubUrlMatch) {
-      throw new Error('Invalid GitHub URL format');
+      throw new HttpError(400, 'Invalid GitHub URL format');
     }
 
     let [, owner, repo] = githubUrlMatch;
@@ -46,45 +65,61 @@ serve(async (req) => {
     // Remove any remaining query parameters or fragments
     repo = repo.split('?')[0].split('#')[0];
     
+    if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+      throw new HttpError(400, 'Invalid GitHub URL format');
+    }
     console.log('Extracted GitHub info:', { owner, repo });
+
+    const githubHeaders: Record<string, string> = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'PatentBot-AI',
+    };
+    const githubToken = Deno.env.get('GITHUB_TOKEN');
+    if (githubToken) githubHeaders['Authorization'] = `Bearer ${githubToken}`;
 
     // Fetch repository contents from GitHub API
     const githubApiUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
     
-    const repoResponse = await fetch(githubApiUrl, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'XALON-Patent-AI'
-      }
-    });
+    const repoResponse = await fetchWithTimeout(githubApiUrl, { headers: githubHeaders }, 15_000);
 
     console.log('GitHub API response status:', repoResponse.status);
     console.log('GitHub API URL called:', githubApiUrl);
 
     if (!repoResponse.ok) {
       if (repoResponse.status === 404) {
-        throw new Error(`GitHub repository not found or private: ${owner}/${repo}. Please ensure the repository exists and is public.`);
-      } else if (repoResponse.status === 403) {
-        throw new Error('GitHub API rate limit exceeded. Please try again later.');
+        throw new HttpError(404, `GitHub repository not found or private: ${owner}/${repo}. Please ensure the repository exists and is public.`);
+      } else if (repoResponse.status === 403 || repoResponse.status === 429) {
+        throw new HttpError(429, 'GitHub API rate limit exceeded. Please try again later.');
       } else {
-        throw new Error(`GitHub API error: ${repoResponse.status} - ${repoResponse.statusText}`);
+        throw new HttpError(502, `GitHub API error: ${repoResponse.status}`);
       }
     }
 
     const repoContents = await repoResponse.json();
+    if (!Array.isArray(repoContents)) throw new HttpError(422, 'That GitHub URL does not point to a repository root.');
     console.log('Repository contents fetched:', repoContents.length, 'items');
 
     // Recursively fetch code files
     const codeFiles: { path: string; content: string; language: string }[] = [];
     const targetExtensions = ['.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.sql', '.json', '.md'];
 
-    async function fetchFileContents(items: any[], basePath = '') {
+    // Bounded crawl: caps on files, directories, depth and total time so the function
+    // stays well inside the edge runtime wall-clock limit.
+    const MAX_FILES = 60;
+    const MAX_DIRS = 25;
+    const MAX_DEPTH = 4;
+    const deadline = Date.now() + 40_000;
+    const skipDirs = new Set(['node_modules', '.git', 'dist', 'build', 'vendor', '.next', 'coverage', '__pycache__']);
+    let dirsVisited = 0;
+
+    async function fetchFileContents(items: any[], basePath = '', depth = 0) {
       for (const item of items) {
+        if (codeFiles.length >= MAX_FILES || Date.now() > deadline) return;
         if (item.type === 'file') {
-          const extension = item.name.substring(item.name.lastIndexOf('.'));
-          if (targetExtensions.includes(extension)) {
+          const extension = item.name.includes('.') ? item.name.substring(item.name.lastIndexOf('.')) : '';
+          if (targetExtensions.includes(extension) && item.download_url && (item.size ?? 0) < 50000) {
             try {
-              const fileResponse = await fetch(item.download_url);
+              const fileResponse = await fetchWithTimeout(item.download_url, {}, 10_000);
               if (fileResponse.ok) {
                 const content = await fileResponse.text();
                 // Limit file size to prevent overwhelming the AI
@@ -100,13 +135,13 @@ serve(async (req) => {
               console.warn(`Failed to fetch file ${item.name}:`, error);
             }
           }
-        } else if (item.type === 'dir' && codeFiles.length < 100) {
-          // Recursively fetch directory contents (limit depth to avoid overwhelming)
+        } else if (item.type === 'dir' && depth < MAX_DEPTH && dirsVisited < MAX_DIRS && !skipDirs.has(item.name)) {
+          dirsVisited++;
           try {
-            const dirResponse = await fetch(item.url);
+            const dirResponse = await fetchWithTimeout(item.url, { headers: githubHeaders }, 10_000);
             if (dirResponse.ok) {
               const dirContents = await dirResponse.json();
-              await fetchFileContents(dirContents, basePath + item.name + '/');
+              if (Array.isArray(dirContents)) await fetchFileContents(dirContents, basePath + item.name + '/', depth + 1);
             }
           } catch (error) {
             console.warn(`Failed to fetch directory ${item.name}:`, error);
@@ -117,15 +152,12 @@ serve(async (req) => {
 
     await fetchFileContents(repoContents);
     console.log('Code files collected:', codeFiles.length);
-
-    // Analyze the code to extract technical concepts
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    if (codeFiles.length === 0) {
+      throw new HttpError(422, 'No analyzable source files were found in that repository.');
     }
 
     // Create a summary of the codebase for patent analysis
-    const codeAnalysis = codeFiles.map(file => 
+    const codeAnalysis = codeFiles.slice(0, 40).map(file => 
       `File: ${file.path} (${file.language})\n${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`
     ).join('\n\n---\n\n');
 
@@ -142,33 +174,14 @@ Please identify:
 
 Provide a concise technical summary focusing on patentable subject matter.`;
 
-    const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a technical patent analyst. Focus on identifying novel, non-obvious technical innovations that could be patentable. Be specific about technical details and implementation approaches.' 
-          },
-          { role: 'user', content: analysisPrompt }
-        ],
-        max_tokens: 2000,
-        temperature: 0.3
-      }),
-    });
+    const technicalAnalysis = await chat(
+      'You are a technical patent analyst. Focus on identifying novel, non-obvious technical innovations that could be patentable. Be specific about technical details and implementation approaches.',
+      analysisPrompt,
+      2000,
+      0.3,
+    );
+    if (!technicalAnalysis.trim()) throw new HttpError(502, 'Code analysis returned no result. Please try again.');
 
-    if (!analysisResponse.ok) {
-      throw new Error(`OpenAI API error: ${analysisResponse.status}`);
-    }
-
-    const analysisData = await analysisResponse.json();
-    const technicalAnalysis = analysisData.choices[0].message.content;
-    
     console.log('Technical analysis completed');
 
     // Update the patent session with the GitHub analysis
@@ -180,7 +193,8 @@ Provide a concise technical summary focusing on patentable subject matter.`;
       .eq('id', session_id);
 
     if (updateError) {
-      throw new Error(`Database update error: ${updateError.message}`);
+      console.error('Database update error:', updateError);
+      throw new HttpError(500, 'Failed to save the repository analysis.');
     }
 
     // Generate initial AI questions based on the code analysis
@@ -198,62 +212,39 @@ Focus on:
 
 Generate questions as a JSON array of strings.`;
 
-    const questionsResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a patent attorney assistant. Generate specific, technical questions that will help complete a patent application. Return only a valid JSON array of question strings.' 
-          },
-          { role: 'user', content: followupPrompt }
-        ],
-        max_tokens: 1000,
-        temperature: 0.2
-      }),
-    });
+    const questionsRaw = await chat(
+      'You are a patent attorney assistant. Generate specific, technical questions that will help complete a patent application. Return only a valid JSON array of question strings.',
+      followupPrompt,
+      1000,
+      0.2,
+    );
+    const parsedQuestions = parseModelJson(questionsRaw);
+    const rawList = Array.isArray(parsedQuestions) ? parsedQuestions : (Array.isArray(parsedQuestions?.questions) ? parsedQuestions.questions : []);
+    let questions: string[] = rawList
+      .filter((q: unknown) => typeof q === 'string' && q.trim().length > 5)
+      .map((q: string) => q.trim().slice(0, 1000))
+      .slice(0, 10);
 
-    if (!questionsResponse.ok) {
-      throw new Error(`OpenAI questions API error: ${questionsResponse.status}`);
-    }
-
-    const questionsData = await questionsResponse.json();
-    let questions: string[];
-    
-    try {
-      const responseContent = questionsData.choices[0].message.content;
-      console.log('OpenAI questions response:', responseContent);
-      
-      // Try to extract JSON from the response if it's wrapped in markdown or other text
-      const jsonMatch = responseContent.match(/\[[\s\S]*\]/);
-      const jsonString = jsonMatch ? jsonMatch[0] : responseContent;
-      
-      questions = JSON.parse(jsonString);
-      console.log('Successfully parsed questions:', questions);
-      
-      // Validate that we got an array of strings
-      if (!Array.isArray(questions) || questions.some(q => typeof q !== 'string')) {
-        throw new Error('Response is not an array of strings');
-      }
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI questions response:', parseError);
-      console.error('Raw response:', questionsData.choices[0]?.message?.content);
-      
-      // Fallback to contextual questions based on the technical analysis
+    if (questions.length === 0) {
+      console.error('Failed to parse questions response:', questionsRaw.slice(0, 500));
+      // Generic (repository-agnostic) fallback questions
       questions = [
-        "What specific technical innovations in your React component architecture make it unique for patent applications?",
-        "How does your Supabase integration pattern for real-time user authentication differ from standard implementations?",
-        "What novel aspects of your edge function architecture for AI-powered patent analysis could be patentable?",
-        "How does your dynamic role-based access control system improve upon existing web application security models?",
-        "What specific algorithms or methods in your URL detection and content crawling implementation are innovative?"
+        "What specific technical problem does this software solve, and why do existing solutions fall short?",
+        "Which algorithm, data flow or processing step in the code do you consider most novel, and how does it work step by step?",
+        "What measurable improvements (speed, accuracy, resource use, security) does your implementation achieve over conventional approaches?",
+        "Which components or modules must work together for the invention to function, and how do they interact?",
+        "What alternative implementations or variations of the core technique would you want the patent to cover?"
       ];
-      console.log('Using contextual fallback questions based on technical analysis');
+      console.log('Using generic fallback questions');
     }
+
+    // Replace previously generated, still-unanswered questions to avoid duplicates on re-analysis
+    const { error: clearErr } = await supabase
+      .from('ai_questions')
+      .delete()
+      .eq('session_id', session_id)
+      .is('answer', null);
+    if (clearErr) console.warn('Could not clear old unanswered questions:', clearErr.message);
 
     // Insert the generated questions into the database
     const questionsToInsert = questions.map(question => ({
@@ -268,7 +259,7 @@ Generate questions as a JSON array of strings.`;
 
     if (questionsError) {
       console.error('Error inserting questions:', questionsError);
-      throw new Error(`Questions insert error: ${questionsError.message}`);
+      throw new HttpError(500, 'Failed to save follow-up questions.');
     }
 
     // Save the technical analysis to the patent_sessions table
@@ -279,32 +270,19 @@ Generate questions as a JSON array of strings.`;
 
     if (analysisError) {
       console.error('Error saving technical analysis:', analysisError);
-      throw new Error(`Technical analysis save error: ${analysisError.message}`);
+      throw new HttpError(500, 'Failed to save the technical analysis.');
     }
 
     console.log('GitHub analysis completed successfully');
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        files_analyzed: codeFiles.length,
-        questions_generated: questions.length,
-        technical_analysis: technicalAnalysis.substring(0, 500) + '...'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      files_analyzed: codeFiles.length,
+      questions_generated: questions.length,
+      technical_analysis: technicalAnalysis.substring(0, 500) + '...'
+    });
 
   } catch (error) {
-    console.error('Error in analyze-code function:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'An unexpected error occurred' 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return errorResponse(error, 'Repository analysis failed', 'analyze-code');
   }
 });

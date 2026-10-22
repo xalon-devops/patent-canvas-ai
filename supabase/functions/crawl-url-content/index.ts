@@ -1,53 +1,23 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  handleCors, corsHeaders, authenticate, readJson, errorResponse, HttpError, assertPublicHttpUrl, parseModelJson,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { url } = await req.json();
+    // Signed-in users only (prevents anonymous use as an open proxy / AI-credit burner)
+    await authenticate(req);
+    const body = await readJson<{ url?: string }>(req, 16_000);
+
+    // Validate URL format + SSRF guard (no localhost / private network targets)
+    const url = assertPublicHttpUrl(body.url);
+    const validUrl = new URL(url);
     console.log('URL crawl function started with URL:', url);
-    if (!url) {
-      console.error('Missing URL in request');
-      return new Response(
-        JSON.stringify({ error: 'url is required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    console.log('Validating URL format:', url);
-
-    // Validate URL format
-    let validUrl;
-    try {
-      validUrl = new URL(url);
-      console.log('URL parsed successfully:', validUrl.href);
-      
-      if (!['http:', 'https:'].includes(validUrl.protocol)) {
-        console.error('Invalid protocol:', validUrl.protocol);
-        throw new Error('Invalid protocol');
-      }
-    } catch (error) {
-      console.error('Invalid URL format:', url, 'Error:', error.message);
-      return new Response(
-        JSON.stringify({ error: `Invalid URL format: ${error.message}` }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
 
     console.log('Starting fetch for URL:', url);
     
@@ -75,19 +45,19 @@ serve(async (req) => {
         errorBody = await response.text();
         console.error('Error response body:', errorBody.substring(0, 200));
       } catch (e) {
-        console.error('Could not read error body:', e.message);
+        console.error('Could not read error body:', (e as Error).message);
       }
       
       return new Response(
         JSON.stringify({ error: `Failed to fetch URL: ${response.status} ${response.statusText}` }), 
         { 
-          status: 400, 
+          status: 422, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    const html = await response.text();
+    const html = (await response.text()).slice(0, 3_000_000);
     console.log('Fetched HTML, length:', html.length);
 
     // Extract text content from HTML
@@ -169,7 +139,7 @@ serve(async (req) => {
           content: textContent 
         }), 
         { 
-          status: 400, 
+          status: 422, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -196,9 +166,8 @@ serve(async (req) => {
         if (ai.ok) {
           const aiData = await ai.json();
           const raw: string = aiData?.choices?.[0]?.message?.content || '';
-          const m = raw.match(/\{[\s\S]*\}/);
-          if (m) {
-            const parsed = JSON.parse(m[0]);
+          const parsed = parseModelJson(raw);
+          if (parsed && typeof parsed === 'object') {
             inventionTitle = typeof parsed.title === 'string' ? parsed.title : null;
             inventionDescription = typeof parsed.description === 'string' ? parsed.description : null;
           }
@@ -225,14 +194,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    if (error instanceof HttpError) return errorResponse(error);
     console.error('Unexpected error in crawl-url-content function:', error);
-    
+
     // Handle timeout errors specifically
-    if (error.name === 'TimeoutError') {
+    if ((error as Error)?.name === 'TimeoutError' || (error as Error)?.name === 'AbortError') {
       return new Response(
         JSON.stringify({ error: 'Request timeout - URL took too long to respond' }), 
         {
-          status: 408,
+          status: 504,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );

@@ -1,7 +1,7 @@
 // Shared MPEP retrieval helper for the drafting pipeline agents.
 // Embeds a query via Lovable AI Gateway and returns top-k MPEP passages.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 
 const EMBED_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
 const EMBED_MODEL = "google/gemini-embedding-001";
@@ -22,6 +22,7 @@ export async function embedQuery(apiKey: string, text: string): Promise<number[]
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ model: EMBED_MODEL, input: text.slice(0, 8000) }),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -33,7 +34,8 @@ export async function embedQuery(apiKey: string, text: string): Promise<number[]
 
 export async function retrieveMpep(
   apiKey: string,
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
   query: string,
   opts: { k?: number; sectionFilter?: string } = {},
 ): Promise<MpepChunk[]> {

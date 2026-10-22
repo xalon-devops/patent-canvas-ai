@@ -2,69 +2,42 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, parseModelJson, toUnitScore,
+} from '../_shared/http.ts';
 
 interface RequestBody {
-  session_id: string;
+  session_id?: string;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const caller = await authenticate(req);
+    const { session_id }: RequestBody = await readJson<RequestBody>(req, 64_000);
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
-    );
+    // Ownership check (owner/admin/service) before using the service-role client
+    const ownedSession = await requireSessionAccess(caller, session_id);
+    const supabaseClient = caller.admin;
 
-    const { session_id }: RequestBody = await req.json();
+    console.log('Analyzing patentability for session:', ownedSession.id);
 
-    if (!session_id) {
-      return new Response(
-        JSON.stringify({ error: 'session_id is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Analyzing patentability for session:', session_id);
-
-    // Get session data, questions/answers, prior art, and backend analysis
-    const [sessionResult, questionsResult, priorArtResult] = await Promise.all([
-      supabaseClient
-        .from('patent_sessions')
-        .select('*')
-        .eq('id', session_id)
-        .single(),
+    const [questionsResult, priorArtResult] = await Promise.all([
       supabaseClient
         .from('ai_questions')
-        .select('*')
-        .eq('session_id', session_id),
+        .select('question, answer')
+        .eq('session_id', ownedSession.id),
       supabaseClient
         .from('prior_art_results')
-        .select('*')
-        .eq('session_id', session_id)
+        .select('title, publication_number, similarity_score, assignee, patent_date, overlap_claims, difference_claims, summary')
+        .eq('session_id', ownedSession.id)
         .order('similarity_score', { ascending: false })
+        .limit(25)
     ]);
+    const sessionResult = { data: ownedSession, error: null as unknown };
 
     if (sessionResult.error) throw sessionResult.error;
     
@@ -83,9 +56,9 @@ serve(async (req) => {
 
     // Compile all information for analysis
     const inventionContext = `
-    Invention: ${session.idea_prompt}
+    Invention: ${String(session.idea_prompt || '').slice(0, 20000)}
     Patent Type: ${session.patent_type}
-    Technical Analysis: ${session.technical_analysis || 'None provided'}
+    Technical Analysis: ${String(session.technical_analysis || 'None provided').slice(0, 15000)}
     
     ${backendAnalysis ? `
     SUPABASE BACKEND ANALYSIS:
@@ -110,18 +83,18 @@ serve(async (req) => {
     ${priorArt.slice(0, 10).map((p, idx) => `
     ${idx + 1}. ${p.title}
        Publication: ${p.publication_number}
-       Similarity: ${(p.similarity_score * 100).toFixed(1)}%
+       Similarity: ${((Number(p.similarity_score) || 0) * 100).toFixed(1)}%
        Assignee: ${p.assignee || 'Unknown'}
        Date: ${p.patent_date || 'Unknown'}
        
        OVERLAPPING CLAIMS (What this patent shares with the invention):
        ${p.overlap_claims && p.overlap_claims.length > 0 
-         ? p.overlap_claims.map((claim, i) => `       ${i + 1}. ${claim}`).join('\n')
+         ? p.overlap_claims.map((claim: string, i: number) => `       ${i + 1}. ${claim}`).join('\n')
          : '       None identified'}
        
        DIFFERENTIATING CLAIMS (What makes the invention unique):
        ${p.difference_claims && p.difference_claims.length > 0
-         ? p.difference_claims.map((claim, i) => `       ${i + 1}. ${claim}`).join('\n')
+         ? p.difference_claims.map((claim: string, i: number) => `       ${i + 1}. ${claim}`).join('\n')
          : '       None identified'}
        
        Summary: ${p.summary || 'No summary available'}
@@ -155,10 +128,10 @@ Keep each analysis field under 150 words. Be concise.`;
 
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      throw new Error('Lovable AI API key not configured');
+      throw new HttpError(500, 'AI service is not configured.');
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
@@ -172,66 +145,43 @@ Keep each analysis field under 150 words. Be concise.`;
         ],
         max_tokens: 4000,
       }),
-    });
+    }, 90_000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', errorText);
-      
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (response.status === 402) {
-        throw new Error('AI credits depleted. Please add credits to continue.');
-      }
-      
-      throw new Error(`Lovable AI API error: ${response.statusText}`);
+    if (!response.ok) throw await aiGatewayError(response, 'analyze-patentability');
+
+    const aiResponse = await response.json().catch(() => null);
+    const rawContent = aiResponse?.choices?.[0]?.message?.content ?? '';
+
+    const analysisResult: any = parseModelJson(rawContent);
+    if (!analysisResult || typeof analysisResult !== 'object' || Array.isArray(analysisResult)) {
+      console.error('Failed to parse AI response as JSON:', String(rawContent).slice(0, 500));
+      throw new HttpError(502, 'The patentability analysis could not be completed. Please try again.');
     }
-
-    const aiResponse = await response.json();
-    const rawContent = aiResponse.choices[0].message.content;
-    
-    console.log('Raw AI response:', rawContent);
-    
-    // Parse JSON, handling potential markdown wrapping
-    let analysisResult;
-    try {
-      analysisResult = JSON.parse(rawContent);
-    } catch (e) {
-      // Try extracting JSON from markdown code block
-      const jsonMatch = rawContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-      if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[1]);
-      } else {
-        throw new Error('Failed to parse AI response as JSON');
-      }
+    // Normalize the shape the frontend renders
+    const overall = Number(analysisResult.overall_score);
+    analysisResult.overall_score = Number.isFinite(overall) ? Math.max(0, Math.min(100, Math.round(overall <= 1 ? overall * 100 : overall))) : 0;
+    if (!Array.isArray(analysisResult.criteria)) analysisResult.criteria = [];
+    for (const k of ['key_strengths', 'areas_for_improvement', 'risk_factors']) {
+      if (!Array.isArray(analysisResult[k])) analysisResult[k] = [];
     }
 
     // Update session with patentability score
-    await supabaseClient
+    // patentability_score is DECIMAL(3,2) in 0..1
+    const { error: scoreErr } = await supabaseClient
       .from('patent_sessions')
-      .update({ 
-        patentability_score: analysisResult.overall_score / 100,
-        ai_analysis_complete: true 
+      .update({
+        patentability_score: toUnitScore(analysisResult.overall_score),
+        ai_analysis_complete: true
       })
-      .eq('id', session_id);
+      .eq('id', ownedSession.id);
+    if (scoreErr) console.error('Failed to save patentability score:', scoreErr.message);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        analysis: analysisResult
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      analysis: analysisResult
+    });
 
   } catch (error) {
-    console.error('Error in analyze-patentability:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return errorResponse(error, 'Patentability analysis failed', 'analyze-patentability');
   }
 });

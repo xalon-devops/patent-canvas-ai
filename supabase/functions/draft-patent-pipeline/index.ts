@@ -2,13 +2,13 @@
 // Orchestrates 6 specialized agents to produce examiner-tested patent drafts
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 import { retrieveMpep, formatMpepContext } from "../_shared/mpep-rag.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, requirePaidAccess, fetchWithTimeout, aiGatewayError,
+  parseModelJson, saveSection, markDraftComplete, type PatentSectionType,
+} from "../_shared/http.ts";
 
 const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL_PRO = "google/gemini-2.5-pro";
@@ -36,34 +36,69 @@ async function callAI(opts: {
   };
   if (opts.jsonMode) body.response_format = { type: "json_object" };
 
-  const res = await fetch(LOVABLE_AI_URL, {
+  const res = await fetchWithTimeout(LOVABLE_AI_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${opts.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  });
+  }, 90_000);
 
-  if (!res.ok) {
-    const errText = await res.text();
-    if (res.status === 429) throw new Error("AI rate limit exceeded. Please try again shortly.");
-    if (res.status === 402) throw new Error("AI credits exhausted. Please top up in workspace billing.");
-    throw new Error(`AI Gateway error ${res.status}: ${errText.slice(0, 200)}`);
-  }
+  if (!res.ok) throw await aiGatewayError(res, "draft-pipeline");
 
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  const data = await res.json().catch(() => null);
+  return data?.choices?.[0]?.message?.content ?? "";
 }
 
 function parseJSON<T>(raw: string, fallback: T): T {
-  try {
-    // Strip potential markdown fences
-    const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
-    return JSON.parse(cleaned) as T;
-  } catch {
-    return fallback;
+  const parsed = parseModelJson<T>(raw);
+  return parsed && typeof parsed === "object" ? parsed : fallback;
+}
+
+// Normalize model output so DB constraints (claim_type CHECK, UNIQUE(session_id, claim_number),
+// NOT NULL full_text, int columns) never reject the insert.
+function sanitizeClaims(input: unknown): ClaimNode[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<number>();
+  const out: ClaimNode[] = [];
+  for (const c of input as any[]) {
+    const n = Math.round(Number(c?.claim_number));
+    const text = typeof c?.full_text === "string" ? c.full_text.trim() : "";
+    if (!Number.isFinite(n) || n < 1 || seen.has(n) || !text) continue;
+    seen.add(n);
+    const parentNum = c?.parent_claim == null ? null : Math.round(Number(c.parent_claim));
+    const parent = parentNum != null && Number.isFinite(parentNum) && parentNum >= 1 && parentNum !== n ? parentNum : null;
+    const type = c?.claim_type === "dependent" && parent != null ? "dependent" : "independent";
+    out.push({
+      claim_number: n,
+      claim_type: type,
+      parent_claim: type === "dependent" ? parent : null,
+      elements: Array.isArray(c?.elements) ? c.elements.filter((e: unknown) => typeof e === "string") : [],
+      full_text: text,
+      rationale: typeof c?.rationale === "string" ? c.rationale : "",
+    });
   }
+  return out.sort((a, b) => a.claim_number - b.claim_number);
+}
+
+function sanitizeExaminerReport(r: any, fallbackScore = 70): ExaminerReport {
+  const score = Number(r?.overall_score);
+  return {
+    overall_score: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : fallbackScore,
+    summary: typeof r?.summary === "string" ? r.summary : "",
+    findings: Array.isArray(r?.findings)
+      ? r.findings.map((f: any) => ({
+          section: String(f?.section ?? "").replace(/[^0-9]/g, "").slice(0, 3) as ExaminerFinding["section"],
+          severity: (["high", "medium", "low"].includes(f?.severity) ? f.severity : "low") as ExaminerFinding["severity"],
+          affected_claims: Array.isArray(f?.affected_claims)
+            ? f.affected_claims.map((x: unknown) => Math.round(Number(x))).filter((x: number) => Number.isFinite(x))
+            : [],
+          issue: String(f?.issue ?? ""),
+          suggested_fix: String(f?.suggested_fix ?? ""),
+        }))
+      : [],
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -148,7 +183,7 @@ async function claimArchitectAgent(
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims: [] });
-  return parsed.claims ?? [];
+  return sanitizeClaims(parsed.claims);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -175,13 +210,15 @@ async function specWriterAgent(apiKey: string, supabase: SupabaseClient, brief: 
     user: `${mpepContext ? `AUTHORITATIVE MPEP GUIDANCE (§112(a) written description & enablement — follow strictly):\n${mpepContext}\n\n` : ""}TECHNICAL BRIEF:\n${brief}\n\nCLAIMS:\n${claimsText}\n\nReturn ONLY valid JSON (no markdown):\n{\n  "abstract": "150-word abstract summarizing the invention",\n  "field": "1-2 sentence technical field statement",\n  "background": "300-500 word background describing the prior art landscape and problems",\n  "summary": "200-400 word summary of the invention and its advantages",\n  "description": "800-1500 word detailed description covering all embodiments and every claim element"\n}\n\nCRITICAL: the description MUST explicitly support every claim limitation (§112(a) written description). For any functional/genus language, provide structural detail or representative species so a POSITA can recognize possession.`,
     maxTokens: 4000,
   });
-  return parseJSON(raw, {
-    abstract: "",
-    field: "",
-    background: "",
-    summary: "",
-    description: "",
-  });
+  const spec = parseJSON<Record<string, unknown>>(raw, {});
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  return {
+    abstract: str(spec.abstract),
+    field: str(spec.field),
+    background: str(spec.background),
+    summary: str(spec.summary),
+    description: str(spec.description),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -228,11 +265,11 @@ async function examinerSimulatorAgent(
     user: `AUTHORITATIVE MPEP GUIDANCE (base every finding on these passages — cite section numbers and case names):\n${mpepContext}\n\n─────────────\n\nCLAIMS:\n${claimsText}\n\nABSTRACT:\n${spec.abstract}\n\nSPECIFICATION EXCERPT:\n${spec.description.slice(0, 3000)}\n\nRELEVANT PRIOR ART:\n${priorArtSummary.slice(0, 2000)}\n\nEvaluate under:\n- §101 (patent eligibility, Alice/Mayo two-step)\n- §102 (novelty vs. prior art — every element, arranged as claimed)\n- §103 (obviousness, KSR seven rationales, Graham factors)\n- §112(a) (written description, enablement — Wands factors)\n- §112(b) (definiteness — Nautilus reasonable certainty)\n\nReturn ONLY valid JSON (no markdown):\n{\n  "overall_score": 85,\n  "summary": "One paragraph overall assessment citing MPEP sections",\n  "findings": [\n    {\n      "section": "103",\n      "severity": "high",\n      "affected_claims": [1, 3],\n      "issue": "Specific issue with MPEP citation (e.g., 'Under MPEP §2143 rationale A (KSR), combining X from Ref1 with Y from Ref2 yields the predictable result of ...')",\n      "suggested_fix": "Concrete rewrite that addresses the cited MPEP standard"\n    }\n  ]\n}`,
     maxTokens: 2500,
   });
-  return parseJSON<ExaminerReport>(raw, {
-    overall_score: 70,
-    findings: [],
-    summary: "Examiner simulation could not complete; manual review recommended.",
-  });
+  const parsed = parseModelJson(raw);
+  if (!parsed) {
+    return { overall_score: 70, findings: [], summary: "Examiner simulation could not complete; manual review recommended." };
+  }
+  return sanitizeExaminerReport(parsed);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -274,52 +311,32 @@ async function revisionAgent(
     maxTokens: 3000,
   });
   const parsed = parseJSON<{ claims: ClaimNode[] }>(raw, { claims });
-  return parsed.claims?.length ? parsed.claims : claims;
+  const revised = sanitizeClaims(parsed.claims);
+  return revised.length ? revised : claims;
 }
 
 // ─────────────────────────────────────────────────────────────
 // ORCHESTRATOR
 // ─────────────────────────────────────────────────────────────
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    // Auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseService = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const caller = await authenticate(req);
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) return jsonResponse({ error: "LOVABLE_API_KEY not configured" }, 500);
+    if (!lovableApiKey) throw new HttpError(500, "AI service is not configured.");
 
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+    const body = await readJson<{ session_id?: string }>(req, 64_000);
+
+    // Ownership (owner/admin/service) then paid entitlement for the full multi-agent pipeline
+    const session = await requireSessionAccess(caller, body.session_id, "id, user_id, idea_prompt, status");
+    const sessionId: string = session.id;
+    await requirePaidAccess(caller);
+    const supabase = caller.admin;
+    if (!session.idea_prompt || !String(session.idea_prompt).trim()) {
+      throw new HttpError(409, "Describe your invention before running the drafting pipeline.");
     }
-    const userId = claimsData.claims.sub;
-
-    const body = await req.json().catch(() => ({}));
-    const sessionId = body?.session_id;
-    if (!sessionId) return jsonResponse({ error: "session_id required" }, 400);
-
-    const supabase = createClient(supabaseUrl, supabaseService);
-
-    // Verify session ownership
-    const { data: session, error: sessErr } = await supabase
-      .from("patent_sessions")
-      .select("id, user_id, idea_prompt")
-      .eq("id", sessionId)
-      .maybeSingle();
-    if (sessErr || !session) return jsonResponse({ error: "Session not found" }, 404);
-    if (session.user_id !== userId) return jsonResponse({ error: "Forbidden" }, 403);
 
     // Load context
     const [{ data: qa }, { data: priorArt }] = await Promise.all([
@@ -337,7 +354,7 @@ serve(async (req) => {
 
     // Step 1: Interview
     let t0 = Date.now();
-    const brief = await interviewAgent(lovableApiKey, session.idea_prompt, qa ?? []);
+    const brief = await interviewAgent(lovableApiKey, String(session.idea_prompt).slice(0, 20000), qa ?? []);
     steps.push({ agent: "interview", status: "complete", duration_ms: Date.now() - t0 });
 
     // Step 2: Differentiation
@@ -349,7 +366,7 @@ serve(async (req) => {
     t0 = Date.now();
     let claims = await claimArchitectAgent(lovableApiKey, supabase, brief, differentiation);
     steps.push({ agent: "claim_architect", status: "complete", duration_ms: Date.now() - t0 });
-    if (claims.length === 0) throw new Error("Claim Architect produced no claims.");
+    if (claims.length === 0) throw new HttpError(502, "The claim drafting agent did not return usable claims. Please try again.");
 
     // Step 4: Spec Writer (grounded in MPEP §112(a))
     t0 = Date.now();
@@ -373,10 +390,23 @@ serve(async (req) => {
     }
 
     // Persist
-    // 1. Clear existing claim tree for this session
-    await supabase.from("patent_claim_tree").delete().eq("session_id", sessionId);
+    // 1. Patent sections first (most important output). patent_sections has no
+    //    UNIQUE(session_id, section_type), so upsert(onConflict) would fail — use saveSection.
+    const sectionsToSave: Array<{ section_type: PatentSectionType; content: string }> = [
+      { section_type: "abstract", content: spec.abstract },
+      { section_type: "field", content: spec.field },
+      { section_type: "background", content: spec.background },
+      { section_type: "summary", content: spec.summary },
+      { section_type: "description", content: spec.description },
+      { section_type: "claims", content: claims.map((c) => c.full_text).join("\n\n") },
+    ];
+    for (const sec of sectionsToSave.filter((s) => s.content && s.content.trim())) {
+      await saveSection(supabase, sessionId, sec.section_type, sec.content);
+    }
 
-    // 2. Insert new claim tree
+    // 2. Replace claim tree
+    const { error: delErr } = await supabase.from("patent_claim_tree").delete().eq("session_id", sessionId);
+    if (delErr) throw new Error(`claim tree delete: ${delErr.message}`);
     const claimRows = claims.map((c) => ({
       session_id: sessionId,
       claim_number: c.claim_number,
@@ -387,42 +417,21 @@ serve(async (req) => {
       rationale: c.rationale,
       rejection_risk_score: examinerReport.findings.some((f) => f.affected_claims.includes(c.claim_number) && f.severity === "high")
         ? 40
-        : examinerReport.overall_score,
+        : Math.round(examinerReport.overall_score),
     }));
     if (claimRows.length > 0) {
-      await supabase.from("patent_claim_tree").insert(claimRows);
+      const { error: insErr } = await supabase.from("patent_claim_tree").insert(claimRows);
+      if (insErr) throw new Error(`claim tree insert: ${insErr.message}`);
     }
 
-    // 3. Upsert patent sections
-    const sectionsToUpsert = [
-      { section_type: "abstract", content: spec.abstract },
-      { section_type: "field", content: spec.field },
-      { section_type: "background", content: spec.background },
-      { section_type: "summary", content: spec.summary },
-      { section_type: "description", content: spec.description },
-      { section_type: "claims", content: claims.map((c) => c.full_text).join("\n\n") },
-    ].filter((s) => s.content);
-
-    for (const sec of sectionsToUpsert) {
-      await supabase.from("patent_sections").upsert(
-        {
-          session_id: sessionId,
-          section_type: sec.section_type,
-          content: sec.content,
-          is_user_edited: false,
-        },
-        { onConflict: "session_id,section_type" },
-      );
-    }
-
-    // 4. Insert reasoning trail
+    // 3. Reasoning trail (non-fatal)
     const reasoningRows = [
       {
         session_id: sessionId,
         target_type: "pipeline" as const,
         target_id: "overview",
         agent_name: "orchestrator",
-        rationale: brief,
+        rationale: brief || "Pipeline run",
         examiner_findings: examinerReport as unknown as Record<string, unknown>,
         revision_number: revisionCycles,
       },
@@ -431,11 +440,16 @@ serve(async (req) => {
         target_type: "claim" as const,
         target_id: String(c.claim_number),
         agent_name: revisionCycles > 0 ? "revision" : "claim_architect",
-        rationale: c.rationale ?? "",
+        rationale: c.rationale || "",
         revision_number: revisionCycles,
       })),
     ];
-    await supabase.from("patent_draft_reasoning").insert(reasoningRows);
+    const { error: reasonErr } = await supabase.from("patent_draft_reasoning").insert(reasoningRows);
+    if (reasonErr) console.warn("patent_draft_reasoning insert failed:", reasonErr.message);
+
+    // 4. Draft complete: status transition + one-time 'draft_complete' email
+    await supabase.from("patent_sessions").update({ ai_analysis_complete: true }).eq("id", sessionId);
+    await markDraftComplete(supabase, sessionId, session.user_id);
 
     return jsonResponse({
       success: true,
@@ -447,15 +461,6 @@ serve(async (req) => {
       total_duration_ms: Date.now() - startTime,
     });
   } catch (err) {
-    console.error("Pipeline error:", err);
-    const message = err instanceof Error ? err.message : "Pipeline failed";
-    return jsonResponse({ success: false, error: message }, 500);
+    return errorResponse(err, "The drafting pipeline failed. Please try again.", "draft-patent-pipeline");
   }
 });
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}

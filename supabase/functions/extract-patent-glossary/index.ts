@@ -1,28 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  fetchWithTimeout, aiGatewayError, parseModelJson,
+} from "../_shared/http.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { content, sectionType } = await req.json();
+    // Signed-in user (or service role) required
+    await authenticate(req);
+    const body = await readJson<{ content?: unknown; sectionType?: unknown }>(req, 600_000);
+    const content = typeof body.content === "string" ? body.content.slice(0, 80_000) : "";
+    const sectionType = typeof body.sectionType === "string" ? body.sectionType.slice(0, 50) : "";
 
-    if (!content) {
-      return new Response(
-        JSON.stringify({ error: "Content is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!content.trim()) {
+      throw new HttpError(400, "Content is required");
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      throw new HttpError(500, "AI service is not configured.");
     }
 
     const systemPrompt = `You are a patent terminology expert. Analyze the provided patent application text and:
@@ -58,7 +58,7 @@ Focus on terms that:
 - Are acronyms that need expansion
 - Are industry-specific jargon`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -75,59 +75,30 @@ Focus on terms that:
         ],
         temperature: 0.3,
       }),
-    });
+    }, 90_000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
+    if (!response.ok) throw await aiGatewayError(response, "extract-patent-glossary");
 
-    const data = await response.json();
-    const analysisText = data.choices?.[0]?.message?.content || "";
+    const data = await response.json().catch(() => null);
+    const analysisText = data?.choices?.[0]?.message?.content || "";
 
-    // Extract JSON from the response
-    let glossary;
-    try {
-      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        glossary = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse glossary response:", parseError);
+    let glossary: any = parseModelJson(analysisText);
+    if (!glossary || typeof glossary !== "object" || Array.isArray(glossary)) {
+      console.error("Failed to parse glossary response:", String(analysisText).slice(0, 300));
       glossary = {
         terms: [],
         summary: { totalTerms: 0, needsStandardization: 0, categories: {} },
         error: "Failed to parse AI response"
       };
     }
+    if (!Array.isArray(glossary.terms)) glossary.terms = [];
+    if (!glossary.summary || typeof glossary.summary !== "object") {
+      glossary.summary = { totalTerms: glossary.terms.length, needsStandardization: 0, categories: {} };
+    }
 
-    return new Response(
-      JSON.stringify(glossary),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse(glossary);
 
   } catch (error) {
-    console.error("Glossary extraction error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return errorResponse(error, "Glossary extraction failed", "extract-patent-glossary");
   }
 });

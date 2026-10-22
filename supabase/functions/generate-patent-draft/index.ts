@@ -2,63 +2,31 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, parseModelJson,
+  saveSection, markDraftComplete, isSectionType,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     console.log('Patent draft generation started');
-    
-    const { session_id } = await req.json();
-    
-    if (!session_id) {
-      console.error('Missing session_id in request');
-      return new Response(
-        JSON.stringify({ error: 'session_id is required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const caller = await authenticate(req);
+    const body = await readJson<{ session_id?: string }>(req, 64_000);
+    const session = await requireSessionAccess(caller, body.session_id, 'id, idea_prompt, user_id');
+    const session_id: string = session.id;
+
     // Lovable AI API configuration
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      throw new Error('Lovable AI API key not configured');
+      throw new HttpError(500, 'AI service is not configured.');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Fetch patent session details
-    console.log('Fetching patent session:', session_id);
-    const { data: session, error: sessionError } = await supabase
-      .from('patent_sessions')
-      .select('idea_prompt, user_id')
-      .eq('id', session_id)
-      .single();
-
-    if (sessionError) {
-      console.error('Error fetching session:', sessionError);
-      return new Response(
-        JSON.stringify({ error: 'Session not found' }), 
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    const supabase = caller.admin;
 
     // Fetch AI Q&A results
     console.log('Fetching AI questions for session:', session_id);
@@ -70,24 +38,11 @@ serve(async (req) => {
 
     if (qError) {
       console.error('Error fetching questions:', qError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch questions' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      throw new HttpError(500, 'Failed to fetch questions');
     }
 
     if (!questions || questions.length === 0) {
-      console.error('No answered questions found for session:', session_id);
-      return new Response(
-        JSON.stringify({ error: 'No answered questions found' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      throw new HttpError(409, 'Answer at least one follow-up question before generating a draft.');
     }
 
     // Format Q&A text
@@ -98,7 +53,7 @@ serve(async (req) => {
     
     // Helper function to call Lovable AI
     async function callLovableAI(systemPrompt: string, userContent: string) {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,24 +68,12 @@ serve(async (req) => {
           temperature: 0.7,
           max_tokens: 2000
         })
-      });
+      }, 90_000);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Lovable AI error:', errorText);
-        
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again later.');
-        }
-        if (response.status === 402) {
-          throw new Error('AI credits depleted. Please add credits to continue.');
-        }
-        
-        throw new Error(`Lovable AI API error: ${response.status} ${errorText}`);
-      }
+      if (!response.ok) throw await aiGatewayError(response, 'generate-patent-draft');
 
-      const data = await response.json();
-      return data.choices[0].message.content;
+      const data = await response.json().catch(() => null);
+      return String(data?.choices?.[0]?.message?.content ?? '');
     }
 
     // Stage 1: Legal-Grade Technical Analysis using USPTO Guidelines
@@ -292,14 +235,10 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
         if (!response || response.trim().length === 0) return fallback;
         
         // Try to extract JSON first
-        try {
-          const cleaned = response.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-          const parsed = JSON.parse(cleaned);
-          return parsed;
-        } catch {
-          // If JSON fails, use the raw text as meaningful content
-          return response.trim().substring(0, 1000); // Limit length
-        }
+        const parsed = parseModelJson(response);
+        if (parsed && typeof parsed === 'object') return parsed;
+        // If JSON fails, use the raw text as meaningful content
+        return response.trim().substring(0, 1000); // Limit length
       };
 
       const technical = extractContent(technicalAnalysis, 'Technical analysis not available');
@@ -369,75 +308,36 @@ CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before 
       }));
 
     if (sections.length === 0) {
-      console.error('No valid sections found in generated draft');
-      return new Response(
-        JSON.stringify({ error: 'No valid sections generated' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      throw new HttpError(502, 'No valid sections generated');
     }
 
-    console.log(`Inserting ${sections.length} sections into database`);
+    console.log(`Saving ${sections.length} sections`);
 
-    // Clear existing sections for this session and insert new ones
-    const { error: deleteError } = await supabase
+    // Update each section in place (patent_sections has no UNIQUE(session_id, section_type)).
+    // Don't clobber AI-generated diagram figures stored in the 'drawings' section.
+    const { data: existingDrawings } = await supabase
       .from('patent_sections')
-      .delete()
-      .eq('session_id', session_id);
-
-    if (deleteError) {
-      console.warn('Error clearing existing sections:', deleteError);
+      .select('id')
+      .eq('session_id', session_id)
+      .eq('section_type', 'drawings')
+      .limit(1);
+    for (const sec of sections) {
+      if (!isSectionType(sec.section_type)) continue;
+      if (sec.section_type === 'drawings' && existingDrawings && existingDrawings.length > 0) continue;
+      await saveSection(supabase, session_id, sec.section_type, sec.content);
     }
 
-    // Insert new sections
-    const { error: insertError } = await supabase
-      .from('patent_sections')
-      .insert(sections);
-
-    if (insertError) {
-      console.error('Error inserting sections:', insertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save patent sections' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Update session status to completed
-    const { error: updateError } = await supabase
-      .from('patent_sessions')
-      .update({ status: 'completed' })
-      .eq('id', session_id);
-
-    if (updateError) {
-      console.warn('Error updating session status:', updateError);
-    }
+    await markDraftComplete(supabase, session_id, session.user_id);
 
     console.log('Patent draft generation completed successfully');
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        sections_generated: sections.length,
-        sections: sections.map(s => ({ type: s.section_type, length: s.content.length }))
-      }), 
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      sections_generated: sections.length,
+      sections: sections.map(s => ({ type: s.section_type, length: s.content.length }))
+    });
 
   } catch (error) {
-    console.error('Unexpected error in generate-patent-draft function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }), 
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error, 'Patent draft generation failed', 'generate-patent-draft');
   }
 });

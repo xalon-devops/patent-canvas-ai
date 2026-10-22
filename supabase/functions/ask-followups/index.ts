@@ -2,65 +2,65 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.1';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, fetchWithTimeout, aiGatewayError, parseModelJson, assertPublicHttpUrl,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     console.log('Ask followups function started');
-    
-    const { session_id, idea_prompt } = await req.json();
-    
-    if (!session_id || !idea_prompt) {
-      console.error('Missing required parameters');
-      return new Response(
-        JSON.stringify({ error: 'session_id and idea_prompt are required' }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+
+    const caller = await authenticate(req);
+    const body = await readJson<{ session_id?: string; idea_prompt?: string }>(req, 200_000);
+    const { session_id } = body;
+    const idea_prompt = typeof body.idea_prompt === 'string' ? body.idea_prompt.slice(0, 50_000) : '';
+
+    if (!session_id || !idea_prompt.trim()) {
+      throw new HttpError(400, 'session_id and idea_prompt are required');
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    // Ownership check before any service-role reads/writes
+    const ownedSession = await requireSessionAccess(caller, session_id, 'id, user_id, technical_analysis, data_source');
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) throw new HttpError(500, 'AI service is not configured.');
+
+    const supabase = caller.admin;
 
     // Enhanced URL detection
     const trimmedPrompt = idea_prompt.trim().toLowerCase();
-    const isUrl = trimmedPrompt.startsWith('http') || 
-                  trimmedPrompt.startsWith('www.') || 
-                  /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(trimmedPrompt);
+    const isUrl = !/\s/.test(trimmedPrompt) && (
+                  trimmedPrompt.startsWith('http') ||
+                  trimmedPrompt.startsWith('www.') ||
+                  /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(trimmedPrompt));
     
     let contextualInfo = '';
     let actualUrl = idea_prompt.trim();
     
     if (isUrl) {
-      // Add https:// if no protocol specified
-      if (!actualUrl.startsWith('http')) {
-        actualUrl = 'https://' + actualUrl;
+      // Normalize + SSRF guard (no localhost / private network targets)
+      try {
+        actualUrl = assertPublicHttpUrl(actualUrl);
+      } catch {
+        actualUrl = '';
       }
       
       console.log('Detected URL input, crawling content:', actualUrl);
       
       try {
-        if (firecrawlApiKey) {
+        if (!actualUrl) {
+          console.warn('Skipping crawl of non-public URL');
+        } else if (firecrawlApiKey) {
           // Use Firecrawl for JavaScript-rendered content
           console.log('Using Firecrawl to scrape JavaScript-rendered content:', actualUrl);
           console.log('Firecrawl API key present:', firecrawlApiKey ? 'YES' : 'NO');
           
-          const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          const firecrawlResponse = await fetchWithTimeout('https://api.firecrawl.dev/v1/scrape', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -72,13 +72,12 @@ serve(async (req) => {
               waitFor: 2000,
               timeout: 30000
             })
-          });
+          }, 40_000);
 
           console.log('Firecrawl response status:', firecrawlResponse.status);
 
           if (firecrawlResponse.ok) {
             const firecrawlData = await firecrawlResponse.json();
-            console.log('Firecrawl response:', firecrawlData);
             
             if (firecrawlData.success && firecrawlData.data) {
               const extractedContent = firecrawlData.data.markdown || firecrawlData.data.text || '';
@@ -148,11 +147,7 @@ serve(async (req) => {
     console.log('Calling Lovable AI for follow-up questions');
     
     // Check if there's existing technical analysis from GitHub/code analysis
-    const { data: technicalAnalysis } = await supabase
-      .from('patent_sessions')
-      .select('technical_analysis, data_source')
-      .eq('id', session_id)
-      .single();
+    const technicalAnalysis = ownedSession;
     
     // Check if we have rich backend data - if so, generate fewer questions
     const hasRichBackendData = technicalAnalysis?.data_source?.supabase_backend?.statistics?.tables_found > 0 ||
@@ -198,7 +193,7 @@ CRITICAL: Your response must be ONLY a JSON array starting with [ and ending wit
 
     // Add technical analysis if available (from GitHub/code analysis)
     if (technicalAnalysis?.technical_analysis) {
-      systemPrompt += `\n\nEXISTING TECHNICAL ANALYSIS FROM CODE:\n${technicalAnalysis.technical_analysis}\n\nBased on this technical analysis, generate specific, contextual questions that dig deeper into the unique technical aspects, implementation details, and novel features identified in the code. Avoid generic questions - focus on the specific technical innovations mentioned in the analysis.`;
+      systemPrompt += `\n\nEXISTING TECHNICAL ANALYSIS FROM CODE:\n${String(technicalAnalysis.technical_analysis).slice(0, 20000)}\n\nBased on this technical analysis, generate specific, contextual questions that dig deeper into the unique technical aspects, implementation details, and novel features identified in the code. Avoid generic questions - focus on the specific technical innovations mentioned in the analysis.`;
     }
     
     // Add backend data summary if available
@@ -231,7 +226,7 @@ Return as JSON object with this structure:
 }`;
 
     // Call Lovable AI to generate follow-up questions
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetchWithTimeout('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -253,126 +248,38 @@ Return as JSON object with this structure:
         max_tokens: 1000,
         response_format: { type: "json_object" }
       })
-    });
+    }, 60_000);
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI API error:', errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), 
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }), 
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate follow-up questions' }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!aiResponse.ok) throw await aiGatewayError(aiResponse, 'ask-followups');
 
-    const aiData = await aiResponse.json();
-    const generatedContent = aiData.choices[0].message.content;
+    const aiData = await aiResponse.json().catch(() => null);
+    const generatedContent: string = String(aiData?.choices?.[0]?.message?.content ?? '');
 
     console.log('Lovable AI response received, parsing questions');
     console.log('Raw AI response:', generatedContent);
 
-    let questions;
-    try {
-      // Parse JSON object with questions property
-      const parsed = JSON.parse(generatedContent);
-      
-      // Handle both array format and object format
-      if (Array.isArray(parsed)) {
-        questions = parsed;
-      } else if (parsed.questions && Array.isArray(parsed.questions)) {
-        questions = parsed.questions;
-      } else {
-        throw new Error('Response does not contain questions array');
-      }
-      
-      if (!Array.isArray(questions) || questions.length === 0) {
-        throw new Error('Questions array is empty or invalid');
-      }
-      
-      console.log('Successfully parsed', questions.length, 'questions');
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      console.error('AI response:', generatedContent);
-      
-      // Try to extract JSON from markdown code blocks
-      const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/);
-      if (jsonMatch) {
-        try {
-          const extracted = JSON.parse(jsonMatch[1]);
-          if (Array.isArray(extracted)) {
-            questions = extracted;
-          } else if (extracted.questions && Array.isArray(extracted.questions)) {
-            questions = extracted.questions;
-          } else {
-            throw new Error('Extracted content does not contain questions');
-          }
-          console.log('Successfully extracted', questions.length, 'questions from markdown');
-        } catch (e) {
-          console.error('Failed to parse extracted JSON:', e);
-          return new Response(
-            JSON.stringify({ error: 'Failed to parse generated questions - invalid format' }), 
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      } else {
-        // Last resort: try to extract question-like strings
-        const lines = generatedContent.split('\n').filter(l => l.trim());
-        const questionLines = lines.filter(l => 
-          l.includes('?') || 
-          l.match(/^\d+\./) || 
-          l.toLowerCase().includes('what') ||
-          l.toLowerCase().includes('how') ||
-          l.toLowerCase().includes('why')
-        );
-        
-        if (questionLines.length > 0) {
-          questions = questionLines.slice(0, 8).map(q => q.replace(/^\d+\.\s*/, '').replace(/^[-*]\s*/, '').trim());
-          console.log('Extracted', questions.length, 'questions from text');
-        } else {
-          return new Response(
-            JSON.stringify({ error: 'Failed to parse generated questions - no valid format found' }), 
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
+    let questions: string[] = [];
+    const parsed = parseModelJson(generatedContent);
+    const candidate = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.questions) ? parsed.questions : null);
+    if (candidate) {
+      questions = candidate;
+    } else {
+      // Last resort: try to extract question-like strings
+      const lines = generatedContent.split('\n').filter((l: string) => l.trim());
+      questions = lines
+        .filter((l: string) => l.includes('?'))
+        .map((q: string) => q.replace(/^\s*\d+[.)]\s*/, '').replace(/^\s*[-*]\s*/, '').replace(/^"|",?$/g, '').trim());
     }
+    questions = questions
+      .filter((q: unknown) => typeof q === 'string' && q.trim().length > 5)
+      .map((q: string) => q.trim().slice(0, 1000))
+      .slice(0, 10);
 
-    // Check that the session exists to avoid FK violations
-    const { data: sessionCheck, error: sessionErr } = await supabase
-      .from('patent_sessions')
-      .select('id')
-      .eq('id', session_id)
-      .maybeSingle();
-
-    if (!sessionCheck) {
-      console.warn('Session not found for session_id:', session_id, 'Returning questions without DB writes.');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          saved: false,
-          questions,
-          url_crawled: isUrl,
-          context_length: contextualInfo.length,
-          reason: 'session_not_found',
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (questions.length === 0) {
+      console.error('Failed to parse AI questions from:', generatedContent.slice(0, 500));
+      throw new HttpError(502, 'Failed to generate follow-up questions. Please try again.');
     }
+    console.log('Parsed', questions.length, 'questions');
 
     // Prepare questions for database insertion
     const questionRecords = questions.map((question: string) => ({
@@ -399,38 +306,20 @@ Return as JSON object with this structure:
 
     if (insertError) {
       console.error('Error inserting questions:', insertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save questions' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      throw new HttpError(500, 'Failed to save questions');
     }
 
     console.log('Follow-up questions generated and saved successfully');
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        saved: true,
-        questions_generated: questionRecords.length,
-        url_crawled: isUrl,
-        context_length: contextualInfo.length,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      saved: true,
+      questions_generated: questionRecords.length,
+      url_crawled: isUrl,
+      context_length: contextualInfo.length,
+    });
 
   } catch (error) {
-    console.error('Unexpected error in ask-followups function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }), 
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(error, 'Failed to generate follow-up questions', 'ask-followups');
   }
 });

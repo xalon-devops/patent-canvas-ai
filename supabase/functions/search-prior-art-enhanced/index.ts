@@ -5,87 +5,32 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.52.1";
 // FREE_SEARCHES_LIMIT - synced with src/lib/pricingConstants.ts
 const FREE_SEARCHES_LIMIT = 3;
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  handleCors, jsonResponse, errorResponse, authenticate, readJson, HttpError,
+  requireSessionAccess, requireSearchAccess, consumeSearchCredit, toPgDate,
+} from '../_shared/http.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
-    const { session_id, ideaTitle, ideaDescription, search_query } = await req.json();
-    
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const caller = await authenticate(req);
+    const body = await readJson<{ session_id?: string; ideaTitle?: string; ideaDescription?: string; search_query?: string }>(req, 200_000);
+    const { session_id } = body;
+    const ideaTitle = typeof body.ideaTitle === 'string' ? body.ideaTitle.slice(0, 2000) : '';
+    const ideaDescription = typeof body.ideaDescription === 'string' ? body.ideaDescription.slice(0, 20000) : '';
+    const search_query = typeof body.search_query === 'string' ? body.search_query.slice(0, 20000) : '';
 
-    const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = token ? await supabaseClient.auth.getUser(token) : { data: { user: null } };
-
-    if (!user) {
-      return new Response(JSON.stringify({ success: false, error: 'Your session has expired. Please sign in again.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    const supabaseClient = caller.admin;
 
     console.log('[ENHANCED SEARCH] Starting multi-source patent search');
 
-    // Admin override
-    const { data: adminRole } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
+    // Ownership of the session (if one is passed) before any service-role read/write
+    if (session_id) await requireSessionAccess(caller, session_id, 'id, user_id');
 
-    const isAdmin = !!adminRole;
-
-    if (isAdmin) {
-      console.log('[ENHANCED SEARCH] Admin user - bypassing credit check');
-    }
-
-    // Check subscription
-    const { data: subscription } = await supabaseClient
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    const hasActiveSubscription = !!subscription || isAdmin;
-
-    // Get or create credits
-    let { data: credits } = await supabaseClient
-      .from('user_search_credits')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!credits) {
-      console.log('[ENHANCED SEARCH] Creating new credits for user');
-      const { data: newCredits, error: createError } = await supabaseClient
-        .from('user_search_credits')
-        .insert({ user_id: user.id, searches_used: 0, free_searches_remaining: FREE_SEARCHES_LIMIT })
-        .select()
-        .single();
-
-      if (createError) throw new Error('Failed to initialize search credits');
-      credits = newCredits;
-    }
-
-    const hasCredits = credits && credits.free_searches_remaining > 0;
-
-    if (!hasActiveSubscription && !hasCredits) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No search credits remaining. Please subscribe to continue.',
-        requires_subscription: true
-      }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    // Gate: admin / paid (incl. trialing + free_grant) unlimited, otherwise free credits
+    const access = await requireSearchAccess(caller, FREE_SEARCHES_LIMIT);
 
     // Build context - prefer search_query if provided, otherwise build from session/idea
     let contextText = search_query?.trim() || '';
@@ -93,9 +38,9 @@ serve(async (req) => {
     if (!contextText && session_id) {
       const { data: sessionData } = await supabaseClient
         .from('patent_sessions')
-        .select('*, ai_questions(*)')
+        .select('idea_prompt, ai_questions(question, answer)')
         .eq('id', session_id)
-        .single();
+        .maybeSingle();
 
       if (sessionData) {
         contextText = sessionData.idea_prompt || '';
@@ -110,11 +55,9 @@ serve(async (req) => {
     }
 
     if (!contextText.trim()) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No search context provided'
-      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      throw new HttpError(400, 'No search context provided');
     }
+    contextText = contextText.slice(0, 30000);
 
     console.log('[ENHANCED SEARCH] Context length:', contextText.length);
 
@@ -181,27 +124,19 @@ serve(async (req) => {
       };
     }).filter((r: any) => aiScores ? r.similarity_score >= 0.3 : true);
 
-    // Deduct credit only after a successful search
-    if (!hasActiveSubscription && hasCredits) {
-      await supabaseClient
-        .from('user_search_credits')
-        .update({
-          searches_used: (credits.searches_used || 0) + 1,
-          free_searches_remaining: credits.free_searches_remaining - 1,
-          last_search_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-    }
+    // Deduct credit only after a successful search (atomic, service-role-only RPC)
+    const creditsRemaining = await consumeSearchCredit(caller, access);
 
     // Sort by score
     rankedResults.sort((a, b) => b.similarity_score - a.similarity_score);
 
     // Store results
     if (session_id && rankedResults.length > 0) {
-      await supabaseClient
+      const { error: delErr } = await supabaseClient
         .from('prior_art_results')
         .delete()
         .eq('session_id', session_id);
+      if (delErr) console.error('[ENHANCED SEARCH] Failed clearing old results:', delErr.message);
 
       const resultsToStore = rankedResults.slice(0, 15).map(result => ({
         session_id,
@@ -213,13 +148,14 @@ serve(async (req) => {
         keyword_score: result.keyword_score,
         url: result.url,
         source: result.source,
-        patent_date: result.patent_date,
-        assignee: result.assignee,
-        overlap_claims: result.overlap_claims,
-        difference_claims: result.difference_claims,
+        patent_date: toPgDate(result.patent_date),
+        assignee: typeof result.assignee === 'string' ? result.assignee : null,
+        overlap_claims: (Array.isArray(result.overlap_claims) ? result.overlap_claims : []).map(String),
+        difference_claims: (Array.isArray(result.difference_claims) ? result.difference_claims : []).map(String),
       }));
 
-      await supabaseClient.from('prior_art_results').insert(resultsToStore);
+      const { error: insErr } = await supabaseClient.from('prior_art_results').insert(resultsToStore);
+      if (insErr) console.error('[ENHANCED SEARCH] Failed storing results:', insErr.message);
     }
 
     const sourcesUsed = [];
@@ -228,27 +164,17 @@ serve(async (req) => {
 
     console.log(`[ENHANCED SEARCH] Complete: ${rankedResults.length} results, top score: ${rankedResults[0]?.similarity_score || 0}`);
 
-    return new Response(JSON.stringify({
+    return jsonResponse(({
       success: true,
       results: rankedResults.slice(0, 15),
       results_found: rankedResults.length,
       sources_used: sourcesUsed,
       keywords_used: searchKeywords.slice(0, 5),
-      search_credits_remaining: hasActiveSubscription ? 'unlimited' : Math.max(0, (credits?.free_searches_remaining ?? 1) - 1)
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+      search_credits_remaining: creditsRemaining
+    }));
 
   } catch (error) {
-    console.error('[ENHANCED SEARCH] Error:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'The search could not be completed. Please try again in a moment.'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(error, 'The search could not be completed. Please try again in a moment.', 'search-prior-art-enhanced');
   }
 });
 
@@ -366,7 +292,7 @@ Find patents that could pose novelty or obviousness challenges to this invention
     const patentNumbers = content.match(/US\d{7,}[A-Z]?\d?|US\s*\d{4}\/\d{7}[A-Z]\d?|US\d{4,}\s*[A-Z]\d?/gi) || [];
     if (patentNumbers.length > 0) {
       console.log('[Perplexity] Extracted patent numbers:', patentNumbers.length);
-      return [...new Set(patentNumbers)].slice(0, 10).map(num => ({
+      return [...new Set(patentNumbers as string[])].slice(0, 10).map((num: string) => ({
         title: `Patent ${num}`,
         publication_number: num.replace(/\s+/g, ''),
         summary: 'Found via Perplexity AI search. View patent for full details.',
