@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 // Generate a simple session fingerprint
 function generateFingerprint(): string {
   return btoa(navigator.userAgent + window.innerWidth + window.innerHeight).slice(0, 12);
@@ -42,16 +40,9 @@ export async function logEvent(event_type: string, metadata: any = {}, company =
     },
   };
 
-  // Log to console for debugging
-  console.log("[ConversionTracker]", event_type, eventData);
-
-  // Get current user if authenticated
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (user) {
-    // Could store in a conversion_events table if needed
-    // For now, just log authenticated events
-    console.log("[ConversionTracker] Authenticated user:", user.email, event_type);
+  // Debug-only: no network calls here (this runs on every route change)
+  if (import.meta.env.DEV) {
+    console.debug("[ConversionTracker]", event_type, eventData);
   }
 }
 

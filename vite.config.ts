@@ -19,4 +19,20 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  esbuild: {
+    // Strip debug logging from production bundles (errors/warnings are kept)
+    pure: mode === "production" ? ["console.log", "console.debug", "console.info"] : [],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks so app deploys don't bust the cache for these
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+          "vendor-motion": ["framer-motion"],
+        },
+      },
+    },
+  },
 }));

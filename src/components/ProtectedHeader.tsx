@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, MoreVertical, Settings, Key, LogOut, Shield, UserIcon, LayoutDashboard, FileText, Search, BadgeCheck, BarChart3 } from 'lucide-react';
 import { UserAvatar } from '@/components/UserAvatar';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface ProtectedHeaderProps {
   /** Title to display in the header (optional, shows logo if omitted) */
@@ -31,28 +32,9 @@ export const ProtectedHeader: React.FC<ProtectedHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserId(session.user.id);
-        setUserEmail(session.user.email || null);
-        // Check admin status
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-        setIsAdmin(!!data);
-      }
-    };
-    getUser();
-  }, []);
+  const { user, access } = useUserProfile();
+  const isAdmin = access.isAdmin;
+  const userEmail = user?.email ?? null;
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

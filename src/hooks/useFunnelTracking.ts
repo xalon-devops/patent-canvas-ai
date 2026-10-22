@@ -44,8 +44,9 @@ export async function trackFunnelEvent(
   const pagePath = window.location.pathname;
 
   try {
-    // Get current user if authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    // Read the cached session (no network round-trip, unlike auth.getUser())
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
 
     await supabase.from('funnel_events').insert({
       session_id: sessionId,
@@ -62,7 +63,7 @@ export async function trackFunnelEvent(
       },
     });
 
-    console.log('[Funnel]', eventType, funnelStep, metadata);
+    if (import.meta.env.DEV) console.debug('[Funnel]', eventType, funnelStep, metadata);
   } catch (error) {
     console.error('[Funnel] Error tracking event:', error);
   }
@@ -108,11 +109,11 @@ export function trackSignupStart() {
 }
 
 export function trackSignupComplete(userId: string, email: string) {
-  trackFunnelEvent('signup_complete', FUNNEL_STEPS.AUTH_SIGNUP_COMPLETE, { userId, email });
+  trackFunnelEvent('signup_complete', FUNNEL_STEPS.AUTH_SIGNUP_COMPLETE, { userId });
 }
 
 export function trackLogin(userId: string, email: string) {
-  trackFunnelEvent('login', FUNNEL_STEPS.AUTH_LOGIN, { userId, email });
+  trackFunnelEvent('login', FUNNEL_STEPS.AUTH_LOGIN, { userId });
 }
 
 export function trackPatentSessionCreated(sessionId: string) {

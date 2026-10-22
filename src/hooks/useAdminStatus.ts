@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useUserProfile } from '@/contexts/UserProfileContext';
 
 interface AdminStatus {
   isAdmin: boolean;
@@ -8,66 +7,29 @@ interface AdminStatus {
   canBypassPaywall: boolean;
 }
 
+/**
+ * Admin / free-grant status for the signed-in user.
+ * Reads the shared access state from UserProfileContext (fetched once per login)
+ * instead of querying user_roles + subscriptions on every mount.
+ */
 export const useAdminStatus = (userId: string | undefined): AdminStatus => {
-  const [status, setStatus] = useState<AdminStatus>({
-    isAdmin: false,
-    isFreeGrant: false,
-    loading: true,
-    canBypassPaywall: false
-  });
+  const { user, access, loading: profileLoading } = useUserProfile();
 
-  const checkStatus = useCallback(async () => {
-    if (!userId) {
-      setStatus({
-        isAdmin: false,
-        isFreeGrant: false,
-        loading: false,
-        canBypassPaywall: false
-      });
-      return;
-    }
+  if (!userId) {
+    // Caller hasn't resolved its user yet; report loading while auth is still resolving.
+    return { isAdmin: false, isFreeGrant: false, loading: profileLoading, canBypassPaywall: false };
+  }
 
-    try {
-      // Check admin role
-      const { data: adminRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
+  if (user?.id !== userId) {
+    return { isAdmin: false, isFreeGrant: false, loading: profileLoading, canBypassPaywall: false };
+  }
 
-      // Check for free grant subscription
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('plan, status')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      const isAdmin = !!adminRole;
-      const isFreeGrant = subscription?.plan === 'free_grant' && subscription?.status === 'active';
-
-      setStatus({
-        isAdmin,
-        isFreeGrant,
-        loading: false,
-        canBypassPaywall: isAdmin || isFreeGrant
-      });
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      setStatus({
-        isAdmin: false,
-        isFreeGrant: false,
-        loading: false,
-        canBypassPaywall: false
-      });
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
-
-  return status;
+  return {
+    isAdmin: access.isAdmin,
+    isFreeGrant: access.isFreeGrant,
+    loading: !access.loaded,
+    canBypassPaywall: access.isAdmin || access.isFreeGrant,
+  };
 };
 
 export default useAdminStatus;

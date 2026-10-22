@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, Crown, Loader2 } from 'lucide-react';
@@ -19,87 +18,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiresAdmin = false,
 }) => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useUserProfile();
-
-  const [accessLoading, setAccessLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-  const [accessType, setAccessType] = useState<'premium' | 'admin' | null>(null);
+  const location = useLocation();
+  const { user, loading: authLoading, access } = useUserProfile();
 
   useEffect(() => {
-    let cancelled = false;
+    if (!authLoading && !user) {
+      const next = location.pathname + location.search;
+      navigate(`/auth?redirect=${encodeURIComponent(next)}`, { replace: true });
+    }
+  }, [authLoading, user, navigate, location.pathname, location.search]);
 
-    const run = async () => {
-      if (authLoading) {
-        setAccessLoading(true);
-        return;
-      }
-
-      if (!user) {
-        setHasAccess(false);
-        setAccessType(null);
-        setAccessLoading(false);
-        navigate('/auth');
-        return;
-      }
-
-      // Auth-only routes: no DB checks needed
-      if (!requiresAdmin && !requiresPremium) {
-        setHasAccess(true);
-        setAccessType(null);
-        setAccessLoading(false);
-        return;
-      }
-
-      setAccessLoading(true);
-
-      try {
-        let allowed = false;
-        let type: 'premium' | 'admin' | null = null;
-
-        if (requiresAdmin) {
-          const { data, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
-
-          if (!error && data) {
-            allowed = true;
-            type = 'admin';
-          }
-        } else if (requiresPremium) {
-          const { data, error } = await supabase
-            .from('subscriptions')
-            .select('status, plan')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (!error && (data?.status === 'active' || data?.status === 'trialing') && data?.plan !== 'free') {
-            allowed = true;
-            type = 'premium';
-          }
-        }
-
-        if (cancelled) return;
-        setHasAccess(allowed);
-        setAccessType(type);
-      } catch (e) {
-        if (cancelled) return;
-        setHasAccess(false);
-        setAccessType(null);
-      } finally {
-        if (cancelled) return;
-        setAccessLoading(false);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, user?.id, requiresAdmin, requiresPremium, navigate]);
+  const needsAccessCheck = requiresAdmin || requiresPremium;
+  const accessLoading = !!user && needsAccessCheck && !access.loaded;
+  const hasAccess = !needsAccessCheck
+    || (requiresAdmin ? access.isAdmin : access.isAdmin || access.isPaid);
 
   if (authLoading || accessLoading) {
     return (

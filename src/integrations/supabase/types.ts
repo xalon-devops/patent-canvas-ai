@@ -584,6 +584,7 @@ export type Database = {
           is_user_edited: boolean | null
           section_type: string | null
           session_id: string
+          updated_at: string | null
         }
         Insert: {
           content?: string | null
@@ -592,6 +593,7 @@ export type Database = {
           is_user_edited?: boolean | null
           section_type?: string | null
           session_id: string
+          updated_at?: string | null
         }
         Update: {
           content?: string | null
@@ -600,6 +602,7 @@ export type Database = {
           is_user_edited?: boolean | null
           section_type?: string | null
           session_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -631,6 +634,7 @@ export type Database = {
           status: string | null
           technical_analysis: string | null
           title: string | null
+          updated_at: string | null
           user_id: string
           visual_analysis: Json | null
         }
@@ -646,6 +650,7 @@ export type Database = {
           status?: string | null
           technical_analysis?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id: string
           visual_analysis?: Json | null
         }
@@ -661,6 +666,7 @@ export type Database = {
           status?: string | null
           technical_analysis?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id?: string
           visual_analysis?: Json | null
         }

@@ -34,6 +34,10 @@ export function trackPurchase(data: {
  * Uses edge function with service role to bypass RLS
  */
 export async function syncUserCount() {
+  // Once per browser session is plenty; this used to fire on every app load.
+  try {
+    if (sessionStorage.getItem("trackit_user_count_synced")) return;
+  } catch { /* storage blocked */ }
   try {
     // Call edge function to get total user count (bypasses RLS)
     const { data, error } = await supabase.functions.invoke("get-user-count");
@@ -47,6 +51,7 @@ export async function syncUserCount() {
     
     if (window.KX?.setUserCount) {
       window.KX.setUserCount(userCount);
+      try { sessionStorage.setItem("trackit_user_count_synced", "1"); } catch { /* storage blocked */ }
       console.log("[TrackIt] User count synced:", userCount);
     } else {
       console.log("[TrackIt] KX.setUserCount not available yet, count:", userCount);
