@@ -245,14 +245,14 @@ export default function PriorArtDisplay({
       {/* Summary Card */}
       <Card className="bg-gradient-to-br from-background to-muted/30 overflow-hidden">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
                 Prior Art Analysis Complete
               </CardTitle>
               <CardDescription className="mt-1">
-                Found {priorArt.length} relevant patents across Perplexity AI & Google Patents
+                Found {priorArt.length} relevant patent{priorArt.length === 1 ? '' : 's'} across patent databases
               </CardDescription>
             </div>
             {onRetrySearch && (
@@ -264,18 +264,18 @@ export default function PriorArtDisplay({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-xl text-center border border-red-200 dark:border-red-800">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="p-2 sm:p-4 bg-red-50 dark:bg-red-950/30 rounded-xl text-center border border-red-200 dark:border-red-800">
               <div className="text-3xl font-bold text-red-600">{highRiskCount}</div>
               <div className="text-xs text-red-800 font-semibold">High Risk</div>
               <div className="text-[10px] text-red-500 mt-1">≥80% similar</div>
             </div>
-            <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-xl text-center border border-orange-200 dark:border-orange-800">
+            <div className="p-2 sm:p-4 bg-orange-50 dark:bg-orange-950/30 rounded-xl text-center border border-orange-200 dark:border-orange-800">
               <div className="text-3xl font-bold text-orange-600">{mediumRiskCount}</div>
               <div className="text-xs text-orange-800 font-semibold">Medium Risk</div>
               <div className="text-[10px] text-orange-500 mt-1">60-79% similar</div>
             </div>
-            <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-xl text-center border border-green-200 dark:border-green-800">
+            <div className="p-2 sm:p-4 bg-green-50 dark:bg-green-950/30 rounded-xl text-center border border-green-200 dark:border-green-800">
               <div className="text-3xl font-bold text-green-600">{lowRiskCount}</div>
               <div className="text-xs text-green-800 font-semibold">Low Risk</div>
               <div className="text-[10px] text-green-500 mt-1">&lt;60% similar</div>
@@ -358,9 +358,9 @@ export default function PriorArtDisplay({
             >
               <Card className={`transition-all hover:shadow-lg ${getSimilarityBorder(result.similarity_score)}`}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-2 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base leading-tight line-clamp-2">
+                      <CardTitle className="text-base leading-tight line-clamp-2 break-words">
                         {result.title}
                       </CardTitle>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-muted-foreground">
@@ -431,7 +431,7 @@ export default function PriorArtDisplay({
 
                   {/* Score breakdown */}
                   {(result.semantic_score !== undefined || result.keyword_score !== undefined) && (
-                    <div className="flex items-center gap-4 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
                       {result.semantic_score !== undefined && result.semantic_score > 0 && (
                         <div className="flex items-center gap-1.5 border border-violet-200 bg-violet-50 px-2 py-1 rounded">
                           <Brain className="w-3 h-3 text-purple-500" />
@@ -507,7 +507,7 @@ export default function PriorArtDisplay({
                   </AnimatePresence>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2">
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -530,7 +530,7 @@ export default function PriorArtDisplay({
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => window.open(result.url, '_blank')}
+                        onClick={() => window.open(result.url, '_blank', 'noopener,noreferrer')}
                         className="gap-2"
                       >
                         <ExternalLink className="w-4 h-4" />

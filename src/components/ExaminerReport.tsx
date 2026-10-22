@@ -46,6 +46,7 @@ interface Props {
 
 const ExaminerReport: React.FC<Props> = ({ report, revisionCycles = 0 }) => {
   if (!report) return null;
+  const findings = Array.isArray(report.findings) ? report.findings : [];
 
   const scoreColor =
     report.overall_score >= 85
@@ -59,8 +60,8 @@ const ExaminerReport: React.FC<Props> = ({ report, revisionCycles = 0 }) => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2">
               <Gavel className="h-5 w-5 text-primary" />
               USPTO Examiner Simulation
@@ -85,15 +86,15 @@ const ExaminerReport: React.FC<Props> = ({ report, revisionCycles = 0 }) => {
           <AlertDescription className="text-sm">{report.summary}</AlertDescription>
         </Alert>
 
-        {report.findings.length === 0 ? (
+        {findings.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground text-sm">
             <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-600" />
             No significant examiner findings — the draft is in strong shape.
           </div>
         ) : (
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold">Findings ({report.findings.length})</h4>
-            {report.findings.map((finding, idx) => (
+            <h4 className="text-sm font-semibold">Findings ({findings.length})</h4>
+            {findings.map((finding, idx) => (
               <div key={idx} className={`rounded-md border p-3 ${severityStyle(finding.severity)}`}>
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Badge variant="outline" className="text-xs bg-background">
@@ -102,7 +103,7 @@ const ExaminerReport: React.FC<Props> = ({ report, revisionCycles = 0 }) => {
                   <Badge variant="outline" className="text-xs bg-background uppercase">
                     {finding.severity}
                   </Badge>
-                  {finding.affected_claims.length > 0 && (
+                  {Array.isArray(finding.affected_claims) && finding.affected_claims.length > 0 && (
                     <Badge variant="outline" className="text-xs bg-background">
                       Claims: {finding.affected_claims.join(', ')}
                     </Badge>

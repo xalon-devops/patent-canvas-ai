@@ -1,7 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, CheckCircle, ExternalLink, Scale, FileText } from 'lucide-react';
 
 interface PriorArtResult {
@@ -21,9 +20,9 @@ interface PriorArtComparisonPanelProps {
   sectionContent: string;
 }
 
-const getSectionRelevantOverlaps = (priorArt: PriorArtResult[], sectionType: string): PriorArtResult[] => {
-  // Filter prior art that has overlap claims relevant to this section type
-  return priorArt
+const getSectionRelevantOverlaps = (priorArt: PriorArtResult[], _sectionType: string): PriorArtResult[] => {
+  // Closest references (similarity > 30%) - the same set is relevant to every section
+  return [...priorArt]
     .filter(pa => pa.similarity_score > 0.3)
     .sort((a, b) => b.similarity_score - a.similarity_score)
     .slice(0, 3);
@@ -58,7 +57,7 @@ export default function PriorArtComparisonPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 sm:p-3 pt-0">
-        <ScrollArea className="max-h-[200px]">
+        <div className="max-h-[200px] overflow-y-auto">
           <div className="space-y-1.5">
             {relevantPriorArt.map((pa) => (
               <div 
@@ -125,7 +124,7 @@ export default function PriorArtComparisonPanel({
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
         
         <div className="mt-1.5 pt-1.5 border-t">
           <p className="text-[10px] text-muted-foreground">

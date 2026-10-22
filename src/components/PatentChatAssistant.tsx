@@ -6,11 +6,15 @@ import {
   MessageSquare, Send, Loader2, Scale, Search, Shield, Bot, User, X, Minimize2, Maximize2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { supabase } from '@/integrations/supabase/client';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type ChatMode = 'general' | 'claims' | 'examiner' | 'prior-art';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/patent-chat`;
+// Only the most recent turns are sent to keep the request payload bounded
+const MAX_HISTORY_MESSAGES = 20;
+const MAX_MESSAGE_CHARS = 4000;
 
 const MODE_CONFIG: Record<ChatMode, { label: string; icon: React.ReactNode; description: string }> = {
   general: { label: 'General', icon: <Bot className="w-3.5 h-3.5" />, description: 'Patent strategy & advice' },
@@ -31,26 +35,39 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<ChatMode>('general');
   const [isMinimized, setIsMinimized] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // ScrollArea scrolls an inner viewport, so scroll a sentinel into view instead of setting scrollTop on the root
+    bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages]);
 
   const streamChat = async (userMessages: Msg[]) => {
+    // Send the signed-in user's JWT (not the anon key) so the function can verify session ownership
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Please sign in again to use the assistant.');
+
     const resp = await fetch(CHAT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ messages: userMessages, sessionId, mode }),
+      body: JSON.stringify({
+        messages: userMessages
+          .filter(m => !(m.role === 'assistant' && m.content.startsWith('⚠️')))
+          .slice(-MAX_HISTORY_MESSAGES)
+          .map(m => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) })),
+        sessionId,
+        mode,
+      }),
     });
 
     if (!resp.ok || !resp.body) {
+      if (resp.status === 401) throw new Error('Your session has expired. Please sign in again.');
+      if (resp.status === 403 || resp.status === 404) throw new Error('This application could not be found.');
       if (resp.status === 429) throw new Error('Rate limited — please wait a moment.');
       if (resp.status === 402) throw new Error('AI credits depleted.');
       throw new Error('Failed to connect to AI.');
@@ -115,7 +132,7 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-    const userMsg: Msg = { role: 'user', content: input.trim() };
+    const userMsg: Msg = { role: 'user', content: input.trim().slice(0, MAX_MESSAGE_CHARS) };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
@@ -140,7 +157,8 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center bg-foreground text-background transition-all duration-300 hover:scale-105"
+        aria-label="Open patent AI assistant"
+        className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-50 w-12 h-12 rounded-full flex items-center justify-center bg-foreground text-background transition-all duration-300 hover:scale-105"
         style={{ boxShadow: '0 4px 24px hsl(220 20% 10% / 0.25)' }}
       >
         <MessageSquare className="w-5 h-5" />
@@ -150,8 +168,8 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-50 w-[380px] sm:w-[420px] chat-container"
-      style={{ height: isMinimized ? 'auto' : '560px' }}
+      className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-50 w-[calc(100vw-2rem)] max-w-[420px] chat-container"
+      style={{ height: isMinimized ? 'auto' : 'min(560px, calc(100dvh - 2rem))' }}
     >
       {/* Header */}
       <div className="chat-header">
@@ -165,10 +183,10 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
           </div>
         </div>
         <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsMinimized(!isMinimized)}>
+          <Button variant="ghost" size="sm" aria-label={isMinimized ? 'Expand' : 'Minimize'} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsMinimized(!isMinimized)}>
             {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={onToggle}>
+          <Button variant="ghost" size="sm" aria-label="Close assistant" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={onToggle}>
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>
@@ -195,7 +213,7 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 px-3 py-3" ref={scrollRef as any}>
+          <ScrollArea className="flex-1 min-h-0 px-3 py-3">
             {messages.length === 0 ? (
               <div className="text-center py-10 space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mx-auto">
@@ -263,6 +281,7 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
                     </div>
                   </div>
                 )}
+                <div ref={bottomRef} />
               </div>
             )}
           </ScrollArea>
@@ -280,6 +299,7 @@ export default function PatentChatAssistant({ sessionId, isOpen, onToggle }: Pat
             />
             <button
               onClick={handleSend}
+              aria-label="Send message"
               disabled={!input.trim() || isLoading}
               className="w-9 h-9 rounded-xl bg-foreground text-background flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all hover:scale-105"
             >

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import DOMPurify from 'dompurify';
 import { 
   FileText, 
@@ -23,6 +24,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { PaymentGateDialog } from './PaymentGateDialog';
 
 interface PatentSection {
@@ -67,34 +69,65 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
   const [exporting, setExporting] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
+  // Keys must match the patent_sections.section_type CHECK constraint
   const sectionConfig = {
-    'title': { name: 'Title', icon: FileText, order: 1, required: true },
-    'abstract': { name: 'Abstract', icon: FileText, order: 2, required: true },
+    'abstract': { name: 'Abstract', icon: FileText, order: 1, required: true },
+    'field': { name: 'Field of the Invention', icon: FileText, order: 2, required: true },
     'background': { name: 'Background', icon: FileText, order: 3, required: true },
     'summary': { name: 'Summary', icon: FileText, order: 4, required: true },
-    'brief_description': { name: 'Brief Description of Drawings', icon: ImageIcon, order: 5, required: false },
-    'detailed_description': { name: 'Detailed Description', icon: FileText, order: 6, required: true },
+    'drawings': { name: 'Drawings', icon: ImageIcon, order: 5, required: false },
+    'description': { name: 'Detailed Description', icon: FileText, order: 6, required: true },
     'claims': { name: 'Claims', icon: FileCheck, order: 7, required: true },
   };
 
+  const fetchSections = async (): Promise<PatentSection[]> => {
+    const { data, error: fetchError } = await supabase
+      .from('patent_sections')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+    if (fetchError) throw fetchError;
+    return (data || []) as PatentSection[];
+  };
+
   useEffect(() => {
-    generatePatentDraft();
-  }, []);
+    // Reuse an existing draft (e.g. resumed application) instead of regenerating and overwriting edits
+    let cancelled = false;
+    (async () => {
+      try {
+        const existing = await fetchSections();
+        if (cancelled) return;
+        if (existing.length > 0) {
+          setSections(existing);
+          setLoading(false);
+          setGenerating(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Error loading existing sections:', e);
+      }
+      if (!cancelled) generatePatentDraft();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const generatePatentDraft = async () => {
     setGenerating(true);
+    setLoading(true);
     setProgress(0);
     setError(null);
+    // Simulate progress updates with timeout protection
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 5, 85));
+    }, 800);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
-      // Simulate progress updates with timeout protection
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 5, 85));
-      }, 800);
-
       // Add timeout promise (180 seconds for complex AI generation)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Patent generation timeout - this is taking longer than expected')), 180000);
+        timeoutId = setTimeout(() => reject(new Error('Patent generation timeout - this is taking longer than expected')), 180000);
       });
 
       // Call the enhanced patent draft generation function with timeout
@@ -109,11 +142,9 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         timeoutPromise
       ]) as any;
 
-      clearInterval(progressInterval);
-
       if (error) {
         console.error('Patent generation error:', error);
-        throw error;
+        throw new Error((await getEdgeErrorMessage(error, 'Failed to generate patent draft')).message);
       }
 
       if (!data?.success) {
@@ -123,18 +154,9 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
       setProgress(90);
 
       // Fetch the actual generated sections from the database
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('patent_sections')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
+      const sectionsData = await fetchSections();
 
-      if (sectionsError) {
-        console.error('Sections fetch error:', sectionsError);
-        throw sectionsError;
-      }
-
-      if (!sectionsData || sectionsData.length === 0) {
+      if (sectionsData.length === 0) {
         throw new Error('No patent sections were generated. Please try again.');
       }
 
@@ -170,6 +192,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         variant: "destructive",
       });
     } finally {
+      clearInterval(progressInterval);
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
       setGenerating(false);
     }
@@ -226,7 +250,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Failed to regenerate section')).message);
+      if (data && data.success === false) throw new Error(data.error || 'Failed to regenerate section');
 
       // Fetch the updated section from the database
       const { data: updatedSection, error: fetchError } = await supabase
@@ -236,7 +261,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         .eq('section_type', sectionType)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
 
@@ -268,47 +293,32 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
   };
 
   const handleRedraftAll = async () => {
+    if (sections.some(s => s.is_user_edited) &&
+        !window.confirm('Redrafting will replace all sections, including your manual edits. Continue?')) {
+      return;
+    }
     setRedrafting(true);
     setProgress(0);
+    // Start progress simulation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 10, 90));
+    }, 500);
     try {
-      // Delete existing sections first
-      const { error: deleteError } = await supabase
-        .from('patent_sections')
-        .delete()
-        .eq('session_id', sessionId);
-
-      if (deleteError) throw deleteError;
-
-      // Clear local sections
-      setSections([]);
-
-      // Start progress simulation
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
-
-      // Call the enhanced patent draft generation function
+      // The draft function updates sections in place, so the existing draft is kept if generation fails
       const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
         body: {
           session_id: sessionId
         }
       });
 
-      clearInterval(progressInterval);
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Failed to redraft patent application')).message);
+      if (data && data.success === false) throw new Error(data.error || 'Failed to redraft patent application');
       setProgress(100);
 
-      if (error) throw error;
-
       // Fetch the newly generated sections from the database
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('patent_sections')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
+      const sectionsData = await fetchSections();
 
-      if (sectionsError) throw sectionsError;
-
-      if (!sectionsData || sectionsData.length === 0) {
+      if (sectionsData.length === 0) {
         throw new Error('No patent sections were generated. Please try again.');
       }
 
@@ -327,6 +337,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
         variant: "destructive",
       });
     } finally {
+      clearInterval(progressInterval);
       setRedrafting(false);
       setProgress(0);
     }
@@ -340,20 +351,21 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
       });
 
       if (error) {
-        // Check if it's a payment required error
-        if (error.message?.includes('Payment required') || error.message?.includes('402')) {
+        // FunctionsHttpError.message is generic - read the status/body to detect the paywall
+        const parsed = await getEdgeErrorMessage(error, 'Failed to export patent application');
+        if (parsed.status === 402 || parsed.requiresSubscription) {
           setShowPaymentDialog(true);
           return;
         }
-        throw error;
+        throw new Error(parsed.message);
       }
 
-      if (!data?.success) {
+      if (!data?.success || !data.download_url) {
         throw new Error(data?.error || 'Export failed');
       }
 
-      // Download the file
-      window.open(data.download_url, '_blank');
+      // Download the file (signed URL - navigate directly so popup blockers don't interfere)
+      window.location.assign(data.download_url);
 
       toast({
         title: "Export successful!",
@@ -403,8 +415,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
 
   const getSectionProgress = () => {
     const totalSections = Object.keys(sectionConfig).length;
-    const completedSections = sections.length;
-    return (completedSections / totalSections) * 100;
+    const completedSections = sections.filter(s => s.section_type in sectionConfig && s.content).length;
+    return Math.min(100, (completedSections / totalSections) * 100);
   };
 
   if (loading || redrafting) {
@@ -487,18 +499,18 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
             )}
           </Button>
           <Button
-            onClick={() => window.history.back()}
+            onClick={() => navigate(`/session/${sessionId}`)}
             variant="outline"
             className="w-full sm:w-auto"
           >
-            Go Back
+            Open Patent Canvas
           </Button>
         </div>
       </motion.div>
     );
   }
 
-  const sortedSections = sections.sort((a, b) => 
+  const sortedSections = [...sections].sort((a, b) => 
     (sectionConfig[a.section_type as keyof typeof sectionConfig]?.order || 999) - 
     (sectionConfig[b.section_type as keyof typeof sectionConfig]?.order || 999)
   );
@@ -525,11 +537,11 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
       {/* Progress Overview with Redraft Button */}
       <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="font-semibold">Draft Progress</h3>
             <div className="flex items-center gap-3">
               <Badge className="bg-primary">
-                {sections.length}/{Object.keys(sectionConfig).length} sections
+                {sections.filter(s => s.section_type in sectionConfig && s.content).length}/{Object.keys(sectionConfig).length} sections
               </Badge>
               <Button
                 variant="outline"
@@ -563,6 +575,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
           const IconComponent = config?.icon || FileText;
           const isEditing = editingSection === section.id;
           const isRegenerating = regeneratingSection === section.section_type;
+          // Drawings are stored as structured JSON (figures + images) - not editable/regenerable as text
+          const isDrawings = section.section_type === 'drawings';
 
           return (
             <motion.div
@@ -573,8 +587,8 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
             >
               <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="p-2 bg-primary/10 rounded-lg">
                         <IconComponent className="w-5 h-5 text-primary" />
                       </div>
@@ -593,16 +607,18 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Edit section"
                         onClick={() => handleEditSection(section.id, section.content)}
-                        disabled={isEditing}
+                        disabled={isEditing || isDrawings}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Regenerate section"
                         onClick={() => handleRegenerateSection(section.section_type)}
-                        disabled={isRegenerating || isEditing}
+                        disabled={isRegenerating || isEditing || isDrawings || regeneratingSection !== null}
                       >
                         {isRegenerating ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -647,16 +663,24 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                       {(() => {
                         try {
                           const diagrams = JSON.parse(section.content);
+                          if (!Array.isArray(diagrams)) throw new Error('not a figure list');
                           return diagrams.map((diagram: any, idx: number) => (
                             <div key={idx} className="space-y-2">
                               <h4 className="font-semibold text-sm">
-                                Figure {diagram.figure_number}
+                                Figure {diagram.figure_number ?? idx + 1}
                               </h4>
-                              <img 
-                                src={diagram.image_data} 
-                                alt={`Patent diagram ${diagram.figure_number}`}
-                                className="w-full border rounded-lg"
-                              />
+                              {typeof diagram.image_data === 'string' && /^(data:image\/|https:\/\/)/.test(diagram.image_data) ? (
+                                <img 
+                                  src={diagram.image_data} 
+                                  alt={`Patent diagram ${diagram.figure_number ?? idx + 1}`}
+                                  className="w-full border rounded-lg"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="text-xs text-muted-foreground border border-dashed rounded-lg p-4 text-center">
+                                  Figure image unavailable
+                                </div>
+                              )}
                               <div 
                                 className="text-sm text-muted-foreground [&>p]:mb-3 [&>p:last-child]:mb-0"
                                 dangerouslySetInnerHTML={{ 
@@ -696,10 +720,10 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
             <div>
               <h3 className="text-lg font-semibold">Patent Draft Complete!</h3>
               <p className="text-sm text-muted-foreground">
-                Your patent application has been generated and is ready for review and filing.
+                Your patent application has been generated and is ready for review. Exporting the USPTO-ready DOCX requires the one-time application fee.
               </p>
             </div>
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Button
                 variant="outline"
                 className="gap-2"
@@ -714,7 +738,7 @@ const PatentDrafter: React.FC<PatentDrafterProps> = ({
                 ) : (
                   <>
                     <Download className="w-4 h-4" />
-                    Export Draft
+                    Export DOCX
                   </>
                 )}
               </Button>

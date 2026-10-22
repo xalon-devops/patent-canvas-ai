@@ -102,6 +102,38 @@ const sectionConfig = {
   }
 };
 
+interface DrawingFigure {
+  figure_number?: number | string;
+  description?: string;
+  image_data?: string | null;
+}
+
+// The drawings section is stored as JSON: [{ figure_number, description, image_data }]
+const parseDrawings = (content: string | null | undefined): DrawingFigure[] | null => {
+  const trimmed = (content || '').trim();
+  if (!trimmed.startsWith('[')) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const isSafeImageSrc = (src: unknown): src is string =>
+  typeof src === 'string' && /^(data:image\/(png|jpe?g|gif|webp);base64,|https:\/\/)/i.test(src);
+
+// Plain text used for word counts / quality checks (never the base64 image payload)
+const getSectionText = (sectionType: string, content: string | null | undefined): string => {
+  if (sectionType === 'drawings') {
+    const figs = parseDrawings(content);
+    if (figs) return figs.map(f => f.description || '').join('\n').replace(/<[^>]*>/g, ' ');
+  }
+  return (content || '').replace(/<[^>]*>/g, ' ');
+};
+
+const countWords = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
 export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSection, isGenerating = false, priorArt = [] }: PatentCanvasProps) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -125,7 +157,7 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
   }, [isGenerating]);
 
   const getSectionProgress = (section: PatentSection) => {
-    const wordCount = section.content ? section.content.split(' ').length : 0;
+    const wordCount = countWords(getSectionText(section.section_type, section.content));
     const targetWords = sectionConfig[section.section_type as keyof typeof sectionConfig]?.targetWords || 100;
     return Math.min((wordCount / targetWords) * 100, 100);
   };
@@ -157,6 +189,8 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
     const progress = section ? getSectionProgress(section) : 0;
     const isThinking = aiThinking === sectionType;
     const isEditing = editingSection === section?.id;
+    const drawings = sectionType === 'drawings' ? parseDrawings(section?.content) : null;
+    const sectionText = section ? getSectionText(sectionType, section.content) : '';
     
     const Icon = config?.icon || FileText;
 
@@ -201,7 +235,7 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
             <div className="flex items-center gap-2 mt-1.5">
               <Progress value={progress} className="h-1 flex-1" />
               <span className="text-[9px] text-muted-foreground whitespace-nowrap">
-                {section.content ? section.content.split(' ').length : 0}/{config?.targetWords || 100}
+                {countWords(sectionText)}/{config?.targetWords || 100}
               </span>
             </div>
           )}
@@ -217,18 +251,38 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
                 placeholder={`Enter ${config?.title.toLowerCase()} content...`}
               />
               <div className="flex gap-1.5">
-                <Button onClick={() => handleSave(section!.id)} size="sm" className="text-[10px] h-6 px-2">
+                <Button onClick={() => handleSave(section!.id)} size="sm" className="text-xs h-8 px-3">
                   <Save className="w-2.5 h-2.5 mr-1" />
                   Save
                 </Button>
-                <Button onClick={handleCancel} variant="outline" size="sm" className="text-[10px] h-6 px-2">
+                <Button onClick={handleCancel} variant="outline" size="sm" className="text-xs h-8 px-3">
                   Cancel
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-1.5">
-              {section?.content ? (
+              {section?.content && drawings ? (
+                <div className="p-1.5 sm:p-2 bg-muted/30 rounded max-h-[220px] overflow-y-auto space-y-2">
+                  {drawings.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">No figures generated.</p>
+                  )}
+                  {drawings.map((fig, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <p className="text-[11px] font-medium">FIG. {fig.figure_number ?? idx + 1}</p>
+                      {isSafeImageSrc(fig.image_data) && (
+                        <img src={fig.image_data} alt={`Figure ${fig.figure_number ?? idx + 1}`} className="w-full rounded border bg-white" loading="lazy" />
+                      )}
+                      {fig.description && (
+                        <div
+                          className="text-[11px] sm:text-xs leading-relaxed break-words"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(fig.description) }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : section?.content ? (
                 <div 
                   className="p-1.5 sm:p-2 bg-muted/30 rounded text-[11px] sm:text-xs leading-relaxed break-words whitespace-pre-wrap max-h-[140px] overflow-y-auto"
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
@@ -241,9 +295,23 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
                       <span className="text-[10px]">Writing...</span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Icon className="w-3.5 h-3.5" />
-                      <span className="text-[10px]">Waiting...</span>
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="text-[10px]">Not generated yet</span>
+                      </div>
+                      {sectionType !== 'drawings' && (
+                        <Button
+                          onClick={() => onRegenerateSection(sectionType)}
+                          variant="outline"
+                          size="sm"
+                          disabled={isGenerating}
+                          className="text-xs h-8 px-3"
+                        >
+                          <Wand2 className="w-3 h-3 mr-1" />
+                          Generate
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -251,28 +319,32 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
               
               {section?.content && (
                 <div className="flex flex-wrap gap-1">
-                  <Button onClick={() => handleEdit(section)} variant="outline" size="sm" className="text-[10px] h-5 px-1.5">
-                    <Edit3 className="w-2.5 h-2.5 mr-0.5" />
-                    Edit
-                  </Button>
+                  {!drawings && (
+                    <Button onClick={() => handleEdit(section)} variant="outline" size="sm" className="text-xs h-8 px-2">
+                      <Edit3 className="w-3 h-3 mr-1" />
+                      Edit
+                    </Button>
+                  )}
+                  {sectionType !== 'drawings' && (
                   <Button 
                     onClick={() => onRegenerateSection(sectionType)} 
                     variant="outline" 
                     size="sm"
                     disabled={isGenerating}
-                    className="text-[10px] h-5 px-1.5"
+                    className="text-xs h-8 px-2"
                   >
-                    <Wand2 className="w-2.5 h-2.5 mr-0.5" />
+                    <Wand2 className="w-3 h-3 mr-1" />
                     Regen
                   </Button>
+                  )}
                   {priorArt.length > 0 && (
                     <Button 
                       onClick={() => setShowComparison(showComparison === sectionType ? null : sectionType)} 
                       variant={showComparison === sectionType ? "secondary" : "outline"}
                       size="sm"
-                      className="text-[10px] h-5 px-1.5"
+                      className="text-xs h-8 px-2"
                     >
-                      <Scale className="w-2.5 h-2.5 mr-0.5" />
+                      <Scale className="w-3 h-3 mr-1" />
                       Compare
                     </Button>
                   )}
@@ -294,7 +366,7 @@ export default function PatentCanvas({ sections, onUpdateSection, onRegenerateSe
               {section?.content && (
                 <SectionQualityScore
                   sectionType={sectionType}
-                  content={section.content}
+                  content={drawings ? sectionText : section.content}
                 />
               )}
             </div>

@@ -3,12 +3,43 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Scale, Loader2, AlertTriangle, CheckCircle, Shield, Target, Eye, Zap, Lightbulb
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
+
+const toScore = (v: unknown) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(Math.min(100, Math.max(0, n))) : 0;
+};
+
+// The analysis comes from an LLM - normalise it so missing fields can't crash the render
+const normalizeAnalysis = (raw: any): FullAnalysis => ({
+  overallScore: toScore(raw?.overallScore),
+  overallGrade: typeof raw?.overallGrade === 'string' ? raw.overallGrade : '?',
+  claims: (Array.isArray(raw?.claims) ? raw.claims : []).map((c: any, i: number) => ({
+    claimNumber: Number(c?.claimNumber) || i + 1,
+    claimText: String(c?.claimText || ''),
+    type: String(c?.type || 'claim'),
+    scores: {
+      breadth: toScore(c?.scores?.breadth),
+      specificity: toScore(c?.scores?.specificity),
+      enforceability: toScore(c?.scores?.enforceability),
+      novelty: toScore(c?.scores?.novelty),
+      clarity: toScore(c?.scores?.clarity),
+    },
+    vulnerabilities: Array.isArray(c?.vulnerabilities) ? c.vulnerabilities : [],
+    suggestedRewrite: c?.suggestedRewrite || undefined,
+    strategicNotes: c?.strategicNotes || undefined,
+  })),
+  portfolioRecommendations: Array.isArray(raw?.portfolioRecommendations) ? raw.portfolioRecommendations : [],
+  examinerPrediction: {
+    likelyRejections: Array.isArray(raw?.examinerPrediction?.likelyRejections) ? raw.examinerPrediction.likelyRejections : [],
+    suggestedPreemptiveAmendments: Array.isArray(raw?.examinerPrediction?.suggestedPreemptiveAmendments) ? raw.examinerPrediction.suggestedPreemptiveAmendments : [],
+  },
+});
 
 interface ClaimScore {
   breadth: number;
@@ -101,12 +132,23 @@ export default function ClaimStrengthAnalyzer({ claimsContent, priorArt, inventi
 
     setIsAnalyzing(true);
     try {
+      // Send a compact payload: plain-text claims, top prior art only
+      const plainClaims = claimsContent
+        .replace(/<\/\s*(p|div|li)\s*>/gi, '\n')
+        .replace(/<[^>]*>/g, '')
+        .slice(0, 30000);
+      const compactPriorArt = (priorArt || []).slice(0, 5).map((p: any) => ({
+        title: p?.title,
+        publication_number: p?.publication_number,
+        similarity_score: p?.similarity_score,
+        summary: typeof p?.summary === 'string' ? p.summary.slice(0, 500) : undefined,
+      }));
       const { data, error } = await supabase.functions.invoke('analyze-claims', {
-        body: { claims: claimsContent, priorArt, inventionContext }
+        body: { claims: plainClaims, priorArt: compactPriorArt, inventionContext: inventionContext?.slice(0, 4000) }
       });
-      if (error) throw error;
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Analysis failed')).message);
       if (!data?.success) throw new Error(data?.error || 'Analysis failed');
-      setAnalysis(data.analysis);
+      setAnalysis(normalizeAnalysis(data.analysis));
     } catch (e: any) {
       toast({ title: 'Analysis failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -125,7 +167,7 @@ export default function ClaimStrengthAnalyzer({ claimsContent, priorArt, inventi
   return (
     <Card className="border-primary/20 animate-in slide-in-from-top-2 duration-200">
       <CardHeader className="p-3 pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Scale className="h-4 w-4 text-primary" />
             Claim Strength Analysis
@@ -141,12 +183,19 @@ export default function ClaimStrengthAnalyzer({ claimsContent, priorArt, inventi
         </div>
       </CardHeader>
       <CardContent className="p-3 pt-0">
-        <ScrollArea className="max-h-[400px]">
+        <div className="max-h-[400px] overflow-y-auto">
           <div className="space-y-3">
             {/* Per-claim analysis */}
             {analysis.claims.map((claim, i) => (
               <div key={i} className="bg-muted/30 rounded-md p-2.5 space-y-2">
-                <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedClaim(expandedClaim === i ? null : i)}>
+                <div
+                  className="flex flex-wrap items-center justify-between gap-1 cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expandedClaim === i}
+                  onClick={() => setExpandedClaim(expandedClaim === i ? null : i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedClaim(expandedClaim === i ? null : i); } }}
+                >
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] px-1.5">
                       Claim {claim.claimNumber} · {claim.type}
@@ -236,7 +285,7 @@ export default function ClaimStrengthAnalyzer({ claimsContent, priorArt, inventi
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

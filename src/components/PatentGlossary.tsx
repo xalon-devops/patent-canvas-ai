@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 
 interface GlossaryTerm {
   term: string;
@@ -56,11 +57,13 @@ export default function PatentGlossary({ sections }: PatentGlossaryProps) {
     setIsLoading(true);
     
     try {
-      // Combine all section content for analysis
+      // Combine all text section content for analysis. Drawings are stored as JSON with base64
+      // images, so skip them; strip HTML and cap the payload size.
       const allContent = sections
-        .filter(s => s.content && s.content.length > 20)
-        .map(s => `## ${s.section_type.toUpperCase()}\n${s.content}`)
-        .join('\n\n');
+        .filter(s => s.section_type !== 'drawings' && s.content && s.content.length > 20)
+        .map(s => `## ${s.section_type.toUpperCase()}\n${s.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}`)
+        .join('\n\n')
+        .slice(0, 60000);
 
       if (!allContent) {
         toast.error('No content available to analyze');
@@ -72,19 +75,19 @@ export default function PatentGlossary({ sections }: PatentGlossaryProps) {
         body: { content: allContent, sectionType: 'full patent application' }
       });
 
-      if (error) throw error;
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Failed to extract glossary')).message);
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 
-      setTerms(data.terms || []);
-      setSummary(data.summary || null);
+      setTerms(Array.isArray(data?.terms) ? data.terms : []);
+      setSummary(data?.summary || null);
       setHasAnalyzed(true);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Glossary extraction failed:', error);
-      toast.error('Failed to extract glossary');
+      toast.error(error?.message || 'Failed to extract glossary');
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +116,7 @@ export default function PatentGlossary({ sections }: PatentGlossaryProps) {
           <div className="text-center py-6">
             <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-4">
-              Analyze your patent application to identify technical terms,<br />
+              Analyze your patent application to identify technical terms,{' '}
               get definitions, and receive standardization suggestions.
             </p>
             <Button onClick={extractGlossary} disabled={isLoading}>
@@ -184,7 +187,7 @@ export default function PatentGlossary({ sections }: PatentGlossaryProps) {
             <p className="text-sm">No technical terms requiring attention found.</p>
           </div>
         ) : (
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="h-[400px] pr-2 sm:pr-4">
             <Accordion type="multiple" className="space-y-2">
               {terms.map((term, index) => (
                 <AccordionItem 
@@ -193,7 +196,7 @@ export default function PatentGlossary({ sections }: PatentGlossaryProps) {
                   className="border rounded-lg px-3"
                 >
                   <AccordionTrigger className="hover:no-underline py-3">
-                    <div className="flex items-center gap-2 text-left">
+                    <div className="flex flex-wrap items-center gap-2 text-left">
                       <span className="font-semibold">{term.term}</span>
                       <Badge className={`text-xs ${categoryColors[term.category] || 'bg-gray-100 text-gray-800'}`}>
                         {term.category}

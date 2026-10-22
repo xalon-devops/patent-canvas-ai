@@ -89,31 +89,41 @@ const Claims = () => {
     if (!id) return;
     
     try {
-      // Fetch patent session
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('patent_sessions')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Session, sections and the structured claim tree in parallel (RLS scopes each to the owner)
+      const [sessionRes, sectionsRes, treeRes] = await Promise.all([
+        supabase.from('patent_sessions').select('*').eq('id', id).maybeSingle(),
+        supabase.from('patent_sections').select('*').eq('session_id', id).order('created_at', { ascending: true }),
+        supabase.from('patent_claim_tree').select('claim_number, claim_type, parent_claim, full_text, created_at').eq('session_id', id).order('claim_number'),
+      ]);
 
-      if (sessionError) throw sessionError;
-      setPatentSession(sessionData);
+      if (sessionRes.error) throw sessionRes.error;
+      if (!sessionRes.data) {
+        setPatentSession(null);
+        return;
+      }
+      if (sectionsRes.error) throw sectionsRes.error;
+      setPatentSession(sessionRes.data);
+      const sectionsData = sectionsRes.data || [];
+      setSections(sectionsData);
 
-      // Fetch sections
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('patent_sections')
-        .select('*')
-        .eq('session_id', id)
-        .order('created_at', { ascending: true });
+      const claimsSection = sectionsData.find(s => s.section_type === 'claims');
+      const treeRows = treeRes.error ? [] : (treeRes.data || []);
 
-      if (sectionsError) throw sectionsError;
-      setSections(sectionsData || []);
-
-      // Parse claims from claims section
-      const claimsSection = sectionsData?.find(s => s.section_type === 'claims');
-      if (claimsSection && claimsSection.content) {
-        const parsedClaims = parseClaimsFromContent(claimsSection.content, claimsSection.is_user_edited, claimsSection.created_at);
-        setClaims(parsedClaims);
+      // Prefer the structured claim tree from the AI pipeline unless the claims text was edited by hand afterwards
+      if (treeRows.length > 0 && !claimsSection?.is_user_edited) {
+        setClaims(treeRows.map((r) => ({
+          id: `claim-${r.claim_number}`,
+          number: r.claim_number,
+          content: r.full_text.replace(/^\s*\d+[.):]\s*/, ''),
+          type: r.claim_type === 'dependent' ? 'dependent' : 'independent',
+          dependsOn: r.parent_claim ?? undefined,
+          isUserEdited: false,
+          timestamp: r.created_at,
+        })));
+      } else if (claimsSection && claimsSection.content) {
+        setClaims(parseClaimsFromContent(claimsSection.content, claimsSection.is_user_edited, claimsSection.created_at));
+      } else {
+        setClaims([]);
       }
 
     } catch (error: any) {
@@ -128,63 +138,73 @@ const Claims = () => {
   };
 
   const parseClaimsFromContent = (content: string, isUserEdited: boolean, timestamp: string): Claim[] => {
-    // First, strip HTML tags to get plain text
-    const textContent = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+    // Turn block-level HTML into line breaks first so "<p>1. ...</p><p>2. ...</p>" doesn't collapse into one line
+    const textContent = content
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/\s*(p|div|li|h[1-6])\s*>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
     
-    // Split by double newlines or paragraph breaks to get individual claims
-    const lines = textContent.split(/\n+/).filter(line => line.trim());
-    const claims: Claim[] = [];
+    const lines = textContent.split(/\n+/).map(line => line.trim()).filter(Boolean);
+    const byNumber = new Map<number, Claim>();
+    let current: Claim | null = null;
     
     lines.forEach((line) => {
-      const trimmedLine = line.trim();
-      
-      // Skip empty lines
-      if (!trimmedLine) return;
-      
-      // Match independent claims (e.g., "1. A system for..." or "Claim 1:")
-      const independentMatch = trimmedLine.match(/^(?:Claim\s+)?(\d+)[\.\:\s]+([A-Z].*)/i);
-      if (independentMatch) {
-        const number = parseInt(independentMatch[1]);
-        const claimContent = independentMatch[2].trim();
-        
-        // Check if this is a dependent claim by looking for reference to another claim
-        const dependentMatch = claimContent.match(/(?:of|to)\s+claim\s+(\d+)/i);
-        
-        if (dependentMatch) {
-          const dependsOn = parseInt(dependentMatch[1]);
-          claims.push({
-            id: `claim-${number}`,
-            number,
-            content: claimContent,
-            type: 'dependent',
-            dependsOn,
-            isUserEdited,
-            timestamp
-          });
-        } else {
-          claims.push({
-            id: `claim-${number}`,
-            number,
-            content: claimContent,
-            type: 'independent',
-            isUserEdited,
-            timestamp
-          });
-        }
+      // Start of a claim, e.g. "1. A system for..." or "Claim 1: A method..."
+      const match = line.match(/^(?:Claim\s+)?(\d+)\s*[.:)]\s*(.+)/i);
+      if (match) {
+        const number = parseInt(match[1], 10);
+        const claimContent = match[2].trim();
+        const dependentMatch = claimContent.match(/\b(?:of|to|in)\s+claim\s+(\d+)/i);
+        const dependsOn = dependentMatch ? parseInt(dependentMatch[1], 10) : undefined;
+        current = {
+          id: `claim-${number}`,
+          number,
+          content: claimContent,
+          type: dependsOn && dependsOn !== number ? 'dependent' : 'independent',
+          dependsOn: dependsOn && dependsOn !== number ? dependsOn : undefined,
+          isUserEdited,
+          timestamp,
+        };
+        if (!byNumber.has(number)) byNumber.set(number, current);
         return;
       }
+      // Continuation line (claim elements on their own lines) belongs to the previous claim
+      if (current) current.content = `${current.content}\n${line}`;
     });
     
-    return claims.sort((a, b) => a.number - b.number);
+    return Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
+  };
+
+  // Walk up the dependency chain so claims that depend on a dependent claim still appear under their root
+  const getRootClaimNumber = (claim: Claim): number => {
+    const byNumber = new Map(claims.map(c => [c.number, c]));
+    let node: Claim | undefined = claim;
+    const seen = new Set<number>();
+    while (node && node.type === 'dependent' && node.dependsOn !== undefined && !seen.has(node.number)) {
+      seen.add(node.number);
+      const parent = byNumber.get(node.dependsOn);
+      if (!parent) break;
+      node = parent;
+    }
+    return node?.number ?? claim.number;
   };
 
   const renderClaimsTree = () => {
     const independentClaims = claims.filter(c => c.type === 'independent');
+    const independentNumbers = new Set(independentClaims.map(c => c.number));
+    // Dependent claims whose chain doesn't resolve to an independent claim are shown on their own
+    const orphanClaims = claims.filter(c => c.type === 'dependent' && !independentNumbers.has(getRootClaimNumber(c)));
     
     return (
       <div className="space-y-6">
         {independentClaims.map((independentClaim) => {
-          const dependentClaims = claims.filter(c => c.type === 'dependent' && c.dependsOn === independentClaim.number);
+          const dependentClaims = claims.filter(c => c.type === 'dependent' && getRootClaimNumber(c) === independentClaim.number);
           
           return (
             <Card key={independentClaim.id} className="shadow-card border-0 bg-card/90 backdrop-blur-sm">
@@ -220,7 +240,7 @@ const Claims = () => {
               </CardHeader>
               <CardContent className="pt-0">
                 <div 
-                  className="text-sm leading-relaxed mb-4 p-3 bg-primary/5 rounded-lg border-l-2 border-primary"
+                  className="text-sm leading-relaxed mb-4 p-3 bg-primary/5 rounded-lg border-l-2 border-primary whitespace-pre-wrap break-words"
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(independentClaim.content) }}
                 />
                 
@@ -264,7 +284,7 @@ const Claims = () => {
                           </CardHeader>
                           <CardContent className="pt-0">
                             <div 
-                              className="text-sm leading-relaxed p-2 bg-background/80 rounded"
+                              className="text-sm leading-relaxed p-2 bg-background/80 rounded whitespace-pre-wrap break-words"
                               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(dependentClaim.content) }}
                             />
                           </CardContent>
@@ -277,6 +297,21 @@ const Claims = () => {
             </Card>
           );
         })}
+        {orphanClaims.length > 0 && (
+          <Card className="shadow-card border-0 bg-card/90 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Other Dependent Claims</CardTitle>
+              <CardDescription className="text-xs">These reference claims that weren't found in the claim set</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-2">
+              {orphanClaims.map((c) => (
+                <div key={c.id} className="text-sm p-2 bg-muted/30 rounded whitespace-pre-wrap break-words">
+                  <span className="font-medium">Claim {c.number}</span> (depends on {c.dependsOn}): {c.content}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   };
@@ -316,8 +351,8 @@ const Claims = () => {
         {claims.length > 0 ? (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold flex items-center gap-2">
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
                   <Brain className="h-5 w-5 text-primary" />
                   Patent Claims Structure
                 </h2>

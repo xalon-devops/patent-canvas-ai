@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { 
   BarChart3, 
   CheckCircle, 
@@ -32,7 +33,8 @@ interface SessionData {
 
 interface PatentabilityAssessmentProps {
   sessionData: SessionData;
-  onComplete: (score: number, analysis: string) => void;
+  /** score is 0-100, or null when the user skips a failed assessment */
+  onComplete: (score: number | null, analysis: string) => void;
 }
 
 interface AssessmentCriterion {
@@ -74,14 +76,26 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
   const [overallScore, setOverallScore] = useState(0);
   const [analysis, setAnalysis] = useState('');
   const [currentCriterionIndex, setCurrentCriterionIndex] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
   const { toast } = useToast();
 
   useEffect(() => {
+    mountedRef.current = true;
     performAssessment();
+    return () => { mountedRef.current = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const clampScore = (n: unknown) => {
+    const v = Number(n);
+    if (Number.isNaN(v)) return 0;
+    return Math.round(Math.min(100, Math.max(0, v)));
+  };
 
   const performAssessment = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       // Call the enhanced analyze-patentability function
       const { data, error } = await supabase.functions.invoke('analyze-patentability', {
@@ -92,131 +106,49 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
 
       if (error) {
         console.error('Patentability analysis error:', error);
-        throw new Error('Failed to analyze patentability');
+        throw new Error((await getEdgeErrorMessage(error, 'Failed to analyze patentability')).message);
       }
 
-      if (data?.success && data.analysis) {
-        const analysis = data.analysis;
-        
-        setCriteria(analysis.criteria);
-        setOverallScore(analysis.overall_score);
-        setAnalysis(analysis.summary);
-        
-        // Animate through criteria
-        animateCriteria(analysis.criteria);
-        
-        return;
+      if (!data?.success || !data.analysis) {
+        throw new Error(data?.error || 'The patentability analysis returned no results.');
       }
 
-      // Fallback to mock assessment if API fails
-      const assessmentCriteria: AssessmentCriterion[] = [
-        {
-          name: 'Novelty',
-          score: 85,
-          maxScore: 100,
-          description: 'How new and original is your invention?',
-          analysis: 'Your invention demonstrates strong novelty with unique technical features not found in existing patents. The AI-driven energy optimization approach represents a significant advancement.',
-          icon: Lightbulb
-        },
-        {
-          name: 'Non-obviousness',
-          score: 78,
-          maxScore: 100,
-          description: 'Would the invention be obvious to someone skilled in the field?',
-          analysis: 'The combination of machine learning, real-time pricing, and predictive analytics creates a non-obvious solution that goes beyond simple combinations of known elements.',
-          icon: Target
-        },
-        {
-          name: 'Utility',
-          score: 95,
-          maxScore: 100,
-          description: 'Does your invention have a useful purpose?',
-          analysis: 'Excellent utility score. The invention solves real-world energy efficiency problems with clear commercial and environmental benefits.',
-          icon: Zap
-        },
-        {
-          name: 'Technical Merit',
-          score: 88,
-          maxScore: 100,
-          description: 'Technical complexity and innovation level',
-          analysis: 'Strong technical merit with sophisticated algorithms and system architecture. The integration of multiple data sources and predictive modeling shows high technical competency.',
-          icon: Award
-        }
-      ];
+      const result = data.analysis;
+      const parsedCriteria: AssessmentCriterion[] = (Array.isArray(result.criteria) ? result.criteria : []).map((c: any) => ({
+        name: String(c?.name || 'Criterion'),
+        score: clampScore(c?.score),
+        maxScore: Number(c?.maxScore) > 0 ? Number(c.maxScore) : 100,
+        description: String(c?.description || ''),
+        analysis: String(c?.analysis || ''),
+        icon: c?.icon || 'Lightbulb',
+      }));
 
-      // Adjust scores based on prior art analysis
-      if (sessionData.priorArtResults) {
-        const highRiskCount = sessionData.priorArtResults.filter((r: any) => r.similarity_score >= 0.8).length;
-        if (highRiskCount > 0) {
-          assessmentCriteria[0].score -= 15; // Reduce novelty score
-          assessmentCriteria[1].score -= 10; // Reduce non-obviousness score
-        }
-      }
+      if (!mountedRef.current) return;
+      setCriteria(parsedCriteria);
+      setOverallScore(clampScore(result.overall_score));
+      setAnalysis(String(result.summary || ''));
 
-      setCriteria(assessmentCriteria);
-
-      // Calculate overall score
-      const totalScore = assessmentCriteria.reduce((sum, criterion) => sum + criterion.score, 0);
-      const maxTotalScore = assessmentCriteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
-      const percentageScore = Math.round((totalScore / maxTotalScore) * 100);
-      
-      setOverallScore(percentageScore);
-
-      // Generate comprehensive analysis
-      const comprehensiveAnalysis = generateComprehensiveAnalysis(percentageScore, assessmentCriteria);
-      setAnalysis(comprehensiveAnalysis);
-
-      // Animate through criteria one by one
-      animateCriteria(assessmentCriteria);
-
+      // Animate through criteria
+      animateCriteria(parsedCriteria);
     } catch (error: any) {
+      if (!mountedRef.current) return;
+      setLoadError(error.message || 'Failed to analyze patentability');
       toast({
         title: "Error performing assessment",
         description: error.message,
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
   const animateCriteria = async (criteriaList: AssessmentCriterion[]) => {
     for (let i = 0; i < criteriaList.length; i++) {
+      if (!mountedRef.current) return;
       setCurrentCriterionIndex(i);
       await new Promise(resolve => setTimeout(resolve, 800));
     }
-  };
-
-  const generateComprehensiveAnalysis = (score: number, criteriaList: AssessmentCriterion[]): string => {
-    let analysis = `Your invention scores ${score}/100 for patentability, indicating `;
-    
-    if (score >= 85) {
-      analysis += "excellent patent potential with strong likelihood of approval. ";
-    } else if (score >= 70) {
-      analysis += "good patent potential with reasonable likelihood of approval. ";
-    } else if (score >= 55) {
-      analysis += "moderate patent potential that may require claim adjustments. ";
-    } else {
-      analysis += "challenges for patentability that need to be addressed. ";
-    }
-
-    analysis += "\n\nKey Strengths:\n";
-    criteriaList.forEach(criterion => {
-      if (criterion.score >= 80) {
-        analysis += `• ${criterion.name}: ${criterion.analysis}\n`;
-      }
-    });
-
-    analysis += "\nAreas for Consideration:\n";
-    criteriaList.forEach(criterion => {
-      if (criterion.score < 80) {
-        analysis += `• ${criterion.name}: Consider strengthening this aspect in your patent claims.\n`;
-      }
-    });
-
-    analysis += `\nRecommendation: ${score >= 70 ? 'Proceed with patent drafting' : 'Consider refining your invention before proceeding'}.`;
-    
-    return analysis;
   };
 
   const getScoreColor = (score: number): string => {
@@ -276,6 +208,31 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
     );
   }
 
+  if (loadError) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-6"
+      >
+        <AlertTriangle className="w-10 h-10 text-destructive mx-auto" />
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">We couldn't complete the patentability assessment</h3>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">{loadError}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button onClick={performAssessment} className="gap-2">
+            <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : 'hidden'}`} />
+            Try Again
+          </Button>
+          <Button variant="outline" onClick={() => onComplete(null, '')}>
+            Skip Assessment
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -299,7 +256,7 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
       <Card className="bg-gradient-to-br from-primary/5 to-primary/15 border-primary/20">
         <CardContent className="p-8 text-center">
           <div className="space-y-4">
-            <div className="text-6xl font-bold">
+            <div className="text-5xl sm:text-6xl font-bold">
               <span className={getScoreColor(overallScore)}>{overallScore}</span>
               <span className="text-2xl text-muted-foreground">/100</span>
             </div>
@@ -344,8 +301,8 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
                 >
                   <Card className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-start sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="p-2 bg-primary/10 rounded-lg">
                             <IconComponent className="w-5 h-5 text-primary" />
                           </div>
@@ -354,14 +311,14 @@ const PatentabilityAssessment: React.FC<PatentabilityAssessmentProps> = ({
                             <p className="text-sm text-muted-foreground">{criterion.description}</p>
                           </div>
                         </div>
-                        <Badge className={getScoreBgColor(criterion.score)}>
+                        <Badge className={`flex-shrink-0 ${getScoreBgColor(criterion.score)}`}>
                           {criterion.score}/{criterion.maxScore}
                         </Badge>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <Progress value={criterion.score} className="h-2" />
+                        <Progress value={(criterion.score / criterion.maxScore) * 100} className="h-2" />
                         <p className="text-sm text-muted-foreground">{criterion.analysis}</p>
                       </div>
                     </CardContent>

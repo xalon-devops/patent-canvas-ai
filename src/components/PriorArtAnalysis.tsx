@@ -19,6 +19,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { formatMonthYear } from '@/lib/dateUtils';
 
 interface SessionData {
@@ -58,7 +59,9 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(true);
   const [selectedResult, setSelectedResult] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<{ message: string; requiresSubscription: boolean } | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     searchPriorArt();
@@ -66,6 +69,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
 
   const searchPriorArt = async () => {
     setAnalyzing(true);
+    setSearchError(null);
     try {
       const qaContext = (sessionData.aiQuestions || [])
         .map(q => `${q.question} ${q.answer || ''}`)
@@ -80,7 +84,12 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
           patent_type: sessionData.patentType,
         },
       });
-      if (invokeError) throw new Error((await getEdgeErrorMessage(invokeError, 'Failed to search prior art')).message);
+      if (invokeError) {
+        const parsed = await getEdgeErrorMessage(invokeError, 'Failed to search prior art');
+        setSearchError({ message: parsed.message, requiresSubscription: !!parsed.requiresSubscription });
+        if (parsed.requiresSubscription) return; // shown inline with an upgrade action
+        throw new Error(parsed.message);
+      }
 
       // Then fetch stored results for this session
       const { data: rows, error: fetchErr } = await supabase
@@ -89,7 +98,8 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         .eq('session_id', sessionData.sessionId)
         .order('similarity_score', { ascending: false });
 
-      if (!fetchErr && rows && rows.length > 0) {
+      if (fetchErr) throw fetchErr;
+      if (rows && rows.length > 0) {
         const mapped: PriorArtResult[] = rows.map((r: any) => ({
           id: r.id,
           title: r.title || 'Untitled',
@@ -110,6 +120,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
       }
 
       // If we got here, no results from database - show message instead of mock data
+      setResults([]);
       toast({
         title: "Limited prior art found",
         description: "The patent search found minimal existing patents. This could indicate strong novelty!",
@@ -219,8 +230,24 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
         </div>
       </div>
 
+      {searchError && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{searchError.message}</p>
+            </div>
+            {searchError.requiresSubscription ? (
+              <Button size="sm" onClick={() => navigate('/pricing')}>View plans</Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={searchPriorArt} disabled={analyzing}>Try again</Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-foreground">{results.length}</div>
@@ -264,9 +291,9 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
             <Card className="hover:shadow-lg transition-shadow cursor-pointer" 
                   onClick={() => setSelectedResult(selectedResult === result.id ? null : result.id)}>
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg line-clamp-2 mb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-lg line-clamp-2 mb-2 break-words">
                       {result.title}
                     </CardTitle>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -283,12 +310,12 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
                       </Badge>
                       <span className="font-semibold">{(result.similarity_score * 100).toFixed(0)}% match</span>
                     </div>
-                    {(result.semantic_score || result.keyword_score) && (
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        {result.semantic_score > 0 && (
+                    {((result.semantic_score ?? 0) > 0 || (result.keyword_score ?? 0) > 0) && (
+                      <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        {(result.semantic_score ?? 0) > 0 && (
                           <span>🧠 Semantic: {(result.semantic_score * 100).toFixed(0)}%</span>
                         )}
-                        {result.keyword_score > 0 && (
+                        {(result.keyword_score ?? 0) > 0 && (
                           <span>🔑 Keyword: {(result.keyword_score * 100).toFixed(0)}%</span>
                         )}
                       </div>
@@ -297,9 +324,11 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label="Open patent"
+                    disabled={!result.url || result.url === '#'}
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.open(result.url, '_blank');
+                      if (result.url && result.url !== '#') window.open(result.url, '_blank', 'noopener,noreferrer');
                     }}
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -442,7 +471,7 @@ const PriorArtAnalysis: React.FC<PriorArtAnalysisProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
-                <span>Backend architecture ({results[0]?.difference_claims.filter(c => c.includes('database') || c.includes('function')).length || 0} unique features detected) strengthens your claims</span>
+                <span>{results[0]?.difference_claims?.length ? `${results[0].difference_claims.length} differentiating feature${results[0].difference_claims.length > 1 ? 's' : ''} identified against the closest match - build your claims around them` : 'Document concrete implementation details to strengthen differentiation'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>

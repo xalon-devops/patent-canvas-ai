@@ -44,6 +44,27 @@ import { trackPatentSessionCreated } from '@/hooks/useFunnelTracking';
 
 type PatentType = 'software' | 'non-software' | null;
 
+// Upload limits for supporting materials (stored in the private 'patent-docs' bucket under `<uid>/<sessionId>/...`)
+const MAX_UPLOAD_FILES = 10;
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB per file
+const MIN_DESCRIPTION_CHARS = 100;
+const SOFTWARE_EXTENSIONS = ['txt', 'doc', 'docx', 'pdf', 'md', 'rtf'];
+const NON_SOFTWARE_EXTENSIONS = [...SOFTWARE_EXTENSIONS, 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tif', 'tiff', 'dwg', 'step', 'stp', 'iges', 'igs'];
+const TEXT_EXTRACT_EXTENSIONS = ['txt', 'md'];
+
+const getExtension = (name: string) => (name.split('.').pop() || '').toLowerCase();
+
+// Maps a file to a patent_documents.document_type value allowed by the CHECK constraint
+const getDocumentType = (file: File): 'image' | 'drawing' | 'code' | 'document' => {
+  const ext = getExtension(file.name);
+  if (['dwg', 'step', 'stp', 'iges', 'igs'].includes(ext)) return 'drawing';
+  if (file.type.startsWith('image/')) return 'image';
+  return 'document';
+};
+
+const sanitizeFileName = (name: string) =>
+  name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').slice(-120) || 'file';
+
 interface PatentIdea {
   id: string;
   title: string;
@@ -112,17 +133,21 @@ const NewApplication = () => {
       }
 
       // Restore form state if returning from OAuth
-      const savedState = sessionStorage.getItem('patent_flow_state');
-      if (savedState) {
-        const state = JSON.parse(savedState);
-        setCurrentStep(state.currentStep);
-        setPatentType(state.patentType);
-        setIdeaTitle(state.ideaTitle);
-        setIdeaDescription(state.ideaDescription);
-        setGithubUrl(state.githubUrl || '');
-        setSupabaseUrl(state.supabaseUrl || '');
-        setSupabaseKey(state.supabaseKey || '');
+      let savedState: any = null;
+      try {
+        const raw = sessionStorage.getItem('patent_flow_state');
+        if (raw) savedState = JSON.parse(raw);
         sessionStorage.removeItem('patent_flow_state');
+      } catch {
+        savedState = null;
+      }
+      if (savedState) {
+        setCurrentStep(savedState.currentStep || 1);
+        setPatentType(savedState.patentType ?? null);
+        setIdeaTitle(savedState.ideaTitle || '');
+        setIdeaDescription(savedState.ideaDescription || '');
+        setGithubUrl(savedState.githubUrl || '');
+        setSupabaseUrl(savedState.supabaseUrl || '');
         // State restored silently - no toast needed
         return;
       }
@@ -163,9 +188,10 @@ const NewApplication = () => {
         .from('patent_ideas')
         .select('*')
         .eq('id', ideaId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error('Idea not found or you do not have access to it.');
       
       setExistingIdea(data);
       setIdeaTitle(data.title);
@@ -188,21 +214,28 @@ const NewApplication = () => {
         .from('patent_sessions')
         .select('*')
         .eq('id', sessionId)
-        .single();
+        .maybeSingle();
 
       if (sessionError) throw sessionError;
+      if (!session) throw new Error('Application not found or you do not have access to it.');
 
-      // Load AI questions if they exist
-      const { data: questions } = await supabase
-        .from('ai_questions')
-        .select('*')
-        .eq('session_id', sessionId);
-
-      // Load prior art results if they exist
-      const { data: priorArt } = await supabase
-        .from('prior_art_results')
-        .select('*')
-        .eq('session_id', sessionId);
+      // Load AI questions, prior art and drafted sections in parallel
+      const [{ data: questions }, { data: priorArt }, { count: sectionCount }] = await Promise.all([
+        supabase
+          .from('ai_questions')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('prior_art_results')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('similarity_score', { ascending: false }),
+        supabase
+          .from('patent_sections')
+          .select('id', { count: 'exact', head: true })
+          .eq('session_id', sessionId),
+      ]);
 
       // Parse data_source safely
       const dataSource = session.data_source as any;
@@ -224,7 +257,8 @@ const NewApplication = () => {
         uploadedFiles: [], // Files can't be restored
         aiQuestions: questions?.map(q => ({ question: q.question || '', answer: q.answer || '' })),
         priorArtResults: priorArt,
-        patentabilityScore: session.patentability_score || undefined,
+        // DB stores 0..1; the UI works with 0..100
+        patentabilityScore: session.patentability_score != null ? Math.round(Number(session.patentability_score) * 100) : undefined,
         technicalAnalysis: session.technical_analysis || undefined,
       };
 
@@ -237,6 +271,7 @@ const NewApplication = () => {
       if (questions && questions.length > 0) resumeStep = 5; // Skip to prior art
       if (priorArt && priorArt.length > 0) resumeStep = 6; // Skip to assessment
       if (session.ai_analysis_complete) resumeStep = 7; // Skip to drafting
+      if ((sectionCount ?? 0) > 0) resumeStep = 8; // Draft already exists - open the drafter
 
       setCurrentStep(resumeStep);
     } catch (error: any) {
@@ -255,8 +290,96 @@ const NewApplication = () => {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setUploadedFiles(Array.from(e.target.files));
+    if (!e.target.files) return;
+    const allowed = patentType === 'software' ? SOFTWARE_EXTENSIONS : NON_SOFTWARE_EXTENSIONS;
+    const accepted: File[] = [];
+    const rejected: string[] = [];
+
+    Array.from(e.target.files).forEach((file) => {
+      const ext = getExtension(file.name);
+      if (!allowed.includes(ext)) {
+        rejected.push(`${file.name} (unsupported type)`);
+      } else if (file.size > MAX_UPLOAD_BYTES) {
+        rejected.push(`${file.name} (over ${MAX_UPLOAD_BYTES / 1024 / 1024}MB)`);
+      } else if (file.size === 0) {
+        rejected.push(`${file.name} (empty file)`);
+      } else {
+        accepted.push(file);
+      }
+    });
+
+    if (accepted.length > MAX_UPLOAD_FILES) {
+      rejected.push(`${accepted.length - MAX_UPLOAD_FILES} file(s) over the ${MAX_UPLOAD_FILES}-file limit`);
+      accepted.length = MAX_UPLOAD_FILES;
+    }
+
+    if (rejected.length > 0) {
+      toast({
+        title: 'Some files were not added',
+        description: rejected.slice(0, 5).join(', '),
+        variant: 'destructive',
+      });
+    }
+    setUploadedFiles(accepted);
+    // Reset the input so selecting the same file again re-triggers onChange
+    e.target.value = '';
+  };
+
+  /**
+   * Uploads supporting files to the private 'patent-docs' bucket (path must start with the
+   * user's id to satisfy storage RLS) and records them in patent_documents.
+   * Failures are reported but do not block the flow.
+   */
+  const uploadSupportingFiles = async (userId: string, sessionId: string, files: File[]) => {
+    if (files.length === 0) return;
+    const failed: string[] = [];
+
+    await Promise.all(files.map(async (file) => {
+      const ext = getExtension(file.name);
+      const path = `${userId}/${sessionId}/${Date.now()}-${sanitizeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from('patent-docs')
+        .upload(path, file, { contentType: file.type || undefined, upsert: false });
+
+      if (uploadError) {
+        console.error('Upload failed:', file.name, uploadError);
+        failed.push(file.name);
+        return;
+      }
+
+      let extractedText: string | null = null;
+      if (TEXT_EXTRACT_EXTENSIONS.includes(ext)) {
+        try {
+          extractedText = (await file.text()).slice(0, 20000);
+        } catch {
+          extractedText = null;
+        }
+      }
+
+      const { error: insertError } = await supabase.from('patent_documents').insert({
+        patent_session_id: sessionId,
+        document_type: getDocumentType(file),
+        file_name: file.name.slice(0, 255),
+        file_path: path,
+        file_size: file.size,
+        mime_type: file.type || null,
+        extraction_data: extractedText ? { text: extractedText } : {},
+      });
+
+      if (insertError) {
+        console.error('patent_documents insert failed:', insertError);
+        failed.push(file.name);
+        // Don't leave an orphaned object in storage
+        await supabase.storage.from('patent-docs').remove([path]);
+      }
+    }));
+
+    if (failed.length > 0) {
+      toast({
+        title: 'Some files could not be uploaded',
+        description: `${failed.join(', ')}. You can continue without them.`,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -266,10 +389,11 @@ const NewApplication = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error('Not authenticated');
 
-      await supabase
+      const { error: deleteError } = await supabase
         .from('supabase_connections')
         .delete()
         .eq('user_id', session.user.id);
+      if (deleteError) throw deleteError;
 
       setConnectedProject(null);
       setSupabaseAnalysis(null);
@@ -288,15 +412,19 @@ const NewApplication = () => {
   const handleSupabaseOAuth = async () => {
     setLoading(true);
     // Save current form state before OAuth
-    sessionStorage.setItem('patent_flow_state', JSON.stringify({
-      currentStep,
-      patentType,
-      ideaTitle,
-      ideaDescription,
-      githubUrl,
-      supabaseUrl,
-      supabaseKey
-    }));
+    // Never persist the service-role key to browser storage
+    try {
+      sessionStorage.setItem('patent_flow_state', JSON.stringify({
+        currentStep,
+        patentType,
+        ideaTitle,
+        ideaDescription,
+        githubUrl,
+        supabaseUrl,
+      }));
+    } catch {
+      // storage unavailable (private mode) - OAuth still works, form state just won't be restored
+    }
     
     try {
       const { data, error } = await supabase.functions.invoke('supabase-oauth-init', {
@@ -441,10 +569,18 @@ const NewApplication = () => {
   };
 
   const handleNext = () => {
-    if (currentStep === 2 && (!ideaTitle || !ideaDescription)) {
+    if (currentStep === 2 && (!ideaTitle.trim() || !ideaDescription.trim())) {
       toast({
         title: "Missing Information",
         description: "Please provide both a title and description for your idea.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (currentStep === 2 && ideaDescription.trim().length < MIN_DESCRIPTION_CHARS) {
+      toast({
+        title: "Description too short",
+        description: `Please describe your invention in at least ${MIN_DESCRIPTION_CHARS} characters (currently ${ideaDescription.trim().length}).`,
         variant: "destructive",
       });
       return;
@@ -498,6 +634,11 @@ const NewApplication = () => {
 
         if (backendError) {
           console.error('Supabase scan error:', backendError);
+          toast({
+            title: 'Backend scan failed',
+            description: 'Continuing without Supabase backend analysis.',
+            variant: 'destructive',
+          });
         } else if (backendData?.success) {
           supabaseData = backendData;
           setSupabaseAnalysis(backendData);
@@ -506,36 +647,63 @@ const NewApplication = () => {
         setScanningSupabase(false);
       }
       
-      // Create a real patent session NOW to avoid FK errors in ask-followups
-      const { data: sessionRow, error: createErr } = await supabase
-        .from('patent_sessions')
-        .insert([
-          {
-            user_id: user.id,
-            idea_prompt: `${ideaTitle}: ${ideaDescription}`,
-            patent_type: patentType,
-            data_source: {
-              github_url: githubUrl || null,
-              supabase_backend: supabaseData || null,
-              files: uploadedFiles.map(f => f.name),
-            },
-          },
-        ])
-        .select('id')
-        .single();
+      const sessionFields = {
+        title: ideaTitle.trim().slice(0, 200),
+        idea_prompt: `${ideaTitle.trim()}: ${ideaDescription.trim()}`,
+        patent_type: patentType,
+        data_source: {
+          github_url: githubUrl || null,
+          supabase_backend: supabaseData || null,
+          files: uploadedFiles.map(f => f.name),
+          // Link back to the monitored idea this application was converted from
+          ...(existingIdea ? { idea_id: existingIdea.id } : {}),
+        },
+      };
 
-      if (createErr) {
-        console.error('Failed to create session:', createErr);
-        throw createErr;
+      let sessionId: string;
+      if (sessionData?.sessionId) {
+        // Returning to this step (e.g. resumed application) - update instead of creating a duplicate session
+        const { data: updatedRow, error: updateErr } = await supabase
+          .from('patent_sessions')
+          .update(sessionFields)
+          .eq('id', sessionData.sessionId)
+          .select('id')
+          .maybeSingle();
+        if (updateErr) throw updateErr;
+        if (!updatedRow) throw new Error('Application not found.');
+        sessionId = updatedRow.id;
+      } else {
+        // Create a real patent session NOW to avoid FK errors in ask-followups
+        const { data: sessionRow, error: createErr } = await supabase
+          .from('patent_sessions')
+          .insert([{ ...sessionFields, user_id: user.id, status: 'in_progress' }])
+          .select('id')
+          .single();
+
+        if (createErr) {
+          console.error('Failed to create session:', createErr);
+          throw createErr;
+        }
+        sessionId = sessionRow.id;
+
+        // Track patent session creation for funnel analytics
+        trackPatentSessionCreated(sessionId);
       }
 
-      console.log('Session created successfully:', sessionRow.id);
-      
-      // Track patent session creation for funnel analytics
-      trackPatentSessionCreated(sessionRow.id);
-      
+      // Converting a monitored idea into an application: mark the idea as drafted
+      if (existingIdea) {
+        const { error: ideaErr } = await supabase
+          .from('patent_ideas')
+          .update({ status: 'drafted' })
+          .eq('id', existingIdea.id);
+        if (ideaErr) console.error('Failed to mark idea as drafted:', ideaErr);
+      }
+
+      // Upload supporting materials now that we have a session to attach them to
+      await uploadSupportingFiles(user.id, sessionId, uploadedFiles);
+
       const tempSessionData: SessionData = {
-        sessionId: sessionRow.id,
+        sessionId,
         patentType,
         ideaTitle,
         ideaDescription,
@@ -544,11 +712,6 @@ const NewApplication = () => {
       };
 
       setSessionData(tempSessionData);
-      
-      // If we have rich Supabase backend analysis, allow skipping Q&A
-      const hasRichBackendData = supabaseData && 
-        (supabaseData.statistics?.tables_found > 0 || 
-         supabaseData.statistics?.functions_found > 0);
       
       setCurrentStep(4); // Move to AI Q&A step
     } catch (error: any) {
@@ -588,12 +751,12 @@ const NewApplication = () => {
     setCurrentStep(6); // Move to patentability assessment
   };
 
-  const handlePatentabilityComplete = (score: number, analysis: string) => {
+  const handlePatentabilityComplete = (score: number | null, analysis: string) => {
     if (sessionData) {
       setSessionData({
         ...sessionData,
-        patentabilityScore: score,
-        technicalAnalysis: analysis
+        patentabilityScore: score ?? undefined,
+        technicalAnalysis: analysis || sessionData.technicalAnalysis,
       });
     }
     setCurrentStep(7); // Move to decision point
@@ -605,30 +768,49 @@ const NewApplication = () => {
     setLoading(true);
     try {
       // Update the existing patent session with analysis results before drafting
-      // Normalize patentability score to 0-1 range for database storage
-      const normalizedScore = sessionData.patentabilityScore 
-        ? sessionData.patentabilityScore / 100 
+      // Normalize patentability score (0-100 in the UI) to the DECIMAL(3,2) 0-1 range stored in the DB
+      const normalizedScore = typeof sessionData.patentabilityScore === 'number' && !Number.isNaN(sessionData.patentabilityScore)
+        ? Math.round(Math.min(100, Math.max(0, sessionData.patentabilityScore))) / 100
         : null;
+
+      // Merge into the existing data_source so the Supabase backend scan / uploaded file list isn't wiped
+      const { data: existing, error: fetchErr } = await supabase
+        .from('patent_sessions')
+        .select('data_source')
+        .eq('id', sessionData.sessionId)
+        .maybeSingle();
+      if (fetchErr) throw fetchErr;
+      const existingSource = (existing?.data_source && typeof existing.data_source === 'object' && !Array.isArray(existing.data_source))
+        ? existing.data_source as Record<string, any>
+        : {};
       
       const { data: updated, error: updateErr } = await supabase
         .from('patent_sessions')
         .update({
           idea_prompt: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`,
           patent_type: sessionData.patentType,
-          technical_analysis: sessionData.technicalAnalysis,
-          patentability_score: normalizedScore,
+          ...(normalizedScore !== null ? { patentability_score: normalizedScore } : {}),
           data_source: {
-            github_url: sessionData.githubUrl,
-            files: sessionData.uploadedFiles.map(f => f.name),
+            ...existingSource,
+            github_url: sessionData.githubUrl || existingSource.github_url || null,
+            files: sessionData.uploadedFiles.length > 0 ? sessionData.uploadedFiles.map(f => f.name) : (existingSource.files || []),
             ai_questions: sessionData.aiQuestions,
-            prior_art_results: sessionData.priorArtResults,
+            // Patentability summary lives here; technical_analysis is reserved for code/backend analysis
+            ...(sessionData.technicalAnalysis ? { patentability_summary: sessionData.technicalAnalysis } : {}),
+            // keep only a compact summary - the full rows live in prior_art_results
+            prior_art_results: (sessionData.priorArtResults || []).slice(0, 10).map((r: any) => ({
+              title: r.title,
+              publication_number: r.publication_number,
+              similarity_score: r.similarity_score,
+            })),
           },
         })
         .eq('id', sessionData.sessionId)
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (updateErr) throw updateErr;
+      if (!updated) throw new Error('Application not found.');
 
       setCurrentStep(8); // Move to patent drafter
       
@@ -654,20 +836,41 @@ const NewApplication = () => {
           user_id: user.id,
           title: sessionData.ideaTitle,
           description: sessionData.ideaDescription,
-          patent_type: sessionData.patentType,
+          patent_type: sessionData.patentType || 'software',
           status: 'monitoring',
+          prior_art_monitoring: true,
           data_source: {
+            session_id: sessionData.sessionId,
             github_url: sessionData.githubUrl,
             files: sessionData.uploadedFiles.map(f => f.name),
             ai_questions: sessionData.aiQuestions,
-            prior_art_results: sessionData.priorArtResults,
+            prior_art_results: (sessionData.priorArtResults || []).slice(0, 10).map((r: any) => ({
+              title: r.title,
+              publication_number: r.publication_number,
+              similarity_score: r.similarity_score,
+            })),
             patentability_score: sessionData.patentabilityScore
           }
         }])
-        .select()
+        .select('id')
         .single();
 
       if (error) throw error;
+
+      // Register the idea for prior-art monitoring so the landscape is actually tracked
+      const topScore = (sessionData.priorArtResults || []).reduce(
+        (max: number, r: any) => Math.max(max, Number(r?.similarity_score) || 0), 0);
+      const { error: monitorError } = await supabase.from('prior_art_monitoring').insert({
+        patent_idea_id: data.id,
+        patent_session_id: sessionData.sessionId,
+        search_query: `${sessionData.ideaTitle}: ${sessionData.ideaDescription}`.slice(0, 1000),
+        results_found: sessionData.priorArtResults?.length || 0,
+        new_results_count: 0,
+        highest_similarity_score: Math.min(1, Math.round(topScore * 100) / 100),
+        next_search_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        is_active: true,
+      });
+      if (monitorError) console.error('Failed to register prior art monitoring:', monitorError);
 
       toast({
         title: "Idea Saved!",
@@ -779,8 +982,16 @@ const NewApplication = () => {
 
     setScrapingUrl(true);
     try {
+      const rawUrl = websiteUrl.trim();
+      const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+      try {
+        new URL(normalizedUrl);
+      } catch {
+        throw new Error('Please enter a valid URL (e.g. https://example.com).');
+      }
+
       const { data, error } = await supabase.functions.invoke('firecrawl-scrape', {
-        body: { url: websiteUrl },
+        body: { url: normalizedUrl },
       });
 
       if (error) throw error;
@@ -795,7 +1006,7 @@ const NewApplication = () => {
         let extractedTitle = metadata?.title || '';
         
         if (!extractedTitle) {
-          const urlObj = new URL(websiteUrl);
+          const urlObj = new URL(normalizedUrl);
           extractedTitle = urlObj.hostname.replace('www.', '');
           
           // Try to find a title in the content (first heading)
@@ -849,7 +1060,7 @@ const NewApplication = () => {
             <Zap className="w-4 h-4 text-primary" />
             Quick Fill from URL (Optional)
           </Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="websiteUrl"
               value={websiteUrl}
@@ -933,7 +1144,7 @@ const NewApplication = () => {
             />
           )}
           <p className="text-sm text-muted-foreground mt-2">
-            Minimum 100 characters. Be specific about functionality and benefits.
+            Minimum {MIN_DESCRIPTION_CHARS} characters ({ideaDescription.trim().length} so far). Be specific about functionality and benefits.
           </p>
         </div>
       </div>
@@ -993,14 +1204,14 @@ const NewApplication = () => {
             {connectedProject ? (
               <Card className="bg-[#3ECF8E]/10 border-[#3ECF8E]/30 shadow-md">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[#3ECF8E]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 text-[#3ECF8E] min-w-0">
                       <div className="p-2 bg-[#3ECF8E]/20 rounded-lg">
                         <FileCheck className="h-5 w-5" />
                       </div>
                       <div>
                         <p className="font-semibold text-foreground">Connected to Supabase</p>
-                        <p className="text-sm text-muted-foreground">{connectedProject.name}</p>
+                        <p className="text-sm text-muted-foreground break-all">{connectedProject.name}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1111,12 +1322,12 @@ const NewApplication = () => {
               className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-primary file:to-primary/80 file:text-primary-foreground hover:file:from-primary/90 hover:file:to-primary/70 file:shadow-lg hover:file:shadow-xl file:transition-all file:duration-300 bg-background/50 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/30 transition-all duration-300"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Upload text documents, Word files, PDFs, or Markdown files describing your software
+              Upload text documents, Word files, PDFs, or Markdown files describing your software (up to {MAX_UPLOAD_FILES} files, {MAX_UPLOAD_BYTES / 1024 / 1024}MB each)
             </p>
             {uploadedFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {uploadedFiles.map((file, index) => (
-                  <p key={index} className="text-sm text-muted-foreground">
+                  <p key={index} className="text-sm text-muted-foreground break-all">
                     📄 {file.name} ({(file.size / 1024).toFixed(1)} KB)
                   </p>
                 ))}
@@ -1132,19 +1343,19 @@ const NewApplication = () => {
               id="files"
               type="file"
               multiple
-              accept=".txt,.doc,.docx,.pdf,.md,.rtf,image/*,.dwg,.step,.iges"
+              accept=".txt,.doc,.docx,.pdf,.md,.rtf,.png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.tif,.tiff,.dwg,.step,.stp,.iges,.igs"
               onChange={handleFileUpload}
               className="mt-2 block w-full text-sm text-gray-900 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-primary file:to-primary/80 file:text-primary-foreground hover:file:from-primary/90 hover:file:to-primary/70 file:shadow-lg hover:file:shadow-xl file:transition-all file:duration-300 bg-background/50 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:border-white/30 transition-all duration-300"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Upload documents, images, technical drawings, CAD files, or other files that illustrate your invention
+              Upload documents, images, technical drawings, CAD files, or other files that illustrate your invention (up to {MAX_UPLOAD_FILES} files, {MAX_UPLOAD_BYTES / 1024 / 1024}MB each)
             </p>
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
                 {uploadedFiles.map((file, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded">
-                    <FileText className="w-4 h-4" />
-                    <span className="text-sm">{file.name}</span>
+                    <FileText className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm break-all min-w-0">{file.name}</span>
                     <span className="text-xs text-muted-foreground">
                       ({(file.size / 1024).toFixed(1)} KB)
                     </span>
@@ -1209,9 +1420,12 @@ const NewApplication = () => {
                   Creating Session...
                 </>
               ) : (
-                `Proceed to Drafting (${PATENT_APPLICATION_PRICE_DISPLAY})`
+                'Proceed to Drafting'
               )}
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Drafting is free to review. A one-time {PATENT_APPLICATION_PRICE_DISPLAY} fee applies when you export or file.
+            </p>
           </CardContent>
         </Card>
 
@@ -1278,20 +1492,20 @@ const NewApplication = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <PageSEO.NewApplication />
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="container mx-auto px-4 py-6 sm:p-6 max-w-6xl">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-8">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('/dashboard')}
-            className="gap-2"
+            className="gap-2 self-start"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Button>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               {existingIdea ? 'Draft Patent Application' : 'New Patent Application'}
             </h1>
             <p className="text-muted-foreground mt-2">
@@ -1322,7 +1536,7 @@ const NewApplication = () => {
 
         {/* Content */}
         <Card className="glass-strong border-white/20 shadow-elegant backdrop-blur-xl bg-gradient-to-br from-card/95 via-card/90 to-background/80">
-          <CardContent className="relative p-12 bg-gradient-to-br from-card/60 via-transparent to-background/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_8px_32px_-12px_rgba(0,255,255,0.3)] before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-br before:from-primary/5 before:via-transparent before:to-accent/5 before:pointer-events-none">
+          <CardContent className="relative p-4 sm:p-8 md:p-12 bg-gradient-to-br from-card/60 via-transparent to-background/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_8px_32px_-12px_rgba(0,255,255,0.3)] before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-br before:from-primary/5 before:via-transparent before:to-accent/5 before:pointer-events-none">
             <div className="relative z-10">
               <AnimatePresence mode="wait">
                 {currentStep === 1 && !existingIdea && renderStep1()}

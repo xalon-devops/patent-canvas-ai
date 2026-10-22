@@ -40,7 +40,11 @@ const DraftingPipelineProgress: React.FC<Props> = ({ open, currentStep, isRunnin
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        className="sm:max-w-lg max-h-[90vh] overflow-y-auto [&>button]:hidden"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />

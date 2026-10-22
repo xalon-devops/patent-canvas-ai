@@ -175,16 +175,11 @@ USING (public.has_role(auth.uid(), 'admin'::app_role));
 -- filings live in private 'patent-docs' and are served with signed URLs.
 UPDATE storage.buckets SET public = false WHERE id = 'patents';
 
--- Bound what can be stored in patent-docs (uploads + generated bundles)
+-- Bound upload size in patent-docs. MIME types are not restricted here because inventors
+-- upload CAD/RTF/TIFF files that browsers often report as application/octet-stream;
+-- the client enforces an extension allow-list instead.
 UPDATE storage.buckets
-SET file_size_limit = 26214400, -- 25 MB
-    allowed_mime_types = ARRAY[
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain', 'text/markdown', 'text/html', 'text/csv', 'application/json',
-      'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'
-    ]
+SET file_size_limit = 26214400 -- 25 MB
 WHERE id = 'patent-docs';
 
 -- ---------------------------------------------------------------------
@@ -378,3 +373,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_prior_art_monitoring_idea
   ON public.prior_art_monitoring (patent_idea_id) WHERE patent_idea_id IS NOT NULL AND patent_session_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_prior_art_monitoring_session
   ON public.prior_art_monitoring (patent_session_id) WHERE patent_session_id IS NOT NULL;
+
+-- Session page listens for payment inserts/updates to unlock export in real time
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'application_payments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.application_payments;
+  END IF;
+END $$;

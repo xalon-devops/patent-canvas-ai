@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
 import { 
   MessageCircle, 
   Send, 
@@ -63,7 +64,28 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
     setIsGeneratingQuestions(true);
     try {
       console.log('AIQuestionInterface: Starting question generation for session:', sessionData.sessionId);
-      // Ask backend to generate and (if session exists) persist questions
+      // If questions already exist for this session (resumed application), reuse them instead of regenerating
+      const { data: existingRows } = await supabase
+        .from('ai_questions')
+        .select('id, question, answer, created_at')
+        .eq('session_id', sessionData.sessionId)
+        .order('created_at', { ascending: true });
+
+      if (existingRows && existingRows.length > 0) {
+        const mapped: AIQuestion[] = existingRows.map((r) => ({
+          id: r.id as string,
+          question: r.question || '',
+          answer: (r.answer as string | null) || '',
+        }));
+        setQuestions(mapped);
+        const firstUnanswered = mapped.findIndex((q) => !q.answer.trim());
+        const startIdx = firstUnanswered === -1 ? 0 : firstUnanswered;
+        setCurrentQuestionIndex(startIdx);
+        setCurrentAnswer(mapped[startIdx]?.answer || '');
+        return;
+      }
+
+      // Ask backend to generate and persist questions
       const { error: invokeError } = await supabase.functions.invoke('ask-followups', {
         body: {
           session_id: sessionData.sessionId,
@@ -73,11 +95,14 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
         },
       });
       if (invokeError) {
-        console.error('AIQuestionInterface: ask-followups error:', invokeError);
-        throw invokeError;
+        // Fall through to the local question set instead of leaving the user with nothing
+        const { message } = await getEdgeErrorMessage(invokeError, 'AI question generation is unavailable');
+        console.error('AIQuestionInterface: ask-followups error:', message);
+        toast({
+          title: 'Using standard questions',
+          description: `${message}. You can still continue with our standard interview questions.`,
+        });
       }
-
-      console.log('AIQuestionInterface: ask-followups completed, fetching questions from DB...');
 
       // Then fetch any saved questions for this session
       const { data: qRows, error: qErr } = await supabase
@@ -133,7 +158,18 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
         fallback.push({ id: 'local-6', question: 'What materials or components are used in your invention?', answer: '' });
         fallback.push({ id: 'local-7', question: 'How is your invention manufactured or assembled?', answer: '' });
       }
-      setQuestions(fallback);
+
+      // Persist the fallback questions so the answers reach the drafting functions (which read ai_questions)
+      const { data: inserted, error: insertErr } = await supabase
+        .from('ai_questions')
+        .insert(fallback.map((q) => ({ session_id: sessionData.sessionId, question: q.question })))
+        .select('id, question');
+      if (!insertErr && inserted && inserted.length === fallback.length) {
+        setQuestions(inserted.map((r, i) => ({ id: r.id, question: r.question || fallback[i].question, answer: '' })));
+      } else {
+        if (insertErr) console.error('Failed to persist fallback questions:', insertErr);
+        setQuestions(fallback);
+      }
     } catch (error: any) {
       toast({
         title: 'Error generating questions',
@@ -156,25 +192,36 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
       return;
     }
 
-    const updatedQuestions = [...questions];
-    updatedQuestions[currentQuestionIndex].answer = currentAnswer.trim();
-    const justAnswered = updatedQuestions[currentQuestionIndex];
+    const answer = currentAnswer.trim();
+    const justAnswered = questions[currentQuestionIndex];
+    const updatedQuestions = questions.map((q, i) => (i === currentQuestionIndex ? { ...q, answer } : q));
     setQuestions(updatedQuestions);
 
     // Persist answer if this question exists in DB
-    if (isUuid(justAnswered.id)) {
-      await supabase
+    if (justAnswered && isUuid(justAnswered.id)) {
+      setSubmitting(true);
+      const { error: saveError } = await supabase
         .from('ai_questions')
-        .update({ answer: currentAnswer.trim() })
+        .update({ answer })
         .eq('id', justAnswered.id);
+      setSubmitting(false);
+      if (saveError) {
+        toast({
+          title: 'Could not save your answer',
+          description: saveError.message,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
-    setCurrentAnswer('');
-
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+      const nextIdx = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIdx);
+      setCurrentAnswer(updatedQuestions[nextIdx]?.answer || '');
     } else {
-      handleComplete();
+      setCurrentAnswer('');
+      handleComplete(updatedQuestions);
     }
   };
 
@@ -197,7 +244,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
           github_url: sessionData.githubUrl,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Enhancement failed')).message);
 
       const enhanced = data?.enhancedAnswer || data?.enhanced_answer || '';
       if (enhanced) {
@@ -213,16 +260,15 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
     }
   };
 
-  const handleComplete = async () => {
+  const handleComplete = async (finalQuestions: AIQuestion[] = questions) => {
     setSubmitting(true);
     try {
       // Convert to format expected by parent
-      const questionAnswerPairs = questions.map(q => ({
+      const questionAnswerPairs = finalQuestions.map(q => ({
         question: q.question,
         answer: q.answer
       }));
 
-      // Save to database temporarily (we'll create the actual session later)
       toast({
         title: "Questions Complete!",
         description: "Moving to prior art analysis...",
@@ -243,8 +289,8 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      const currentQ = questions[currentQuestionIndex];
-      currentQ.answer = currentAnswer;
+      // Keep the in-progress draft locally (not persisted until submitted)
+      setQuestions(prev => prev.map((q, i) => (i === currentQuestionIndex ? { ...q, answer: currentAnswer } : q)));
       setCurrentAnswer(questions[currentQuestionIndex - 1].answer);
       setCurrentQuestionIndex(prev => prev - 1);
     }
@@ -377,12 +423,12 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
               placeholder="Provide a brief answer, then let AI enhance it..."
               className="min-h-[120px] resize-none"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.ctrlKey) {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !submitting) {
                   handleAnswerSubmit();
                 }
               }}
             />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 Tip: Press Ctrl+Enter to submit your answer quickly
               </p>
@@ -433,7 +479,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between items-center pt-6">
+      <div className="flex flex-wrap justify-between items-center gap-2 pt-6">
         <Button
           variant="ghost"
           onClick={handlePreviousQuestion}
@@ -465,7 +511,7 @@ const AIQuestionInterface: React.FC<AIQuestionInterfaceProps> = ({
           ) : (
             <Button 
               onClick={handleAnswerSubmit}
-              disabled={!currentAnswer.trim()}
+              disabled={submitting || !currentAnswer.trim()}
               className="gap-2"
             >
               Next Question

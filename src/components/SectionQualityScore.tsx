@@ -15,6 +15,27 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getEdgeErrorMessage } from '@/lib/edgeError';
+
+const asStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+
+// LLM output - normalise so missing fields can't crash the render
+const normalizeQuality = (raw: any): QualityAnalysis => {
+  const score = Number(raw?.score);
+  return {
+    score: Number.isFinite(score) ? Math.round(Math.min(100, Math.max(0, score))) : 0,
+    grade: typeof raw?.grade === 'string' ? raw.grade : '?',
+    strengths: asStringArray(raw?.strengths),
+    issues: (Array.isArray(raw?.issues) ? raw.issues : [])
+      .filter((i: any) => i && typeof i.issue === 'string')
+      .map((i: any) => ({ severity: ['high', 'medium', 'low'].includes(i.severity) ? i.severity : 'low', issue: i.issue, suggestion: String(i.suggestion || '') })),
+    usptoCompliance: {
+      compliant: !!raw?.usptoCompliance?.compliant,
+      missingElements: asStringArray(raw?.usptoCompliance?.missingElements),
+      recommendations: asStringArray(raw?.usptoCompliance?.recommendations),
+    },
+  };
+};
 
 interface QualityIssue {
   severity: 'high' | 'medium' | 'low';
@@ -77,13 +98,13 @@ export default function SectionQualityScore({ sectionType, content }: SectionQua
     setIsAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-section-quality', {
-        body: { section_type: sectionType, content }
+        body: { section_type: sectionType, content: content.slice(0, 50000) }
       });
 
-      if (error) throw error;
+      if (error) throw new Error((await getEdgeErrorMessage(error, 'Could not analyze section quality')).message);
       if (!data?.success) throw new Error(data?.error || 'Analysis failed');
 
-      setAnalysis(data.analysis);
+      setAnalysis(normalizeQuality(data.analysis));
     } catch (error: any) {
       console.error('Quality analysis error:', error);
       toast({
@@ -117,7 +138,7 @@ export default function SectionQualityScore({ sectionType, content }: SectionQua
   return (
     <Card className="mt-4 border-primary/20 animate-in slide-in-from-top-2 duration-200">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" />
             USPTO Quality Analysis

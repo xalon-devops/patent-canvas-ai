@@ -29,11 +29,12 @@ const ClaimTreeView: React.FC<Props> = ({ sessionId, refreshKey }) => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('patent_claim_tree')
         .select('*')
         .eq('session_id', sessionId)
         .order('claim_number');
+      if (error) console.error('Error loading claim tree:', error);
       if (!cancelled) {
         setClaims((data as ClaimNode[] | null) ?? []);
         setLoading(false);
@@ -49,6 +50,18 @@ const ClaimTreeView: React.FC<Props> = ({ sessionId, refreshKey }) => {
   if (claims.length === 0) return null;
 
   const independents = claims.filter((c) => c.claim_type === 'independent');
+  const byNumber = new Map(claims.map((c) => [c.claim_number, c]));
+  // Resolve each dependent claim to its root independent claim (handles claim 5 -> claim 3 -> claim 1 chains)
+  const rootOf = (claim: ClaimNode): number | null => {
+    let node: ClaimNode | undefined = claim;
+    const seen = new Set<number>();
+    while (node && node.claim_type === 'dependent' && node.parent_claim != null && !seen.has(node.claim_number)) {
+      seen.add(node.claim_number);
+      node = byNumber.get(node.parent_claim);
+    }
+    return node && node.claim_type === 'independent' ? node.claim_number : null;
+  };
+  const orphans = claims.filter((c) => c.claim_type === 'dependent' && rootOf(c) === null);
 
   const scoreColor = (score: number | null) => {
     if (score === null) return 'bg-muted text-muted-foreground';
@@ -71,12 +84,12 @@ const ClaimTreeView: React.FC<Props> = ({ sessionId, refreshKey }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           {independents.map((indep) => {
-            const dependents = claims.filter((c) => c.parent_claim === indep.claim_number);
+            const dependents = claims.filter((c) => c.claim_type === 'dependent' && rootOf(c) === indep.claim_number);
             return (
               <div key={indep.id} className="space-y-2">
                 <ClaimRow claim={indep} scoreColor={scoreColor} />
                 {dependents.length > 0 && (
-                  <div className="ml-6 border-l-2 border-muted pl-4 space-y-2">
+                  <div className="ml-2 sm:ml-6 border-l-2 border-muted pl-2 sm:pl-4 space-y-2">
                     {dependents.map((dep) => (
                       <ClaimRow key={dep.id} claim={dep} scoreColor={scoreColor} isDependent />
                     ))}
@@ -85,6 +98,13 @@ const ClaimTreeView: React.FC<Props> = ({ sessionId, refreshKey }) => {
               </div>
             );
           })}
+          {orphans.length > 0 && (
+            <div className="space-y-2">
+              {orphans.map((dep) => (
+                <ClaimRow key={dep.id} claim={dep} scoreColor={scoreColor} isDependent />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </TooltipProvider>
@@ -131,7 +151,7 @@ const ClaimRow: React.FC<{
         </Tooltip>
       )}
     </div>
-    <p className="text-sm leading-relaxed whitespace-pre-wrap">{claim.full_text}</p>
+    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{claim.full_text}</p>
   </div>
 );
 

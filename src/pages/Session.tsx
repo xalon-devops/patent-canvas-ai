@@ -39,6 +39,14 @@ import ClaimStrengthAnalyzer from '@/components/ClaimStrengthAnalyzer';
 import DraftingPipelineProgress, { PipelineStepKey } from '@/components/DraftingPipelineProgress';
 import ClaimTreeView from '@/components/ClaimTreeView';
 import ExaminerReport, { ExaminerReportData } from '@/components/ExaminerReport';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
+import { renamePatentSession, deletePatentSession } from '@/hooks/usePatentData';
+import { ToastAction } from '@/components/ui/toast';
+
+/** Errors whose message came from our own edge functions and is safe to show verbatim */
+class UserFacingError extends Error {}
+const describeError = (err: unknown) =>
+  err instanceof UserFacingError ? err.message : createSafeErrorMessage(err);
 
 interface PatentSession {
   id: string;
@@ -100,6 +108,10 @@ const Session = () => {
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [showPaymentGate, setShowPaymentGate] = useState(false);
   const [hasPaid, setHasPaid] = useState(false);
+  // The export/file functions also entitle admins and free_grant users without a payment row;
+  // mirror that so they aren't shown the paywall (the server re-checks either way)
+  const { canBypassPaywall } = useAdminStatus(user?.id);
+  const canExport = hasPaid || canBypassPaywall;
 
   // Multi-agent pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -153,14 +165,14 @@ const Session = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          // verify-payment / stripe-webhook may insert or update the row
+          event: '*',
           schema: 'public',
           table: 'application_payments',
           filter: `application_id=eq.${id}`,
         },
         (payload) => {
-          console.log('[Session] Payment status updated:', payload);
-          if (payload.new && payload.new.status === 'completed') {
+          if (payload.new && (payload.new as any).status === 'completed') {
             setHasPaid(true);
           }
         }
@@ -170,7 +182,7 @@ const Session = () => {
     return () => {
       supabase.removeChannel(paymentChannel);
     };
-  }, [id, toast]);
+  }, [id]);
 
   const checkPaymentStatus = async () => {
     if (!id) return;
@@ -178,7 +190,7 @@ const Session = () => {
     try {
       const { data, error } = await supabase
         .from('application_payments')
-        .select('*')
+        .select('id')
         .eq('application_id', id)
         .eq('status', 'completed')
         .maybeSingle();
@@ -191,70 +203,57 @@ const Session = () => {
     }
   };
 
-  const fetchSessionData = async () => {
-    if (!id) return;
+  const fetchSessionData = async (): Promise<{ questions: AIQuestion[] } | null> => {
+    if (!id) return null;
     
     try {
-      // Fetch patent session
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('patent_sessions')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Fetch everything for this session in parallel (RLS scopes each table to the owner)
+      const [sessionRes, questionsRes, sectionsRes, priorArtRes] = await Promise.all([
+        supabase.from('patent_sessions').select('*').eq('id', id).maybeSingle(),
+        supabase.from('ai_questions').select('*').eq('session_id', id).order('created_at', { ascending: true }),
+        supabase.from('patent_sections').select('*').eq('session_id', id).order('created_at', { ascending: true }),
+        supabase.from('prior_art_results').select('*').eq('session_id', id).order('similarity_score', { ascending: false }),
+        checkPaymentStatus(),
+      ]);
 
-      if (sessionError) throw sessionError;
-      setPatentSession(sessionData);
+      if (sessionRes.error) throw sessionRes.error;
+      if (!sessionRes.data) {
+        // Not found or not owned by this user - render the "Session not found" state
+        setPatentSession(null);
+        return null;
+      }
+      if (questionsRes.error) throw questionsRes.error;
+      if (sectionsRes.error) throw sectionsRes.error;
+      if (priorArtRes.error) throw priorArtRes.error;
 
-      // Check payment status
-      await checkPaymentStatus();
+      const questionsData = (questionsRes.data || []) as AIQuestion[];
+      const sectionsData = (sectionsRes.data || []) as PatentSection[];
+      const priorArtData = (priorArtRes.data || []) as PriorArtResult[];
 
-      // Fetch questions
-      const { data: questionsData, error: questionsError } = await supabase
-        .from('ai_questions')
-        .select('*')
-        .eq('session_id', id)
-        .order('created_at', { ascending: true });
-
-      if (questionsError) throw questionsError;
-      setQuestions(questionsData || []);
-
-      // Fetch sections
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('patent_sections')
-        .select('*')
-        .eq('session_id', id)
-        .order('created_at', { ascending: true });
-
-      if (sectionsError) throw sectionsError;
-      setSections(sectionsData || []);
-
-      // Fetch prior art
-      const { data: priorArtData, error: priorArtError } = await supabase
-        .from('prior_art_results')
-        .select('*')
-        .eq('session_id', id)
-        .order('similarity_score', { ascending: false });
-
-      if (priorArtError) throw priorArtError;
-      setPriorArt(priorArtData || []);
+      setPatentSession(sessionRes.data as PatentSession);
+      setQuestions(questionsData);
+      setSections(sectionsData);
+      setPriorArt(priorArtData);
 
       // Determine chat phase
-      if (sectionsData && sectionsData.length > 0) {
+      if (sectionsData.length > 0) {
         setChatPhase('canvas');
-      } else if (priorArtData && priorArtData.length > 0) {
+      } else if (priorArtData.length > 0) {
         setChatPhase('search');
-      } else if (questionsData && questionsData.length > 0) {
+      } else if (questionsData.length > 0) {
         setChatPhase('questioning');
       } else {
         setChatPhase('initial');
       }
 
+      return { questions: questionsData };
     } catch (error: any) {
       toast({
         title: "Error loading session",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
+      return null;
     } finally {
       setLoading(false);
     }
@@ -320,7 +319,7 @@ const Session = () => {
 
         if (followupError) {
           console.error('Ask-followups error:', followupError);
-          throw new Error(followupError.message || 'Failed to generate follow-up questions');
+          throw new UserFacingError((await getEdgeErrorMessage(followupError, 'Failed to generate follow-up questions')).message);
         }
 
         if (!followupData?.success) {
@@ -335,10 +334,7 @@ const Session = () => {
         await fetchSessionData();
 
       } else if (chatPhase === 'questioning') {
-        // Refresh questions first to get latest state
-        await fetchSessionData();
-        
-        // Answer the current question (find the first unanswered question)
+        // Answer the current question (first unanswered one)
         const currentQuestion = questions.find(q => !q.answer);
         if (currentQuestion) {
           const { error: answerError } = await supabase
@@ -348,19 +344,13 @@ const Session = () => {
 
           if (answerError) throw answerError;
 
-          // Refresh data after updating
-          await fetchSessionData();
+          // Refresh data after updating and use the fresh rows (state is stale inside this closure)
+          const fresh = await fetchSessionData();
+          const freshQuestions = fresh?.questions ?? questions.map(q => q.id === currentQuestion.id ? { ...q, answer: message } : q);
 
-          // Generate patent sections progressively after each answer
-          await generatePatentSections();
-
-          // Check if all questions are answered OR we have sufficient technical detail
-          const allQuestionsAnswered = questions.every(q => q.answer);
-          const answeredCount = questions.filter(q => q.answer).length;
-          const sufficientDetail = answeredCount >= Math.min(3, questions.length);
-          
-          if (allQuestionsAnswered || sufficientDetail) {
-            // Move to search phase
+          // Move on once every question is answered. (Drafting happens once, after the
+          // prior-art search, instead of re-running the full multi-section AI draft after every answer.)
+          if (freshQuestions.length > 0 && freshQuestions.every(q => q.answer)) {
             setChatPhase('search');
             await performPriorArtSearch();
           }
@@ -370,7 +360,7 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error sending message",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
       setCurrentMessage(message); // Restore message on error
@@ -394,23 +384,33 @@ const Session = () => {
 
       if (searchError) {
         console.error('Search-prior-art error:', searchError);
-        throw new Error((await getEdgeErrorMessage(searchError, 'Failed to search prior art')).message);
+        const parsed = await getEdgeErrorMessage(searchError, 'Failed to search prior art');
+        if (parsed.requiresSubscription) {
+          toast({
+            title: 'No free searches left',
+            description: parsed.message,
+            variant: 'destructive',
+            action: <ToastAction altText="View plans" onClick={() => navigate('/pricing')}>View plans</ToastAction>,
+          });
+          return;
+        }
+        throw new UserFacingError(parsed.message);
       }
 
       if (!searchData?.success) {
         console.error('Prior art search failed:', searchData);
-        throw new Error('Prior art search failed');
+        throw new UserFacingError(searchData?.error || 'Prior art search failed');
       }
 
-      console.log('Prior art search completed successfully:', searchData);
-      
       await fetchSessionData();
+      // Even with zero results, the user should land on the search phase to continue to drafting
+      setChatPhase(prev => (prev === 'canvas' ? prev : 'search'));
       
     } catch (error: any) {
       console.error('Error performing patent search:', error);
       toast({
         title: "Error performing patent search",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -433,16 +433,15 @@ const Session = () => {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to generate patent draft');
+        throw new UserFacingError((await getEdgeErrorMessage(error, 'Failed to generate patent draft')).message);
       }
 
       if (!data?.success) {
         console.error('Patent generation failed:', data);
-        throw new Error('Patent draft generation failed');
+        throw new UserFacingError(data?.error || 'Patent draft generation failed');
       }
 
-      console.log('Patent draft generated successfully:', data);
-      
+
       setChatPhase('canvas');
       await fetchSessionData();
       
@@ -450,7 +449,7 @@ const Session = () => {
       console.error('Error generating patent draft:', error);
       toast({
         title: "Error generating patent draft",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -486,8 +485,21 @@ const Session = () => {
 
       clearInterval(interval);
 
-      if (error) throw new Error(error.message || 'Pipeline failed');
-      if (!data?.success) throw new Error(data?.error || 'Pipeline failed');
+      if (error) {
+        const parsed = await getEdgeErrorMessage(error, 'Pipeline failed');
+        if (parsed.status === 402) {
+          clearInterval(interval);
+          toast({
+            title: 'Upgrade required',
+            description: parsed.message,
+            variant: 'destructive',
+            action: <ToastAction altText="View plans" onClick={() => navigate('/pricing')}>View plans</ToastAction>,
+          });
+          return;
+        }
+        throw new UserFacingError(parsed.message);
+      }
+      if (!data?.success) throw new UserFacingError(data?.error || 'Pipeline failed');
 
       setExaminerReport(data.examiner_report ?? null);
       setPipelineRevisions(data.revision_cycles ?? 0);
@@ -506,7 +518,7 @@ const Session = () => {
       console.error('Pipeline error:', err);
       toast({
         title: 'AI pipeline failed',
-        description: createSafeErrorMessage(err),
+        description: describeError(err),
         variant: 'destructive',
       });
     } finally {
@@ -517,34 +529,6 @@ const Session = () => {
     }
   };
 
-
-  const generatePatentSections = async () => {
-    if (!id) return;
-    
-    try {
-      console.log('Generating patent sections progressively...');
-      
-      // Call the edge function to generate patent sections based on current answers (ENHANCED)
-      const { data, error } = await supabase.functions.invoke('generate-patent-draft-enhanced', {
-        body: { session_id: id }
-      });
-
-      if (error) {
-        console.error('Patent generation error:', error);
-        // Don't throw error for progressive generation, just log it
-        return;
-      }
-
-      if (data?.success) {
-        console.log('Patent sections updated:', data);
-        await fetchSessionData(); // Refresh the sections display
-      }
-      
-    } catch (error: any) {
-      console.error('Error in progressive patent generation:', error);
-      // Don't show error toast for progressive generation to avoid spam
-    }
-  };
 
   const updateSection = async (sectionId: string, newContent: string) => {
     // Validate and sanitize content
@@ -572,7 +556,7 @@ const Session = () => {
       if (error) throw error;
       
       // Update local state
-      setSections(sections.map(section => 
+      setSections(prev => prev.map(section => 
         section.id === sectionId 
           ? { ...section, content: sanitizedContent, is_user_edited: true }
           : section
@@ -581,7 +565,7 @@ const Session = () => {
     } catch (error: any) {
       toast({
         title: "Error updating section",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     }
@@ -630,23 +614,22 @@ const Session = () => {
       });
 
       if (error) {
-        // If payment is required, show the gate instead of erroring out
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('payment required') || msg.includes('402')) {
+        // FunctionsHttpError.message is generic ("non-2xx"), so read the status/body to detect the paywall
+        const parsed = await getEdgeErrorMessage(error, 'Failed to export patent');
+        if (parsed.status === 402 || parsed.requiresSubscription) {
           setShowPaymentGate(true);
           return;
         }
         console.error('Export error:', error);
-        throw new Error(error.message || 'Failed to export patent');
+        throw new UserFacingError(parsed.message);
       }
 
       if (!data?.success) {
         console.error('Export failed:', data);
-        throw new Error('Export failed');
+        throw new UserFacingError(data?.error || 'Export failed');
       }
 
-      console.log('Patent exported successfully:', data);
-      
+
       // Download the file reliably (signed URLs must not be modified)
       if (data.download_url) {
         const url = data.download_url as string;
@@ -675,7 +658,7 @@ const Session = () => {
       console.error('Error exporting patent:', error);
       toast({
         title: "Export Error",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -700,23 +683,22 @@ const Session = () => {
 
       if (error) {
         console.error('Section regeneration error:', error);
-        throw new Error(error.message || 'Failed to regenerate section');
+        throw new UserFacingError((await getEdgeErrorMessage(error, 'Failed to regenerate section')).message);
       }
 
       if (!data?.success) {
         console.error('Section regeneration failed:', data);
-        throw new Error('Section regeneration failed');
+        throw new UserFacingError(data?.error || 'Section regeneration failed');
       }
 
-      console.log('Section regenerated successfully:', data);
-      
+
       await fetchSessionData();
       
     } catch (error: any) {
       console.error('Error regenerating section:', error);
       toast({
         title: "Regeneration Error",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -727,8 +709,8 @@ const Session = () => {
   const handleFilePatent = async () => {
     if (!id || filingPatent) return;
     
-    // Check if payment is already completed before attempting to file
-    if (!hasPaid) {
+    // Check if payment is already completed before attempting to file (server re-checks)
+    if (!canExport) {
       setShowPaymentGate(true);
       return;
     }
@@ -744,36 +726,39 @@ const Session = () => {
 
       if (error) {
         // Handle payment required error from server (double-check)
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('payment required') || msg.includes('402')) {
+        const parsed = await getEdgeErrorMessage(error, 'Failed to file patent');
+        if (parsed.status === 402 || parsed.requiresSubscription) {
           setShowPaymentGate(true);
           return;
         }
         console.error('Filing error:', error);
-        throw new Error(error.message || 'Failed to file patent');
+        throw new UserFacingError(parsed.message);
       }
 
       if (!data?.success) {
         console.error('Filing failed:', data);
-        throw new Error('Filing failed');
+        throw new UserFacingError(data?.error || 'Filing failed');
       }
 
-      console.log('Patent filed successfully:', data);
-      
+
       // Update local session status
       setPatentSession(prev => prev ? { ...prev, status: 'filed' } : null);
       
+      toast({
+        title: 'Filing bundle ready',
+        description: 'Your USPTO filing bundle has been generated.',
+      });
+
       // Open download link
       if (data.download_url) {
-        window.open(data.download_url, '_blank');
+        window.location.assign(data.download_url);
       }
-      
-      
+
     } catch (error: any) {
       console.error('Error filing patent:', error);
       toast({
         title: "Filing Error",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -810,12 +795,12 @@ const Session = () => {
 
       if (error) {
         console.error('GitHub analysis error:', error);
-        throw new Error(error.message || 'Failed to analyze GitHub repository');
+        throw new UserFacingError((await getEdgeErrorMessage(error, 'Failed to analyze GitHub repository')).message);
       }
 
       if (!data?.success) {
         console.error('GitHub analysis failed:', data);
-        throw new Error(data?.error || 'GitHub analysis failed');
+        throw new UserFacingError(data?.error || 'GitHub analysis failed');
       }
 
 
@@ -830,7 +815,7 @@ const Session = () => {
       console.error('Error analyzing GitHub repository:', error);
       toast({
         title: "GitHub Analysis Error",
-        description: createSafeErrorMessage(error),
+        description: describeError(error),
         variant: "destructive",
       });
     } finally {
@@ -890,10 +875,15 @@ const Session = () => {
                     name={(patentSession as any).title || patentSession.idea_prompt?.slice(0, 60) || 'New Patent Application'}
                     itemLabel="application"
                     onRename={async (t) => {
-                      const { error } = await supabase.from('patent_sessions').update({ title: t } as any).eq('id', patentSession.id);
-                      if (error) throw error;
+                      // Errors propagate to ItemActionsMenu, which displays them
+                      await renamePatentSession(patentSession.id, t);
                       setPatentSession({ ...(patentSession as any), title: t });
                       window.dispatchEvent(new CustomEvent('patentbot:renamed', { detail: { id: patentSession.id, name: t } }));
+                    }}
+                    onDelete={async () => {
+                      // Refuses (throws) when the application has a completed payment
+                      await deletePatentSession(patentSession.id);
+                      navigate('/dashboard');
                     }}
                   />
                 </div>
@@ -909,7 +899,8 @@ const Session = () => {
                     variant="outline" 
                     onClick={() => navigate(`/session/${id}/claims`)}
                     size="sm"
-                    className="hidden md:flex"
+                    aria-label="Claims tree"
+                    title="Claims tree"
                   >
                     <TreeDeciduous className="h-4 w-4" />
                     <span className="hidden lg:inline ml-2">Claims Tree</span>
@@ -919,7 +910,8 @@ const Session = () => {
                     onClick={handleExportPatent}
                     disabled={exportingPatent}
                     size="sm"
-                    className="hidden md:flex"
+                    aria-label="Download DOCX"
+                    title={canExport ? 'Download DOCX' : 'Download DOCX (requires application fee)'}
                   >
                     {exportingPatent ? (
                       <>
@@ -929,67 +921,31 @@ const Session = () => {
                     ) : (
                       <>
                         <Download className="h-4 w-4" />
-                        <span className="hidden lg:inline ml-2">Download</span>
+                        <span className="hidden lg:inline ml-2">Download DOCX</span>
                       </>
                     )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={async () => {
-                      try {
-                        const { data, error } = await supabase.functions.invoke('download-docx', {
-                          body: { session_id: id }
-                        });
-                        
-                        if (error) throw error;
-                        
-                        if (data) {
-                          // Create blob and download
-                          const blob = new Blob([data], { 
-                            type: 'application/rtf' 
-                          });
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `patent-${id}.rtf`;
-                          document.body.appendChild(a);
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                          document.body.removeChild(a);
-                        }
-                      } catch (error: any) {
-                        toast({
-                          title: "Download Error",
-                          description: error.message,
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="hidden sm:flex"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download RTF
                   </Button>
                   <Button 
                     variant="gradient" 
                     onClick={handleFilePatent}
                     disabled={filingPatent || patentSession.status === 'filed'}
-                    className="hidden sm:flex"
+                    size="sm"
+                    aria-label="File patent"
                   >
                     {filingPatent ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Filing...
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current sm:mr-2"></div>
+                        <span className="hidden sm:inline">Filing...</span>
                       </>
                     ) : patentSession.status === 'filed' ? (
                       <>
                         <CheckCircle className="h-4 w-4" />
-                        Filed
+                        <span className="hidden sm:inline">Filed</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4" />
-                        File Patent
+                        <span className="hidden sm:inline">File Patent</span>
                       </>
                     )}
                   </Button>
@@ -1034,7 +990,7 @@ const Session = () => {
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Bot className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="bg-secondary rounded-lg p-3 max-w-[80%]">
+                  <div className="bg-secondary rounded-lg p-3 max-w-[85%] sm:max-w-[80%]">
                     <p className="text-sm">
                       Hi! I'm your AI patent assistant. Let's start by understanding your invention. 
                       Please describe your idea in detail - what does it do, how does it work, and what problem does it solve?
@@ -1111,7 +1067,7 @@ const Session = () => {
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
                     <div className="bg-secondary/50 rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%]">
-                      <p className="text-xs sm:text-sm break-words break-all sm:break-words">{question.question}</p>
+                      <p className="text-xs sm:text-sm break-words">{question.question}</p>
                       {isCurrentQuestion && (
                         <p className="text-xs text-muted-foreground mt-2 italic">
                           💡 Tip: Be specific about technical details, materials, and measurable improvements
@@ -1123,7 +1079,7 @@ const Session = () => {
                   {question.answer && (
                     <div className="flex gap-3 justify-end">
                     <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-[80%] text-primary-foreground">
-                      <p className="text-xs sm:text-sm break-words break-all sm:break-words">{question.answer}</p>
+                      <p className="text-xs sm:text-sm break-words">{question.answer}</p>
                     </div>
                       <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                         <UserIcon className="h-4 w-4 text-primary-foreground" />
@@ -1133,6 +1089,16 @@ const Session = () => {
                 </div>
               );
             })}
+
+            {/* All questions answered but the search never ran (e.g. page reloaded mid-flow) */}
+            {chatPhase === 'questioning' && questions.length > 0 && questions.every(q => q.answer) && !searchingPriorArt && (
+              <div className="flex justify-center">
+                <Button onClick={async () => { setChatPhase('search'); await performPriorArtSearch(); }} className="w-full max-w-md">
+                  <Search className="mr-2 h-4 w-4" />
+                  Run Prior Art Search
+                </Button>
+              </div>
+            )}
 
             {searchingPriorArt && (
               <SystemMessage
@@ -1197,9 +1163,10 @@ const Session = () => {
             {chatPhase === 'search' && (
               <div className="space-y-4">
                 <PriorArtDisplay 
-                  priorArt={priorArt}
+                  priorArt={priorArt as any}
                   isSearching={searchingPriorArt}
                   onRetrySearch={performPriorArtSearch}
+                  productDescription={patentSession.idea_prompt || ''}
                 />
                 
                 {!searchingPriorArt && (
@@ -1278,7 +1245,7 @@ const Session = () => {
           </div>
 
            {chatPhase === 'canvas' ? (
-            <div className="overflow-y-auto h-[calc(100vh-160px)] p-4 space-y-6">
+            <div className="lg:overflow-y-auto lg:h-[calc(100vh-160px)] p-3 sm:p-4 space-y-6">
               {/* Multi-Agent Pipeline CTA */}
               <Card className="border-primary/40 bg-gradient-to-br from-primary/5 to-transparent">
                 <CardHeader className="pb-3">
@@ -1337,7 +1304,7 @@ const Session = () => {
             </div>
 
           ) : (
-            <div className="flex items-center justify-center h-[calc(100vh-160px)]">
+            <div className="flex items-center justify-center h-64 lg:h-[calc(100vh-160px)]">
               <div className="text-center text-muted-foreground">
                 <img 
                   src="https://i.ibb.co/nsLWZ3sr/Patent-Bot-Logo-1.png" 
